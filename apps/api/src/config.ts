@@ -59,6 +59,12 @@ const schema = z
     .positive()
     .default(1_048_576),
 
+  /**
+   * Cap on an uploaded directory file. A whole school is thousands of rows;
+   * anything far beyond that is a mistake or an attack.
+   */
+  MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(5_242_880),
+
   /** Where envelopes are spooled when the database is unreachable. */
   SPOOL_DIR: z.string().default("./data/spool"),
 

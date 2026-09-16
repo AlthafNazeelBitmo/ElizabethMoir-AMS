@@ -145,6 +145,29 @@ export class ScanProcessor {
     return this.recomputeDay({ enrollNo, date }, settings);
   }
 
+  /**
+   * Re-runs every day this enrolment has scans for. Used when an unknown
+   * number is attached to a person: the scans were already stored, and the
+   * register should show them at once.
+   */
+  async recomputeAllDaysFor(enrollNo: string): Promise<number> {
+    const settings = await this.settingsService.get();
+    const rows = await this.db
+      .select({ attTime: scans.attTime })
+      .from(scans)
+      .where(eq(scans.enrollNo, enrollNo));
+
+    const rollover = formatTime(settings.dayRolloverTime);
+    const dates = new Set(
+      rows.map((r) => schoolDayFor(r.attTime, settings.timezone, rollover)),
+    );
+    let written = 0;
+    for (const date of dates) {
+      if (await this.recomputeDay({ enrollNo, date }, settings)) written += 1;
+    }
+    return written;
+  }
+
   // ── one envelope ────────────────────────────────────────────────────────
 
   private async processEnvelope(

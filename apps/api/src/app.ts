@@ -11,6 +11,9 @@ import { ingestRoutes } from "./ingest/routes.js";
 import { Spool } from "./ingest/spool.js";
 import { RawEventStore } from "./ingest/store.js";
 import { loggerOptions } from "./logger.js";
+import multipart from "@fastify/multipart";
+import { adminRoutes } from "./admin/routes.js";
+import { DirectoryImporter } from "./directory/import.js";
 import { processingRoutes } from "./processing/routes.js";
 import { ScanProcessor } from "./processing/processor.js";
 import { SettingsService } from "./settings/service.js";
@@ -49,6 +52,11 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   // Cookies are plain: the session value is already 256 bits of randomness
   // and is stored hashed, so signing it would add a key to manage for nothing.
   await server.register(cookie);
+  // Directory uploads. The ingest plugin replaces its own parsers inside its
+  // encapsulated scope, so this does not affect it.
+  await server.register(multipart, {
+    limits: { fileSize: config.MAX_UPLOAD_BYTES, files: 1 },
+  });
 
   // Strict by default. This is an API; it serves no scripts, styles or
   // images. The one HTML page (the Phase 0 report) sets its own policy.
@@ -76,6 +84,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   const store = new RawEventStore(db, spool, server.log);
   const auth = new AuthService(db, server.log, now);
   const settings = new SettingsService(db);
+  const importer = new DirectoryImporter(db, server.log);
   const processor = new ScanProcessor(db, settings, server.log, now);
   let backgroundWork: Promise<void> = Promise.resolve();
   const cookies: CookieContext = { secure: config.NODE_ENV === "production" };
@@ -109,6 +118,14 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   });
   await server.register(discoveryRoutes, { config, db });
   await server.register(processingRoutes, { config, processor });
+  await server.register(adminRoutes, {
+    db,
+    auth,
+    cookies,
+    importer,
+    processor,
+    maxUploadBytes: config.MAX_UPLOAD_BYTES,
+  });
 
   return { server, store, auth, processor, settings, whenIdle: () => backgroundWork };
 }

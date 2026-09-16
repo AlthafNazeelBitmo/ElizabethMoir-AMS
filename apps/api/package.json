@@ -12,12 +12,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "test:watch": "vitest",
-    "create-user": "tsx src/cli/create-user.ts"
+    "create-user": "tsx src/cli/create-user.ts",
+    "import-directory": "tsx src/cli/import-directory.ts"
   },
   "dependencies": {
     "@ams/shared": "workspace:*",
     "@fastify/cookie": "^11",
     "@fastify/helmet": "^13",
+    "@fastify/multipart": "^9",
     "@node-rs/argon2": "^2.2.1",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.12.5",
