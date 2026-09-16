@@ -10,7 +10,9 @@ async function main(): Promise<void> {
   // step. They are idempotent and recorded in the database.
   await runMigrations(config.DATABASE_URL);
 
-  const { db, close } = createDb(config.DATABASE_URL);
+  const { db, close } = createDb(config.DATABASE_URL, {
+    statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
+  });
   const { server, store } = await buildApp({ config, db });
 
   const drain = setInterval(() => void store.drainSpool(), config.SPOOL_DRAIN_INTERVAL_MS);

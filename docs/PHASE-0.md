@@ -98,11 +98,10 @@ working regardless and remains the school's fallback for the day.
 
 ### If no public server is available yet
 
-For the discovery day only, a tunnel (Cloudflare Tunnel, ngrok) in front of a
-local `pnpm dev` works. It gives a public HTTPS URL without a VPS. The
-report's source-IP section will then show the tunnel's exit IPs, **not** the
-platform's — note that when reading unknown #7, and re-check it on the real
-deployment before enabling the allowlist.
+Deploy to Vercel instead: `docs/DEPLOY-VERCEL.md`. It runs the same code as
+a function with a managed Postgres, and the report's source-IP section still
+shows the platform's real address. The trade-offs (weaker spool, cold
+starts, plan terms) are listed there.
 
 ## Reading the report
 

@@ -53,4 +53,6 @@ docker compose --profile prod up -d --build
 ```
 
 Runs Postgres, the API, and Caddy (automatic TLS for `PUBLIC_HOST`). Only
-Caddy is exposed. See `docs/PHASE-0.md` for the first deployment.
+Caddy is exposed. See `docs/PHASE-0.md` for the first deployment, or
+`docs/DEPLOY-VERCEL.md` for the interim serverless deployment used while
+the school's server is arranged.

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "pnpm run build && pnpm run db:migrate",
+  "outputDirectory": "public",
+  "rewrites": [{ "source": "/:path*", "destination": "/api" }],
+  "functions": {
+    "api/index.ts": { "maxDuration": 15, "memory": 512 }
+  }
+}

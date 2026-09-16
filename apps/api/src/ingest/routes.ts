@@ -61,7 +61,7 @@ export const ingestRoutes: FastifyPluginAsync<IngestPluginOptions> = async (app,
       const raw = req.body;
       const buf = Buffer.isBuffer(raw) ? raw : raw == null ? Buffer.alloc(0) : Buffer.from(String(raw));
       const outcome = await store.save(buildEnvelope(req, buf, null));
-      req.log.info({ outcome, bodyBytes: buf.length }, "ingest received");
+      req.log.info({ outcome, bodyBytes: buf.length, elapsedMs: Math.round(reply.elapsedTime) }, "ingest received");
     } catch (err) {
       // Belt and braces: buildEnvelope and store.save are written not to
       // throw, but the upstream must never see a non-200 regardless.

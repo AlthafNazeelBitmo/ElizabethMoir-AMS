@@ -9,13 +9,31 @@ import type { Envelope } from "./envelope.js";
  * that later fails to replay. Drained in name order, which is arrival order.
  */
 export class Spool {
+  private available = false;
+
   constructor(private readonly dir: string) {}
 
-  async init(): Promise<void> {
-    await mkdir(this.dir, { recursive: true });
+  /**
+   * Creates the directory. Failure (a read-only filesystem, say) is
+   * reported rather than thrown: an unusable spool degrades the fallback,
+   * it must not stop the ingest endpoint from answering.
+   */
+  async init(): Promise<boolean> {
+    try {
+      await mkdir(this.dir, { recursive: true });
+      this.available = true;
+    } catch {
+      this.available = false;
+    }
+    return this.available;
+  }
+
+  get isAvailable(): boolean {
+    return this.available;
   }
 
   async write(envelope: Envelope): Promise<string> {
+    if (!this.available) throw new Error(`spool directory unavailable: ${this.dir}`);
     const stamp = envelope.receivedAt.replace(/[:.]/g, "-");
     const name = `${stamp}-${randomUUID()}.json`;
     const final = path.join(this.dir, name);
@@ -44,6 +62,7 @@ export class Spool {
    * failure (the database is presumably still down) and reports progress.
    */
   async drain(persist: (e: Envelope) => Promise<void>): Promise<{ drained: number; remaining: number }> {
+    if (!this.available) return { drained: 0, remaining: 0 };
     const names = await this.list();
     let drained = 0;
     for (const name of names) {

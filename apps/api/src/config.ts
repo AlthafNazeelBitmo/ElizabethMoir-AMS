@@ -13,6 +13,13 @@ const schema = z.object({
   DATABASE_URL: z.url(),
 
   /**
+   * Server-side statement timeout, sent as a startup parameter. Set to 0
+   * when connecting through a transaction-mode pooler (Neon or Supabase
+   * pooled URLs), which rejects unknown startup parameters.
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(5000),
+
+  /**
    * True when a reverse proxy (Caddy) terminates TLS in front of the API.
    * Makes Fastify read the client IP from X-Forwarded-For. Must be false when
    * the API is exposed directly, or anyone can spoof their source IP.

@@ -29,7 +29,9 @@ export async function buildApp({ config, db }: AppDeps): Promise<App> {
   });
 
   const spool = new Spool(config.SPOOL_DIR);
-  await spool.init();
+  if (!(await spool.init())) {
+    server.log.error({ dir: config.SPOOL_DIR }, "spool directory unavailable; database outages will lose deliveries");
+  }
   const store = new RawEventStore(db, spool, server.log);
 
   server.get("/healthz", async () => ({ ok: true }));
