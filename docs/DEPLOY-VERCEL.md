@@ -72,7 +72,18 @@ environment variables. Then check:
 
 ### 4. Environment variables
 
-Project → **Settings → Environment Variables**, all environments:
+Two ways. Scripted, from a checkout:
+
+```bash
+npx vercel login                      # once, interactive
+bash scripts/setup-vercel-env.sh      # sets the variables, then deploys
+```
+
+It reads the values from `.env.vercel.local` (gitignored), sets each variable
+for production, preview and development, and triggers a production
+deployment. Re-running is safe.
+
+Or by hand — Project → **Settings → Environment Variables**, all environments:
 
 | Name                      | Value                                                                                                |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -100,7 +111,15 @@ cache disabled). The build log should show `applying migrations using
 connection string was found, the database is not attached to this project
 or the variable is not enabled for the environment being built.
 
-Then, with `HOST=<project>.vercel.app`:
+Then run the smoke test, which checks reachability, that the endpoint is not
+discoverable without the token, that ingest answers 200 to malformed and
+odd-shaped requests, and that the report reflects what was posted:
+
+```bash
+bash scripts/smoke-test.sh
+```
+
+Or by hand, with `HOST=<project>.vercel.app`:
 
 ```bash
 curl -s https://$HOST/healthz
