@@ -9,3 +9,10 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# ── Client and vendor material ────────────────────────────────────────────
+# This repository is public. The build specification, the vendor's ADMS
+# documentation, and the on-site reconnaissance notes stay on local disk.
+ADMS-Documentation.pdf
+BUILD-SPEC-attendance-system.md
+*.local.md

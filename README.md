@@ -4,8 +4,8 @@ Replaces the ADMS front end for a school using ZKTeco readers. The middleware
 relays every scan to a webhook; this system records, interprets, and displays
 them as a live register with separate student and staff views.
 
-The build specification is held privately and is not in this repository. Progress and
-per-phase notes are in `docs/`.
+The build specification is held privately and is not in this repository.
+Progress and per-phase notes are in `docs/`.
 
 **Current phase: 0 — discovery harness.** See `docs/PHASE-0.md`.
 
