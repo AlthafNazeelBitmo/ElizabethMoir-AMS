@@ -1,0 +1,26 @@
+# Caddy terminates TLS (automatic Let's Encrypt for PUBLIC_HOST) and proxies
+# to the API. HTTP is redirected to HTTPS automatically. If the ADMS platform
+# turns out to be unable to POST to an https:// URL, add a separate
+# `http://{$PUBLIC_HOST}` site block for /ingest/* only — and say so in the
+# Phase 0 report, because it means the path token travels in clear text.
+
+{$PUBLIC_HOST} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Slightly above the API's own 1 MB cap so the API, not Caddy, records
+	# an oversize delivery.
+	request_body {
+		max_size 2MB
+	}
+
+	reverse_proxy api:3000 {
+		header_up X-Forwarded-For {remote_host}
+	}
+}
