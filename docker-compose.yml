@@ -50,7 +50,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     environment:
-      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST in .env}
+      PUBLIC_HOST: ${PUBLIC_HOST:-localhost}
     ports:
       - "80:80"
       - "443:443"
