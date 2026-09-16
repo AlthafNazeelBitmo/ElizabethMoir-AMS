@@ -1,0 +1,593 @@
+import { eq } from "drizzle-orm";
+import type { LightMyRequestResponse } from "fastify";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  RegisterBroadcaster,
+  isVisibleTo,
+} from "../src/register/broadcaster.js";
+import { decodeCursor, encodeCursor } from "../src/register/service.js";
+import {
+  calendarDays,
+  dayRecords,
+  groups,
+  manualAdjustments,
+  people,
+  tutors,
+} from "../src/db/schema/index.js";
+import {
+  createHarness,
+  INGEST_TOKEN,
+  login,
+  seedUser,
+  type LoggedIn,
+  type TestHarness,
+} from "./helpers/app.js";
+
+const HEAD = "head@school.example";
+const OFFICE = "office@school.example";
+const DATE = "2026-09-16";
+const AFTERNOON = new Date("2026-09-16T09:00:00.000Z"); // 14:30 Colombo
+
+let h: TestHarness;
+let full: LoggedIn;
+let studentOnly: LoggedIn;
+let formOneId: number;
+let staffGroupId: number;
+
+beforeAll(async () => {
+  h = await createHarness({ now: AFTERNOON });
+}, 60_000);
+
+beforeEach(async () => {
+  h.setNow(AFTERNOON);
+  await h.db.truncateAll();
+  await h.app.settings.invalidate();
+
+  await seedUser(h, { email: HEAD, role: "full" });
+  await seedUser(h, { email: OFFICE, role: "student_only" });
+
+  const [form1] = await h.db.db
+    .insert(groups)
+    .values({ name: "Form 1", branch: "student", displayOrder: 1 })
+    .returning();
+  const [staff] = await h.db.db
+    .insert(groups)
+    .values({ name: "Junior Staff", branch: "staff", displayOrder: 1 })
+    .returning();
+  formOneId = form1!.id;
+  staffGroupId = staff!.id;
+
+  const [tutor] = await h.db.db
+    .insert(tutors)
+    .values({ initials: "AP" })
+    .returning();
+  await h.db.db.insert(people).values([
+    {
+      enrollNo: "11007",
+      fullName: "Ann Perera",
+      groupId: formOneId,
+      tutorId: tutor!.id,
+    },
+    {
+      enrollNo: "11008",
+      fullName: "Ben Silva",
+      groupId: formOneId,
+      tutorId: tutor!.id,
+    },
+    { enrollNo: "2001", fullName: "Cal Fernando", groupId: staffGroupId },
+  ]);
+  await h.db.db.insert(calendarDays).values({ date: DATE, type: "school_day" });
+
+  full = await login(h, HEAD);
+  studentOnly = await login(h, OFFICE);
+});
+
+afterAll(async () => {
+  await h.close();
+});
+
+const get = (url: string, who: LoggedIn): Promise<LightMyRequestResponse> =>
+  h.app.server.inject({ method: "GET", url, headers: { cookie: who.cookie } });
+
+async function scan(enrollNo: string, attTime: string) {
+  await h.app.server.inject({
+    method: "POST",
+    url: `/ingest/${INGEST_TOKEN}/raw`,
+    headers: { "content-type": "application/json" },
+    payload: JSON.stringify([
+      {
+        EmpId: enrollNo,
+        AttTime: attTime,
+        CheckingStatus: "0",
+        DeviceID: "GATE-1",
+      },
+    ]),
+  });
+  await h.app.whenIdle();
+  await h.app.processor.processPending();
+}
+
+describe("GET /api/register/live", () => {
+  it("lists everyone expected, including those with no scans", async () => {
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(body.rows).toHaveLength(3);
+    expect(body.rows.map((r: { fullName: string }) => r.fullName)).toEqual([
+      "Ann Perera",
+      "Ben Silva",
+      "Cal Fernando",
+    ]);
+  });
+
+  it("shows someone who has scanned as on site, with their arrival", async () => {
+    await scan("11007", "2026-09-16 07:30:00");
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const ann = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "11007",
+    );
+    expect(ann.status).toBe("on_site");
+    expect(ann.firstIn).toBe("2026-09-16T02:00:00.000Z");
+  });
+
+  it("shows someone with no scans as absent once the day has started", async () => {
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(
+      body.rows.every((r: { status: string }) => r.status === "absent"),
+    ).toBe(true);
+  });
+
+  it("does not mark anyone absent before the day has started", async () => {
+    h.setNow(new Date("2026-09-15T22:00:00.000Z")); // 03:30 local, before 09:00
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(
+      body.rows.every((r: { status: string }) => r.status === "not_expected"),
+    ).toBe(true);
+  });
+
+  it("carries the group and tutor for each row", async () => {
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const ann = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "11007",
+    );
+    expect(ann).toMatchObject({
+      groupName: "Form 1",
+      branch: "student",
+      tutorInitials: "AP",
+    });
+  });
+
+  it("filters by group, tutor, branch and search", async () => {
+    const byGroup = (
+      await get(`/api/register/live?date=${DATE}&group=${formOneId}`, full)
+    ).json();
+    expect(byGroup.rows).toHaveLength(2);
+
+    const byBranch = (
+      await get(`/api/register/live?date=${DATE}&branch=staff`, full)
+    ).json();
+    expect(byBranch.rows).toHaveLength(1);
+
+    const byQuery = (
+      await get(`/api/register/live?date=${DATE}&q=perera`, full)
+    ).json();
+    expect(byQuery.rows).toHaveLength(1);
+
+    const byId = (
+      await get(`/api/register/live?date=${DATE}&q=2001`, full)
+    ).json();
+    expect(byId.rows[0].fullName).toBe("Cal Fernando");
+  });
+
+  it("filters by status", async () => {
+    await scan("11007", "2026-09-16 07:30:00");
+    const onSite = (
+      await get(`/api/register/live?date=${DATE}&status=on_site`, full)
+    ).json();
+    expect(onSite.rows).toHaveLength(1);
+    expect(onSite.rows[0].enrollNo).toBe("11007");
+  });
+
+  it("pages with a stable cursor", async () => {
+    const first = (
+      await get(`/api/register/live?date=${DATE}&limit=2`, full)
+    ).json();
+    expect(first.rows).toHaveLength(2);
+    expect(first.nextCursor).toEqual(expect.any(String));
+
+    const second = (
+      await get(
+        `/api/register/live?date=${DATE}&limit=2&cursor=${encodeURIComponent(first.nextCursor)}`,
+        full,
+      )
+    ).json();
+    expect(second.rows).toHaveLength(1);
+    expect(second.rows[0].fullName).toBe("Cal Fernando");
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("rejects a page size above the maximum", async () => {
+    expect(
+      (await get(`/api/register/live?date=${DATE}&limit=500`, full)).statusCode,
+    ).toBe(400);
+  });
+
+  it("rejects a malformed date", async () => {
+    expect(
+      (await get("/api/register/live?date=16-09-2026", full)).statusCode,
+    ).toBe(400);
+  });
+
+  it("requires a session", async () => {
+    const res = await h.app.server.inject({
+      method: "GET",
+      url: `/api/register/live?date=${DATE}`,
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe("role isolation on the register", () => {
+  it("gives a student_only account no staff rows", async () => {
+    const body = (
+      await get(`/api/register/live?date=${DATE}`, studentOnly)
+    ).json();
+    expect(body.rows).toHaveLength(2);
+    expect(
+      body.rows.every((r: { branch: string }) => r.branch === "student"),
+    ).toBe(true);
+  });
+
+  it("gives no staff rows even when staff is asked for by name", async () => {
+    const body = (
+      await get(`/api/register/live?date=${DATE}&q=Fernando`, studentOnly)
+    ).json();
+    expect(body.rows).toHaveLength(0);
+  });
+
+  it("gives no staff rows even when the staff group is named", async () => {
+    const body = (
+      await get(
+        `/api/register/live?date=${DATE}&group=${staffGroupId}`,
+        studentOnly,
+      )
+    ).json();
+    expect(body.rows).toHaveLength(0);
+  });
+
+  it("gives no staff rows even when branch=staff is requested", async () => {
+    const body = (
+      await get(`/api/register/live?date=${DATE}&branch=staff`, studentOnly)
+    ).json();
+    expect(body.rows).toHaveLength(0);
+  });
+
+  it("counts only students in the summary", async () => {
+    const body = (
+      await get(`/api/register/summary?date=${DATE}`, studentOnly)
+    ).json();
+    expect(body.counts.total).toBe(2);
+    expect(
+      body.groups.every((g: { branch: string }) => g.branch === "student"),
+    ).toBe(true);
+  });
+
+  it("404s a staff person fetched by id, rather than confirming they exist", async () => {
+    const [cal] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "2001"));
+    expect((await get(`/api/people/${cal!.id}`, studentOnly)).statusCode).toBe(
+      404,
+    );
+    expect((await get(`/api/people/${cal!.id}`, full)).statusCode).toBe(200);
+  });
+
+  it("404s a staff person's scans", async () => {
+    const [cal] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "2001"));
+    const url = `/api/people/${cal!.id}/scans?from=${DATE}&to=${DATE}`;
+    expect((await get(url, studentOnly)).statusCode).toBe(404);
+  });
+});
+
+describe("GET /api/register/summary", () => {
+  it("counts each status and the late flag separately", async () => {
+    await scan("11007", "2026-09-16 07:30:00"); // on time
+    await scan("11008", "2026-09-16 08:45:00"); // late
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(body.counts).toMatchObject({ total: 3, on_site: 2, absent: 1 });
+    expect(body.counts.late).toBe(1);
+  });
+
+  it("returns a live count for each group", async () => {
+    await scan("11007", "2026-09-16 07:30:00");
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    const form1 = body.groups.find(
+      (g: { name: string }) => g.name === "Form 1",
+    );
+    expect(form1).toMatchObject({ total: 2, onSite: 1 });
+  });
+});
+
+describe("person detail", () => {
+  it("returns the person and their day", async () => {
+    await scan("11007", "2026-09-16 07:30:00");
+    const [ann] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "11007"));
+    const body = (await get(`/api/people/${ann!.id}`, full)).json();
+    expect(body.person).toMatchObject({
+      fullName: "Ann Perera",
+      groupName: "Form 1",
+    });
+  });
+
+  it("returns the timeline of scans and the recent days", async () => {
+    await scan("11007", "2026-09-16 07:30:00");
+    await scan("11007", "2026-09-16 15:00:00");
+    const [ann] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "11007"));
+    const body = (
+      await get(`/api/people/${ann!.id}/scans?from=${DATE}&to=${DATE}`, full)
+    ).json();
+    expect(body.scans).toHaveLength(2);
+    expect(body.scans.map((s: { direction: string }) => s.direction)).toEqual([
+      "in",
+      "out",
+    ]);
+    expect(body.days).toHaveLength(1);
+  });
+});
+
+describe("manual adjustment", () => {
+  async function aDayRecord() {
+    await scan("11007", "2026-09-16 07:30:00");
+    const [record] = await h.db.db.select().from(dayRecords);
+    return record!;
+  }
+
+  const patch = (id: number, payload: unknown, who: LoggedIn = full) =>
+    h.app.server.inject({
+      method: "PATCH",
+      url: `/api/day-records/${id}`,
+      payload: payload as never,
+      headers: { cookie: who.cookie, "x-csrf-token": who.csrfToken },
+    });
+
+  it("refuses a change with no reason", async () => {
+    const record = await aDayRecord();
+    const res = await patch(record.id, { status: "departed" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toMatch(/reason/i);
+  });
+
+  it("refuses a reason that says nothing", async () => {
+    const record = await aDayRecord();
+    expect(
+      (await patch(record.id, { status: "departed", reason: "x" })).statusCode,
+    ).toBe(400);
+  });
+
+  it("applies the change and marks the day as edited", async () => {
+    const record = await aDayRecord();
+    const res = await patch(record.id, {
+      status: "departed",
+      reason: "Signed out at reception, reader missed it.",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().dayRecord).toMatchObject({
+      status: "departed",
+      hasManualEdit: true,
+    });
+  });
+
+  it("records who changed it, what, and why", async () => {
+    const record = await aDayRecord();
+    await patch(record.id, {
+      status: "departed",
+      reason: "Signed out at reception, reader missed it.",
+    });
+    const body = (
+      await get(`/api/day-records/${record.id}/adjustments`, full)
+    ).json();
+    expect(body.adjustments).toHaveLength(1);
+    expect(body.adjustments[0]).toMatchObject({
+      field: "status",
+      newValue: "departed",
+      reason: "Signed out at reception, reader missed it.",
+      byName: "head",
+    });
+  });
+
+  it("survives a later recomputation", async () => {
+    const record = await aDayRecord();
+    await patch(record.id, {
+      status: "departed",
+      reason: "Corrected by the office.",
+    });
+    await scan("11007", "2026-09-16 16:00:00");
+    const [after] = await h.db.db
+      .select()
+      .from(dayRecords)
+      .where(eq(dayRecords.id, record.id));
+    expect(after?.status).toBe("departed");
+  });
+
+  it("stores an adjustment row per field changed", async () => {
+    const record = await aDayRecord();
+    await patch(record.id, {
+      status: "departed",
+      lastOut: "2026-09-16T09:30:00.000Z",
+      reason: "Left early for an appointment.",
+    });
+    const rows = await h.db.db.select().from(manualAdjustments);
+    expect(rows.map((r) => r.field).sort()).toEqual(["last_out", "status"]);
+  });
+
+  it("refuses a student_only account editing a staff day", async () => {
+    await scan("2001", "2026-09-16 07:30:00");
+    const [record] = await h.db.db.select().from(dayRecords);
+    const res = await patch(
+      record!.id,
+      { status: "departed", reason: "Should not work." },
+      studentOnly,
+    );
+    expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("the broadcaster", () => {
+  it("hands out monotonic ids", () => {
+    const b = new RegisterBroadcaster();
+    const a = b.publish(event("student"));
+    const c = b.publish(event("student"));
+    expect(c.id).toBe(a.id + 1);
+    expect(b.lastEventId).toBe(c.id);
+  });
+
+  it("never delivers a staff event to a student_only subscriber", () => {
+    const b = new RegisterBroadcaster();
+    const seen: string[] = [];
+    b.subscribe("student_only", (p) =>
+      seen.push((p.event as { personId: string }).personId),
+    );
+    b.publish(event("staff", "staff-person"));
+    b.publish(event("student", "student-person"));
+    expect(seen).toEqual(["student-person"]);
+  });
+
+  it("delivers both branches to a full subscriber", () => {
+    const b = new RegisterBroadcaster();
+    const seen: string[] = [];
+    b.subscribe("full", (p) =>
+      seen.push((p.event as { personId: string }).personId),
+    );
+    b.publish(event("staff", "staff-person"));
+    b.publish(event("student", "student-person"));
+    expect(seen).toEqual(["staff-person", "student-person"]);
+  });
+
+  it("hides a person with no branch from a student_only subscriber", () => {
+    // Matches the register query, which excludes the ungrouped for the same
+    // reason: they might be staff.
+    expect(isVisibleTo(event(null), "student_only")).toBe(false);
+    expect(isVisibleTo(event(null), "full")).toBe(true);
+  });
+
+  it("replays what a reconnecting client missed", () => {
+    const b = new RegisterBroadcaster();
+    const first = b.publish(event("student", "a"));
+    b.publish(event("student", "b"));
+    const missed = b.replay(first.id, "full");
+    expect(
+      missed?.map((p) => (p.event as { personId: string }).personId),
+    ).toEqual(["b"]);
+  });
+
+  it("filters the replay by role too", () => {
+    const b = new RegisterBroadcaster();
+    const first = b.publish(event("student", "a"));
+    b.publish(event("staff", "s"));
+    b.publish(event("student", "b"));
+    const missed = b.replay(first.id, "student_only");
+    expect(
+      missed?.map((p) => (p.event as { personId: string }).personId),
+    ).toEqual(["b"]);
+  });
+
+  it("says so rather than lying when the gap is too large to fill", () => {
+    const b = new RegisterBroadcaster();
+    for (let i = 0; i < 600; i++) b.publish(event("student"));
+    // Asking from the very beginning, long since dropped from the buffer.
+    expect(b.replay(1, "full")).toBeNull();
+  });
+
+  it("stops delivering after unsubscribe", () => {
+    const b = new RegisterBroadcaster();
+    let count = 0;
+    const off = b.subscribe("full", () => count++);
+    b.publish(event("student"));
+    off();
+    b.publish(event("student"));
+    expect(count).toBe(1);
+  });
+
+  it("keeps delivering to others when one subscriber throws", () => {
+    const b = new RegisterBroadcaster();
+    let delivered = 0;
+    b.subscribe("full", () => {
+      throw new Error("broken pipe");
+    });
+    b.subscribe("full", () => delivered++);
+    b.publish(event("student"));
+    expect(delivered).toBe(1);
+  });
+
+  function event(branch: "student" | "staff" | null, personId = "p1") {
+    return {
+      type: "scan" as const,
+      personId,
+      fullName: "Someone",
+      enrollNo: "1",
+      branch,
+      groupId: null,
+      groupName: null,
+      tutorInitials: null,
+      date: DATE,
+      firstIn: null,
+      lastOut: null,
+      status: "on_site" as const,
+      isLate: false,
+      hasManualEdit: false,
+      scanCount: 1,
+    };
+  }
+});
+
+describe("cursors", () => {
+  it("round-trip", () => {
+    const encoded = encodeCursor("Ann Perera", "abc-123");
+    expect(decodeCursor(encoded)).toEqual({
+      fullName: "Ann Perera",
+      personId: "abc-123",
+    });
+  });
+
+  it("treats a malformed cursor as no cursor, since it is usually a stale bookmark", () => {
+    expect(decodeCursor("not-a-cursor")).toBeNull();
+    expect(decodeCursor("")).toBeNull();
+  });
+});
+
+describe("the live stream publishes a scan", () => {
+  it("announces the person's new day state", async () => {
+    const seen: Array<{ personId: string; status: string }> = [];
+    h.app.broadcaster.subscribe("full", (p) => {
+      if (p.event.type === "scan")
+        seen.push({ personId: p.event.personId, status: p.event.status });
+    });
+
+    await scan("11007", "2026-09-16 07:30:00");
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.status).toBe("on_site");
+    const [ann] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "11007"));
+    expect(seen[0]?.personId).toBe(ann!.id);
+  });
+
+  it("does not announce a staff scan to a student_only subscriber", async () => {
+    const seen: string[] = [];
+    h.app.broadcaster.subscribe("student_only", (p) => {
+      if (p.event.type === "scan") seen.push(p.event.enrollNo);
+    });
+    await scan("2001", "2026-09-16 07:30:00");
+    expect(seen).toHaveLength(0);
+  });
+});

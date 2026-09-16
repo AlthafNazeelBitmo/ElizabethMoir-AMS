@@ -9,7 +9,9 @@ import {
   people,
   rawEvents,
   scans,
+  tutors,
   unknownEnrollments,
+  type DayStatus,
   type DeviceDirection,
 } from "../db/schema/index.js";
 import { computeDayRecord, type DayScan } from "../domain/dayRecord.js";
@@ -29,6 +31,7 @@ import type {
   AttendanceSettings,
   SettingsService,
 } from "../settings/service.js";
+import type { RegisterBroadcaster } from "../register/broadcaster.js";
 import { extractScans } from "./extract.js";
 
 /**
@@ -70,6 +73,11 @@ export class ScanProcessor {
     private readonly settingsService: SettingsService,
     private readonly log: FastifyBaseLogger,
     private readonly now: () => Date = () => new Date(),
+    /**
+     * Optional so the processor can be used headlessly. When present, every
+     * day record it writes is announced to connected registers.
+     */
+    private readonly broadcaster?: RegisterBroadcaster | undefined,
   ) {}
 
   /**
@@ -396,7 +404,66 @@ export class ScanProcessor {
         where: eq(dayRecords.hasManualEdit, false),
       });
 
+    await this.announce(personId, day.date, computed);
     return true;
+  }
+
+  /**
+   * Tells connected registers that this person's day changed. Failure is
+   * swallowed: the stream is a convenience, and a screen that misses an
+   * event is still correct after its next fetch.
+   */
+  private async announce(
+    personId: string,
+    date: string,
+    computed: { status: DayStatus; isLate: boolean; firstIn: Date | null; lastOut: Date | null; scanCount: number },
+  ): Promise<void> {
+    if (!this.broadcaster) return;
+    try {
+      const [row] = await this.db
+        .select({
+          fullName: people.fullName,
+          enrollNo: people.enrollNo,
+          branch: groups.branch,
+          groupId: groups.id,
+          groupName: groups.name,
+          tutorInitials: tutors.initials,
+          hasManualEdit: dayRecords.hasManualEdit,
+        })
+        .from(people)
+        .leftJoin(groups, eq(groups.id, people.groupId))
+        .leftJoin(tutors, eq(tutors.id, people.tutorId))
+        .leftJoin(
+          dayRecords,
+          and(eq(dayRecords.personId, people.id), eq(dayRecords.date, date)),
+        )
+        .where(eq(people.id, personId))
+        .limit(1);
+      if (!row) return;
+
+      this.broadcaster.publish({
+        type: "scan",
+        personId,
+        fullName: row.fullName,
+        enrollNo: row.enrollNo,
+        branch: row.branch,
+        groupId: row.groupId,
+        groupName: row.groupName,
+        tutorInitials: row.tutorInitials,
+        date,
+        firstIn: computed.firstIn?.toISOString() ?? null,
+        lastOut: computed.lastOut?.toISOString() ?? null,
+        status: computed.status,
+        isLate: computed.isLate,
+        hasManualEdit: row.hasManualEdit ?? false,
+        scanCount: computed.scanCount,
+      });
+    } catch (err) {
+      this.log.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "could not announce a day record change",
+      );
+    }
   }
 
   private async loadDevices(

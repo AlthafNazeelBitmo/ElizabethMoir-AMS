@@ -15,6 +15,9 @@ import multipart from "@fastify/multipart";
 import { adminRoutes } from "./admin/routes.js";
 import { DirectoryImporter } from "./directory/import.js";
 import { processingRoutes } from "./processing/routes.js";
+import { RegisterBroadcaster } from "./register/broadcaster.js";
+import { registerRoutes } from "./register/routes.js";
+import { RegisterService } from "./register/service.js";
 import { ScanProcessor } from "./processing/processor.js";
 import { SettingsService } from "./settings/service.js";
 
@@ -31,6 +34,8 @@ export interface App {
   auth: AuthService;
   processor: ScanProcessor;
   settings: SettingsService;
+  register: RegisterService;
+  broadcaster: RegisterBroadcaster;
   /**
    * Resolves once processing triggered by ingest has settled. Tests await
    * it; nothing in production needs to.
@@ -85,7 +90,9 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   const auth = new AuthService(db, server.log, now);
   const settings = new SettingsService(db);
   const importer = new DirectoryImporter(db, server.log);
-  const processor = new ScanProcessor(db, settings, server.log, now);
+  const broadcaster = new RegisterBroadcaster();
+  const register = new RegisterService(db, settings, now);
+  const processor = new ScanProcessor(db, settings, server.log, now, broadcaster);
   let backgroundWork: Promise<void> = Promise.resolve();
   const cookies: CookieContext = { secure: config.NODE_ENV === "production" };
 
@@ -118,6 +125,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   });
   await server.register(discoveryRoutes, { config, db });
   await server.register(processingRoutes, { config, processor });
+  await server.register(registerRoutes, { db, auth, cookies, register, broadcaster });
   await server.register(adminRoutes, {
     db,
     auth,
@@ -127,5 +135,14 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
     maxUploadBytes: config.MAX_UPLOAD_BYTES,
   });
 
-  return { server, store, auth, processor, settings, whenIdle: () => backgroundWork };
+  return {
+    server,
+    store,
+    auth,
+    processor,
+    settings,
+    register,
+    broadcaster,
+    whenIdle: () => backgroundWork,
+  };
 }
