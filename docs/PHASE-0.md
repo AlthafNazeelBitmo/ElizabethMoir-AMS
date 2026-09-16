@@ -92,11 +92,9 @@ your own IP.
 ADMS → **System** → **Webhooks** → _Webhook URL_ →
 `https://<PUBLIC_HOST>/ingest/<INGEST_PATH_TOKEN>/raw` → **Save**.
 
-The existing webhook target (the school's current front end) will stop
-receiving scans while ours is set. The ADMS _Data → Transactions_ screen is
-unaffected and remains the school's fallback for the day. If the school wants
-both fed at once, ask VFT whether ADMS supports two webhook URLs; the UI shows
-one field.
+As of 16 September the field is empty,
+so setting it cuts nothing over. The ADMS _Data → Transactions_ screen keeps
+working regardless and remains the school's fallback for the day.
 
 ### If no public server is available yet
 
