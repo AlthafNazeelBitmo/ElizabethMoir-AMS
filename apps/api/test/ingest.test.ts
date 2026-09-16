@@ -102,8 +102,20 @@ describe("the vendor's happy path", () => {
     expect(r.batchSize).toBe(3);
     expect(r.bodyBytes).toBe(Buffer.byteLength(body));
     expect(r.parseError).toBeNull();
-    expect(r.processedAt).toBeNull();
     expect((r.headers as Record<string, string>)["x-custom-probe"]).toBe("abc");
+  });
+
+  it("answers before interpreting, then processes what it stored", async () => {
+    await send({
+      contentType: "application/json",
+      payload: JSON.stringify(SAMPLE),
+    });
+    // The response does not await interpretation — that is guaranteed by
+    // construction, not by timing, so asserting the row is briefly
+    // unprocessed would only be racing the background chain. What matters
+    // is that the work does happen.
+    await h.app.whenIdle();
+    expect((await rows())[0]?.processedAt).not.toBeNull();
   });
 });
 

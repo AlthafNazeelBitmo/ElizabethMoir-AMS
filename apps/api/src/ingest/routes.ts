@@ -7,6 +7,11 @@ import type { RawEventStore } from "./store.js";
 export interface IngestPluginOptions {
   config: Config;
   store: RawEventStore;
+  /**
+   * Called after a delivery has been persisted, to start processing without
+   * the upstream platform waiting for it. Must not throw.
+   */
+  onStored?: () => void;
 }
 
 /**
@@ -19,7 +24,10 @@ export interface IngestPluginOptions {
  * This plugin is encapsulated on purpose: its catch-all content-type parser
  * and its "everything is 200" error handler must not leak to other routes.
  */
-export const ingestRoutes: FastifyPluginAsync<IngestPluginOptions> = async (app, { config, store }) => {
+export const ingestRoutes: FastifyPluginAsync<IngestPluginOptions> = async (
+  app,
+  { config, store, onStored },
+) => {
   // Replace Fastify's JSON/text parsers: a malformed JSON body must reach us
   // as text, not as a 400 from the framework.
   app.removeAllContentTypeParsers();
@@ -61,6 +69,7 @@ export const ingestRoutes: FastifyPluginAsync<IngestPluginOptions> = async (app,
       const raw = req.body;
       const buf = Buffer.isBuffer(raw) ? raw : raw == null ? Buffer.alloc(0) : Buffer.from(String(raw));
       const outcome = await store.save(buildEnvelope(req, buf, null));
+      if (outcome === "db") onStored?.();
       req.log.info({ outcome, bodyBytes: buf.length, elapsedMs: Math.round(reply.elapsedTime) }, "ingest received");
     } catch (err) {
       // Belt and braces: buildEnvelope and store.save are written not to

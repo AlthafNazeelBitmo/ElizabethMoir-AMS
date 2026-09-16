@@ -32,6 +32,12 @@ const schema = z
    */
   TRUST_PROXY: boolFromEnv.default(false),
 
+  /**
+   * Token for the scheduled processing endpoint. Vercel Cron sends it as a
+   * bearer token automatically when set. Falls back to REPORT_TOKEN.
+   */
+  CRON_SECRET: z.string().min(16).optional(),
+
   /** Static token protecting GET /ingest/report. ≥ 32 chars. */
   REPORT_TOKEN: z.string().min(32),
 
@@ -55,6 +61,13 @@ const schema = z
 
   /** Where envelopes are spooled when the database is unreachable. */
   SPOOL_DIR: z.string().default("./data/spool"),
+
+  /**
+   * How often outstanding envelopes are processed on a long-running
+   * deployment. Ingest already triggers processing immediately; this is the
+   * net that catches anything missed.
+   */
+  PROCESS_INTERVAL_MS: z.coerce.number().int().positive().default(15_000),
 
   /** How often the spool is drained back into the database. */
   SPOOL_DRAIN_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),

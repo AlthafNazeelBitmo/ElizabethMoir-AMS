@@ -13,15 +13,40 @@ async function main(): Promise<void> {
   const { db, close } = createDb(config.DATABASE_URL, {
     statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
   });
-  const { server, store } = await buildApp({ config, db });
+  const { server, store, processor } = await buildApp({ config, db });
 
   const drain = setInterval(() => void store.drainSpool(), config.SPOOL_DRAIN_INTERVAL_MS);
   drain.unref();
   void store.drainSpool();
 
+  // Ingest starts processing as soon as a delivery is stored, so this is the
+  // safety net: anything that failed, arrived while the process was down, or
+  // was spooled to disk during an outage gets picked up here.
+  let processing = false;
+  const process_ = setInterval(() => {
+    if (processing) return; // never let two runs overlap
+    processing = true;
+    void processor
+      .processPending()
+      .then((r) => {
+        if (r.envelopesProcessed > 0) server.log.info(r, "processed pending envelopes");
+      })
+      .catch((err: unknown) => {
+        server.log.error(
+          { err: err instanceof Error ? err.message : String(err) },
+          "scheduled processing failed",
+        );
+      })
+      .finally(() => {
+        processing = false;
+      });
+  }, config.PROCESS_INTERVAL_MS);
+  process_.unref();
+
   const shutdown = async (signal: string) => {
     server.log.info({ signal }, "shutting down");
     clearInterval(drain);
+    clearInterval(process_);
     await server.close();
     await close();
     process.exit(0);

@@ -3,8 +3,22 @@
   "framework": null,
   "buildCommand": "pnpm run build && pnpm run db:migrate",
   "outputDirectory": "public",
-  "rewrites": [{ "source": "/:path*", "destination": "/api" }],
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "destination": "/api"
+    }
+  ],
   "functions": {
-    "api/index.ts": { "maxDuration": 15, "memory": 512 }
-  }
+    "api/index.ts": {
+      "maxDuration": 15,
+      "memory": 512
+    }
+  },
+  "crons": [
+    {
+      "path": "/internal/process",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

@@ -11,6 +11,9 @@ import { ingestRoutes } from "./ingest/routes.js";
 import { Spool } from "./ingest/spool.js";
 import { RawEventStore } from "./ingest/store.js";
 import { loggerOptions } from "./logger.js";
+import { processingRoutes } from "./processing/routes.js";
+import { ScanProcessor } from "./processing/processor.js";
+import { SettingsService } from "./settings/service.js";
 
 export interface AppDeps {
   config: Config;
@@ -23,6 +26,13 @@ export interface App {
   server: FastifyInstance;
   store: RawEventStore;
   auth: AuthService;
+  processor: ScanProcessor;
+  settings: SettingsService;
+  /**
+   * Resolves once processing triggered by ingest has settled. Tests await
+   * it; nothing in production needs to.
+   */
+  whenIdle: () => Promise<void>;
 }
 
 export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
@@ -65,13 +75,40 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   }
   const store = new RawEventStore(db, spool, server.log);
   const auth = new AuthService(db, server.log, now);
+  const settings = new SettingsService(db);
+  const processor = new ScanProcessor(db, settings, server.log, now);
+  let backgroundWork: Promise<void> = Promise.resolve();
   const cookies: CookieContext = { secure: config.NODE_ENV === "production" };
 
   server.get("/healthz", async () => ({ ok: true }));
 
   await server.register(authRoutes, { auth, cookies });
-  await server.register(ingestRoutes, { config, store });
+  await server.register(ingestRoutes, {
+    config,
+    store,
+    // Process as soon as the envelope is safely stored, without making the
+    // upstream wait for it. On a long-running host this means a scan reaches
+    // the register in milliseconds; on a serverless host the invocation may
+    // be frozen first, which is harmless because the scheduled drain picks
+    // it up and every step is idempotent.
+    onStored: () => {
+      // Chained rather than fired in parallel: two runs over the same
+      // outstanding rows would duplicate work and race on the same
+      // person-days. Failures are swallowed so the chain survives them; the
+      // scheduled drain is the retry.
+      backgroundWork = backgroundWork
+        .then(() => processor.processPending())
+        .then(() => undefined)
+        .catch((err: unknown) => {
+          server.log.error(
+            { err: err instanceof Error ? err.message : String(err) },
+            "post-ingest processing failed; the scheduled drain will retry",
+          );
+        });
+    },
+  });
   await server.register(discoveryRoutes, { config, db });
+  await server.register(processingRoutes, { config, processor });
 
-  return { server, store, auth };
+  return { server, store, auth, processor, settings, whenIdle: () => backgroundWork };
 }
