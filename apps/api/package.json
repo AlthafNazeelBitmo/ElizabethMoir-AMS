@@ -13,7 +13,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "test:watch": "vitest",
     "create-user": "tsx src/cli/create-user.ts",
-    "import-directory": "tsx src/cli/import-directory.ts"
+    "import-directory": "tsx src/cli/import-directory.ts",
+    "demo": "tsx src/cli/demo-server.ts"
   },
   "dependencies": {
     "@ams/shared": "workspace:*",

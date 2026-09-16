@@ -15,7 +15,7 @@ school day of data. See `docs/PHASE-0.md`.
 
 ```
 apps/api           Fastify API (ingest, report, later: auth, register, admin)
-apps/web           React front end (from Phase 4)
+apps/web           React front end: live register, person panel, login
 packages/shared    Types and Zod schemas shared by api and web
 deploy/            Caddyfile, Postgres init scripts
 docs/              Phase notes, decisions, runbooks
@@ -36,6 +36,9 @@ cp .env.example .env            # then fill in INGEST_PATH_TOKEN and REPORT_TOKE
 pnpm db:up                      # Postgres 16 on localhost:5433, for running the app
 pnpm db:migrate                 # apply migrations to DATABASE_URL
 pnpm dev                        # API with reload on http://localhost:3000
+pnpm demo                       # the whole stack on an in-process Postgres,
+                                # seeded — no Docker or database needed
+pnpm --filter @ams/web dev      # the web app on http://localhost:5173
 
 pnpm typecheck
 pnpm test                       # every test; needs no database or Docker

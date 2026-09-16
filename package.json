@@ -16,6 +16,8 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @ams/api db:generate",
-    "db:migrate": "pnpm --filter @ams/api db:migrate"
+    "db:migrate": "pnpm --filter @ams/api db:migrate",
+    "demo": "pnpm --filter @ams/api demo",
+    "dev:web": "pnpm --filter @ams/web dev"
   }
 }

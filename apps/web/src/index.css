@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-800 font-sans text-base antialiased;
+    /* The page itself never scrolls; the table has its own scroll. */
+    overflow: hidden;
+  }
+
+  /*
+   * Tabular figures on every time and count. Digits then align down the
+   * column, which matters more here than any other typographic decision:
+   * the whole point of this screen is comparing times at a glance.
+   */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* A visible focus ring on everything reachable by keyboard. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-1 ring-offset-neutral-50;
+  }
+}
+
+@layer utilities {
+  /*
+   * Someone who has asked for less motion gets an instant colour change
+   * rather than a fade, and no pulse at all.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-rowFlash,
+    .animate-countPulse {
+      animation: none !important;
+    }
+    .reduced-flash {
+      background-color: #e4e0f7;
+    }
+  }
+}

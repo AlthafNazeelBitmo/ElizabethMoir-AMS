@@ -16,3 +16,6 @@ Thumbs.db
 ADMS-Documentation.pdf
 BUILD-SPEC-attendance-system.md
 *.local.md
+
+# Vite build output
+apps/web/dist/
