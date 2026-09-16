@@ -18,7 +18,11 @@ let appPromise: Promise<App> | undefined;
 function getApp(): Promise<App> {
   if (!appPromise) {
     appPromise = (async () => {
-      const config = loadConfig({ NODE_ENV: "production", SPOOL_DIR: "/tmp/ams-spool", ...process.env });
+      const config = loadConfig({
+        NODE_ENV: "production",
+        SPOOL_DIR: "/tmp/ams-spool",
+        ...process.env,
+      });
       const { db } = createDb(config.DATABASE_URL, {
         statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
         max: 1,
@@ -35,8 +39,28 @@ function getApp(): Promise<App> {
   return appPromise;
 }
 
-export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const app = await getApp();
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  let app: App;
+  try {
+    app = await getApp();
+  } catch (err) {
+    // Without valid configuration there is nothing this function can do, but
+    // an unexplained platform-level crash is a poor way to find that out.
+    // The reason goes to the function log; the caller gets a plain 503, since
+    // naming the missing variables to the internet helps nobody.
+    console.error(
+      "[startup] the function cannot serve requests:",
+      err instanceof Error ? err.message : String(err),
+    );
+    res.statusCode = 503;
+    res.setHeader("content-type", "text/plain; charset=utf-8");
+    res.setHeader("cache-control", "no-store");
+    res.end("Service is misconfigured. See the deployment's function logs.\n");
+    return;
+  }
   void app.store.drainSpool();
   app.server.server.emit("request", req, res);
 }

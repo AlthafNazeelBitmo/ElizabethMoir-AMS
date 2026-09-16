@@ -5,7 +5,8 @@ const boolFromEnv = z
   .enum(["true", "false", "1", "0"])
   .transform((v) => v === "true" || v === "1");
 
-const schema = z.object({
+const schema = z
+  .object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -35,9 +36,13 @@ const schema = z.object({
   REPORT_TOKEN: z.string().min(32),
 
   /**
-   * Optional secret path segment for the ingest URL. When set, the endpoint
-   * is POST /ingest/<token>/raw and the bare /ingest/raw 404s. Recommended
-   * even for the discovery run so stray bots cannot pollute the sample.
+   * Secret path segment for the ingest URL. When set, the endpoint is
+   * POST /ingest/<token>/raw and the bare /ingest/raw 404s.
+   *
+   * Optional in development, **required in production**: the webhook sends
+   * no credentials of any kind, so this path segment is the only thing
+   * standing between a publicly reachable deployment and anyone posting
+   * fabricated attendance for any child. See the production check below.
    */
   INGEST_PATH_TOKEN: z.string().min(16).optional(),
 
@@ -53,7 +58,20 @@ const schema = z.object({
 
   /** How often the spool is drained back into the database. */
   SPOOL_DRAIN_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
-});
+})
+  .superRefine((cfg, ctx) => {
+    // A production deployment is, by definition, reachable. Without the path
+    // token the ingest endpoint is an open write to a database of children's
+    // movements, so refuse to start rather than expose it.
+    if (cfg.NODE_ENV === "production" && !cfg.INGEST_PATH_TOKEN) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["INGEST_PATH_TOKEN"],
+        message:
+          "required when NODE_ENV=production: without it the ingest endpoint is /ingest/raw, which anyone who finds the URL can post fabricated attendance to",
+      });
+    }
+  });
 
 export type Config = z.infer<typeof schema>;
 

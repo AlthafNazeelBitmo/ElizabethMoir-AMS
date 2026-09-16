@@ -82,6 +82,12 @@ Project → **Settings → Environment Variables**, all environments:
 | `LOG_LEVEL`               | `info`                                                                                               |
 | `DB_STATEMENT_TIMEOUT_MS` | `0` if pooled URL, otherwise omit                                                                    |
 
+`INGEST_PATH_TOKEN` and `REPORT_TOKEN` are **required** — the function
+refuses to start without them and every request returns 503 with the reason
+in the function log. The ingest token is mandatory in production
+specifically: without it the endpoint would be the bare `/ingest/raw`, which
+anyone who found the URL could post fabricated attendance to.
+
 **Do not set `NODE_ENV`.** Vercel sets it for the runtime, and setting it
 to `production` yourself makes pnpm skip devDependencies at build time,
 which removes the TypeScript compiler the build needs.
