@@ -2,7 +2,7 @@
   "name": "school-ams",
   "private": true,
   "version": "0.0.1",
-  "description": "School attendance & presence system — replaces the ADMS front end",
+  "description": "School attendance & presence system \u2014 replaces the ADMS front end",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20.0.0"
@@ -13,7 +13,6 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:integration": "pnpm --filter @ams/api test:integration",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:generate": "pnpm --filter @ams/api db:generate",

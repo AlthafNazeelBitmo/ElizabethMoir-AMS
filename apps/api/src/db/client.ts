@@ -1,8 +1,20 @@
+import type { ExtractTablesWithRelations } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema.js";
+import * as schema from "./schema/index.js";
 
-export type Db = ReturnType<typeof createDb>["db"];
+/**
+ * The database handle, typed structurally rather than as one driver's
+ * concrete return type. Production runs postgres-js; the test suite runs the
+ * same queries against PGlite. Both satisfy this, so application code is
+ * written once and genuinely exercised by the tests.
+ */
+export type Db = PgDatabase<
+  PgQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>;
 
 /**
  * A bounded-latency connection pool. The ingest path awaits its insert, so a

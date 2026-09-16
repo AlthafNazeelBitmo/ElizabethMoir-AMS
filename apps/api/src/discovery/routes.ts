@@ -3,7 +3,7 @@ import { asc, gt } from "drizzle-orm";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import type { Config } from "../config.js";
 import type { Db } from "../db/client.js";
-import { rawEvents } from "../db/schema.js";
+import { rawEvents } from "../db/schema/index.js";
 import { analyze, type RawEventInput } from "./analyze.js";
 import { renderReport } from "./render.js";
 

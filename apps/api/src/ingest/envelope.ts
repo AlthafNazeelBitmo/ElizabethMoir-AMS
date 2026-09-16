@@ -1,4 +1,4 @@
-import type { NewRawEvent } from "../db/schema.js";
+import type { NewRawEvent } from "../db/schema/index.js";
 
 /**
  * The persisted form of one webhook delivery. Built by the ingest handler,

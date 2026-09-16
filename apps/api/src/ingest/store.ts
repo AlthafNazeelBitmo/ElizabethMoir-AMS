@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Db } from "../db/client.js";
-import { rawEvents } from "../db/schema.js";
+import { rawEvents } from "../db/schema/index.js";
 import { envelopeToRow, type Envelope } from "./envelope.js";
 import type { Spool } from "./spool.js";
 
