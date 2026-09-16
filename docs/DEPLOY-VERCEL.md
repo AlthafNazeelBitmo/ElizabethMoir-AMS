@@ -47,12 +47,23 @@ Project → **Storage** → **Create Database** → Neon or Supabase (both have 
 free tier). The integration adds connection strings to the project's
 environment variables. Then check:
 
-- There must be a variable named exactly **`DATABASE_URL`**. Neon's
-  integration provides it; Supabase's names them `POSTGRES_URL…` — add
-  `DATABASE_URL` manually with the same value.
-- If the URL is the **pooled** endpoint (Neon `-pooler`, Supabase port
-  6543), set `DB_STATEMENT_TIMEOUT_MS=0`. Transaction-mode poolers reject
-  the startup parameter. The connect timeout still protects the endpoint.
+- **Any** of these names works; `DATABASE_URL` wins if several are set:
+  `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`,
+  `DATABASE_POSTGRES_URL`. So Neon's and Supabase's integrations are both
+  fine out of the box, with nothing to rename.
+- Migrations prefer a **direct** (unpooled) endpoint if one is published —
+  `DATABASE_URL_UNPOOLED`, `POSTGRES_URL_NON_POOLING`, `DIRECT_DATABASE_URL`
+  or `DIRECT_URL` — because DDL through a transaction-mode pooler is
+  unreliable. The runtime keeps using the pooled URL. Both integrations
+  publish the pair automatically; nothing to configure.
+- If the runtime URL is the **pooled** endpoint (Neon `-pooler`, Supabase
+  port 6543), set `DB_STATEMENT_TIMEOUT_MS=0`. Transaction-mode poolers
+  reject that startup parameter. The connect timeout still protects the
+  endpoint.
+- Environment variables are read **at build time**. After attaching a
+  database or adding a variable you must trigger a **new deployment** —
+  redeploying an existing build does not pick them up. If you use
+  **Deployments → Redeploy**, clear the *Use existing build cache* option.
 - Neon's free tier suspends idle compute after five minutes; the first
   scan after a quiet spell pays a wake-up of a second or two. The function
   waits for it (5 s connect timeout) and spools to `/tmp` if it takes
@@ -77,8 +88,11 @@ which removes the TypeScript compiler the build needs.
 
 ### 5. Deploy and smoke test
 
-Trigger a deployment (push, or **Deployments → Redeploy**). The build log
-should end with `migrations applied`. Then, with `HOST=<project>.vercel.app`:
+Trigger a deployment (push, or **Deployments → Redeploy** with the build
+cache disabled). The build log should show `applying migrations using
+<VARIABLE>` followed by `migrations applied`. If it instead says no
+connection string was found, the database is not attached to this project
+or the variable is not enabled for the environment being built. Then, with `HOST=<project>.vercel.app`:
 
 ```bash
 curl -s https://$HOST/healthz

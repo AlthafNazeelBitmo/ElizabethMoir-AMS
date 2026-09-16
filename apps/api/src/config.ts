@@ -1,14 +1,19 @@
 import { z } from "zod";
+import { databaseUrlCandidates, resolveDatabaseUrl } from "./db/url.js";
 
 const boolFromEnv = z
   .enum(["true", "false", "1", "0"])
   .transform((v) => v === "true" || v === "1");
 
 const schema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace"])
+    .default("info"),
 
   DATABASE_URL: z.url(),
 
@@ -37,7 +42,11 @@ const schema = z.object({
   INGEST_PATH_TOKEN: z.string().min(16).optional(),
 
   /** Hard cap on the ingest request body, in bytes. Spec: 1 MB. */
-  INGEST_BODY_LIMIT_BYTES: z.coerce.number().int().positive().default(1_048_576),
+  INGEST_BODY_LIMIT_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1_048_576),
 
   /** Where envelopes are spooled when the database is unreachable. */
   SPOOL_DIR: z.string().default("./data/spool"),
@@ -49,12 +58,21 @@ const schema = z.object({
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = schema.safeParse(env);
+  // A managed-Postgres integration may publish the connection string under
+  // its own name; accept those rather than failing on DATABASE_URL alone.
+  const resolved = resolveDatabaseUrl(env);
+  const withDb = resolved ? { ...env, DATABASE_URL: resolved.url } : env;
+
+  const parsed = schema.safeParse(withDb);
   if (!parsed.success) {
     const problems = parsed.error.issues
       .map((i) => `  ${i.path.join(".") || "(root)"}: ${i.message}`)
       .join("\n");
-    throw new Error(`Invalid environment configuration:\n${problems}`);
+    const hint =
+      resolved === null
+        ? `\n\nNo database connection string found. Set DATABASE_URL, or any of: ${databaseUrlCandidates().join(", ")}.`
+        : "";
+    throw new Error(`Invalid environment configuration:\n${problems}${hint}`);
   }
   return parsed.data;
 }
