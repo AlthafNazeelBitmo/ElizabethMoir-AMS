@@ -63,7 +63,7 @@ environment variables. Then check:
 - Environment variables are read **at build time**. After attaching a
   database or adding a variable you must trigger a **new deployment** —
   redeploying an existing build does not pick them up. If you use
-  **Deployments → Redeploy**, clear the *Use existing build cache* option.
+  **Deployments → Redeploy**, clear the _Use existing build cache_ option.
 - Neon's free tier suspends idle compute after five minutes; the first
   scan after a quiet spell pays a wake-up of a second or two. The function
   waits for it (5 s connect timeout) and spools to `/tmp` if it takes
@@ -92,7 +92,9 @@ Trigger a deployment (push, or **Deployments → Redeploy** with the build
 cache disabled). The build log should show `applying migrations using
 <VARIABLE>` followed by `migrations applied`. If it instead says no
 connection string was found, the database is not attached to this project
-or the variable is not enabled for the environment being built. Then, with `HOST=<project>.vercel.app`:
+or the variable is not enabled for the environment being built.
+
+Then, with `HOST=<project>.vercel.app`:
 
 ```bash
 curl -s https://$HOST/healthz
