@@ -8,6 +8,13 @@ import type { DayStatus } from "./api.js";
  */
 export const SCHOOL_TIMEZONE = "Asia/Colombo";
 
+/**
+ * Printed at the top of a report. Belongs in settings alongside the
+ * timezone and the late threshold; there is no endpoint serving it yet, so
+ * it is here rather than scattered through the pages that need it.
+ */
+export const SCHOOL_NAME = "Elizabeth Moir School";
+
 const timeFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: SCHOOL_TIMEZONE,
   hour: "2-digit",

@@ -154,6 +154,82 @@ export class ScanProcessor {
   }
 
   /**
+   * Materialises absences for a school day.
+   *
+   * The specification asks for the day-record computation to run "nightly
+   * for all people on school days", and this is that job. It is needed
+   * because `recomputeDay` only ever sees people who scanned: someone who
+   * never came has nothing to trigger a recomputation, so without this
+   * their absence exists only as the lack of a row, which no report can
+   * count.
+   *
+   * Idempotent and safe to run often: it creates nothing before the day has
+   * reached the point where absence is meaningful, never touches an
+   * existing record, and never touches a manually corrected one.
+   */
+  async markAbsences(date: string): Promise<number> {
+    const settings = await this.settingsService.get();
+
+    const [calendar] = await this.db
+      .select({ type: calendarDays.type })
+      .from(calendarDays)
+      .where(eq(calendarDays.date, date))
+      .limit(1);
+    const isSchoolDay = calendar?.type === "school_day" || calendar?.type === "exception";
+    if (!isSchoolDay) return 0;
+
+    const decidedFrom =
+      instantAtLocalTime(date, settings.absenceDecidedAfter, settings.timezone) ?? new Date(0);
+    if (this.now() < decidedFrom) return 0;
+
+    // Everyone expected that day who has no record for it.
+    const candidates = await this.db
+      .select({ personId: people.id })
+      .from(people)
+      .innerJoin(groups, eq(groups.id, people.groupId))
+      .leftJoin(
+        dayRecords,
+        and(eq(dayRecords.personId, people.id), eq(dayRecords.date, date)),
+      )
+      .where(
+        and(
+          eq(people.isActive, true),
+          eq(groups.expectsAttendance, true),
+          isNull(dayRecords.id),
+        ),
+      );
+
+    if (candidates.length === 0) return 0;
+
+    await this.db
+      .insert(dayRecords)
+      .values(
+        candidates.map((c) => ({
+          personId: c.personId,
+          date,
+          status: "absent" as const,
+          isLate: false,
+          scanCount: 0,
+          computedAt: this.now(),
+        })),
+      )
+      .onConflictDoNothing({ target: [dayRecords.personId, dayRecords.date] });
+
+    return candidates.length;
+  }
+
+  /** Marks absences for the school day it is currently in. */
+  async markAbsencesForToday(): Promise<number> {
+    const settings = await this.settingsService.get();
+    const date = schoolDayFor(
+      this.now(),
+      settings.timezone,
+      formatTime(settings.dayRolloverTime),
+    );
+    return this.markAbsences(date);
+  }
+
+  /**
    * Re-runs every day this enrolment has scans for. Used when an unknown
    * number is attached to a person: the scans were already stored, and the
    * register should show them at once.

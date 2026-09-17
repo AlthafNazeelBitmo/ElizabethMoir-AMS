@@ -28,8 +28,10 @@ async function main(): Promise<void> {
     processing = true;
     void processor
       .processPending()
-      .then((r) => {
+      .then(async (r) => {
         if (r.envelopesProcessed > 0) server.log.info(r, "processed pending envelopes");
+        // The nightly absence job, idempotent and cheap to repeat.
+        await processor.markAbsencesForToday();
       })
       .catch((err: unknown) => {
         server.log.error(

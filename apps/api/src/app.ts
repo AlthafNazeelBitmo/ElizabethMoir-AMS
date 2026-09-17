@@ -18,6 +18,8 @@ import { processingRoutes } from "./processing/routes.js";
 import { RegisterBroadcaster } from "./register/broadcaster.js";
 import { registerRoutes } from "./register/routes.js";
 import { RegisterService } from "./register/service.js";
+import { reportRoutes } from "./reports/routes.js";
+import { ReportService } from "./reports/service.js";
 import { ScanProcessor } from "./processing/processor.js";
 import { SettingsService } from "./settings/service.js";
 
@@ -35,6 +37,7 @@ export interface App {
   processor: ScanProcessor;
   settings: SettingsService;
   register: RegisterService;
+  reports: ReportService;
   broadcaster: RegisterBroadcaster;
   /**
    * Resolves once processing triggered by ingest has settled. Tests await
@@ -92,6 +95,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   const importer = new DirectoryImporter(db, server.log);
   const broadcaster = new RegisterBroadcaster();
   const register = new RegisterService(db, settings, now);
+  const reports = new ReportService(db, settings);
   const processor = new ScanProcessor(db, settings, server.log, now, broadcaster);
   let backgroundWork: Promise<void> = Promise.resolve();
   const cookies: CookieContext = { secure: config.NODE_ENV === "production" };
@@ -126,6 +130,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   await server.register(discoveryRoutes, { config, db });
   await server.register(processingRoutes, { config, processor });
   await server.register(registerRoutes, { db, auth, cookies, register, broadcaster });
+  await server.register(reportRoutes, { db, auth, cookies, reports });
   await server.register(adminRoutes, {
     db,
     auth,
@@ -142,6 +147,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
     processor,
     settings,
     register,
+    reports,
     broadcaster,
     whenIdle: () => backgroundWork,
   };

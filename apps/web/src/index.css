@@ -46,3 +46,57 @@
     }
   }
 }
+
+/*
+ * The print sheet.
+ *
+ * A report someone hands to a governor should not carry the application's
+ * navigation, its filter controls, or a scrollbar. What it must carry is
+ * the school's name, the date range, and the filters that produced it —
+ * otherwise a printout found on a desk in March says nothing about what it
+ * covers. Those are in the page itself, revealed only when printing.
+ */
+@media print {
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  body {
+    font-size: 10pt;
+    color: #000;
+  }
+
+  /* The application chrome has no place on paper. */
+  header nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  /* A row must not be split across a page break, and the header repeats. */
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+
+  /* Backgrounds do not print by default; status text must still read. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 15mm;
+  }
+}
