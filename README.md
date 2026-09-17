@@ -43,6 +43,8 @@ pnpm --filter @ams/web dev      # the web app on http://localhost:5173
 
 pnpm typecheck
 pnpm test                       # every test; needs no database or Docker
+pnpm test:load                  # load and throughput, run on their own
+pnpm audit                      # fails on a high-severity advisory
 pnpm build                      # compiles packages/shared then apps/api to dist/
 
 pnpm db:generate --name <slug>  # generate a migration after editing the schema

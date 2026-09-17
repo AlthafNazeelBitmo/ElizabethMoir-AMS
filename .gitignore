@@ -19,3 +19,9 @@ BUILD-SPEC-attendance-system.md
 
 # Vite build output
 apps/web/dist/
+
+# Database backups, encrypted or not — never in the repository
+backups/
+*.dump
+*.dump.age
+*.dump.gpg

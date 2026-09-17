@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "../config.js";
 import { bodyToText, parseBody, type Envelope } from "./envelope.js";
+import { isAllowed, parseAllowlist, RateLimiter } from "./guard.js";
 import type { RawEventStore } from "./store.js";
 
 export interface IngestPluginOptions {
@@ -28,6 +29,41 @@ export const ingestRoutes: FastifyPluginAsync<IngestPluginOptions> = async (
   app,
   { config, store, onStored },
 ) => {
+  const { rules, problems } = parseAllowlist(config.INGEST_ALLOWED_IPS);
+  if (problems.length > 0) {
+    // A typo here would lock the school's own reader out, so it is loud.
+    app.log.error({ problems }, "INGEST_ALLOWED_IPS has entries that could not be parsed");
+  }
+  if (rules.length === 0) {
+    app.log.warn(
+      "no ingest IP allowlist configured; anyone who learns the URL can post scans",
+    );
+  }
+  const rateLimiter = new RateLimiter(config.INGEST_RATE_LIMIT_PER_MINUTE);
+
+  /**
+   * Checked before the body is read, so an unwelcome caller cannot make the
+   * server do work. A refusal is a 404: the endpoint's existence is not
+   * worth confirming to someone who should not be here.
+   */
+  const refuse = (req: FastifyRequest): string | null => {
+    const ip = req.ip || "";
+    if (!isAllowed(ip, rules)) return "address not on the allowlist";
+    if (!rateLimiter.check(ip)) return "rate limit exceeded";
+    return null;
+  };
+
+  app.addHook("onRequest", async (req, reply) => {
+    const reason = refuse(req);
+    if (reason === null) return;
+    // The specification asks for every rejection to be logged with its
+    // address and reason. That is the one place an IP belongs in the
+    // application log: here it is the subject of the event, not incidental
+    // detail attached to a person.
+    req.log.warn({ ip: req.ip, reason }, "ingest request refused");
+    await reply.code(404).send();
+  });
+
   // Replace Fastify's JSON/text parsers: a malformed JSON body must reach us
   // as text, not as a 400 from the framework.
   app.removeAllContentTypeParsers();

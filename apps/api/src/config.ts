@@ -52,6 +52,21 @@ const schema = z
    */
   INGEST_PATH_TOKEN: z.string().min(16).optional(),
 
+  /**
+   * Addresses allowed to post scans, as a comma-separated list of IPs or
+   * CIDR blocks. Empty allows all — the honest default until the discovery
+   * run says which addresses the platform posts from, since refusing
+   * everything would mean collecting nothing.
+   */
+  INGEST_ALLOWED_IPS: z.string().default(""),
+
+  /**
+   * Requests per address per minute on the ingest endpoint. Must be
+   * generous: the platform never retries, so a refused scan is lost. 0
+   * disables it.
+   */
+  INGEST_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(1000),
+
   /** Hard cap on the ingest request body, in bytes. Spec: 1 MB. */
   INGEST_BODY_LIMIT_BYTES: z.coerce
     .number()
