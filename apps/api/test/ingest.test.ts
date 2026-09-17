@@ -304,3 +304,12 @@ describe("GET /ingest/report", () => {
     expect(res.json().totals.distinctEmpIds).toBe(2);
   });
 });
+
+describe("the root", () => {
+  it("says what this is instead of a platform 404", async () => {
+    const res = await h.app.server.inject({ method: "GET", url: "/" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ service: "attendance-api", ok: true });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+});

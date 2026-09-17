@@ -103,6 +103,16 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   const cookies: CookieContext = { secure: config.NODE_ENV === "production" };
 
   server.get("/healthz", async () => ({ ok: true }));
+  // The root is where a person lands when they type the host in. It says
+  // what this is and where to look, rather than a platform 404.
+  server.get("/", async (_req, reply) =>
+    reply.header("cache-control", "no-store").send({
+      service: "attendance-api",
+      ok: true,
+      health: "/healthz",
+      note: "The API has no pages; the register is served by the web app.",
+    }),
+  );
 
   await server.register(authRoutes, { auth, cookies });
   await server.register(ingestRoutes, {
