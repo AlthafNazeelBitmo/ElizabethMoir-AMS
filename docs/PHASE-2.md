@@ -109,10 +109,11 @@ nonsense value falls back per field rather than crashing the processor.
 - **The timezone default is provisional.** `Asia/Colombo` comes from the
   ADMS reconnaissance, not from the feed. Until the report confirms it, no
   late or absent figure should be quoted to the school.
-- **Vercel's Hobby plan runs cron once a day**, not every five minutes as
-  configured. The inline trigger after ingest covers the normal case, so
-  this only matters for recovering missed work — but it is another reason
-  the interim deployment is interim.
+- **Vercel's Hobby plan runs cron once a day** — and, it turned out,
+  refuses to deploy a `vercel.json` that asks for more, rather than
+  degrading it. The cron is now daily and every invocation sweeps instead
+  (see `serverless.ts`), which keeps the register current while anyone is
+  looking at it. Another reason the interim deployment is interim.
 - **Load has not been tested.** The specification's 5,000 events in 60
   seconds belongs to Phase 7 and needs a real deployment.
 - **The dead-letter queue and replay UI** are Phase 6. Today a failed

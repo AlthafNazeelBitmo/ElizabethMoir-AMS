@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { waitUntil } from "@vercel/functions";
 import { buildApp, type App } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
@@ -12,8 +13,21 @@ import { createDb } from "./db/client.js";
  * database is unreachable and the instance is recycled before the next
  * request, the spooled delivery is gone. Acceptable for discovery, not for
  * production. See docs/DEPLOY-VERCEL.md.
+ *
+ * There is no process to hold the five-minute interval the long-running
+ * deployment uses, and the platform's free plan only runs a cron once a
+ * day. So every invocation stands in for the interval: at most once a
+ * minute per instance it drains the spool, processes anything left pending
+ * and marks the day's absences, kept alive past the response by the
+ * platform rather than frozen with it. Any traffic at all — a register
+ * open on a desk, a reader posting a scan — keeps the register current;
+ * the daily cron is the floor for a day nobody looked.
  */
 let appPromise: Promise<App> | undefined;
+
+/** How often an instance sweeps. A minute is the long-running cadence's spirit. */
+const SWEEP_INTERVAL_MS = 60_000;
+let lastSweepAt = 0;
 
 function getApp(): Promise<App> {
   if (!appPromise) {
@@ -39,6 +53,27 @@ function getApp(): Promise<App> {
   return appPromise;
 }
 
+function sweepIfDue(app: App): void {
+  const now = Date.now();
+  if (now - lastSweepAt < SWEEP_INTERVAL_MS) return;
+  lastSweepAt = now;
+  const work = (async () => {
+    await app.store.drainSpool();
+    await app.processor.processPending();
+    await app.processor.markAbsencesForToday();
+  })().catch((err: unknown) => {
+    // A failed sweep is retried by the next one; it must never take the
+    // request that triggered it down with it.
+    console.error(
+      "[sweep] failed:",
+      err instanceof Error ? err.message : String(err),
+    );
+  });
+  // Without this the platform freezes the instance as soon as the response
+  // is sent, and the work is left half done until the next thaw.
+  waitUntil(work);
+}
+
 export default async function handler(
   req: IncomingMessage,
   res: ServerResponse,
@@ -61,6 +96,6 @@ export default async function handler(
     res.end("Service is misconfigured. See the deployment's function logs.\n");
     return;
   }
-  void app.store.drainSpool();
+  sweepIfDue(app);
   app.server.server.emit("request", req, res);
 }

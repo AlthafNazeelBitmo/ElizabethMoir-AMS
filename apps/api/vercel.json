@@ -18,7 +18,7 @@
   "crons": [
     {
       "path": "/internal/process",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 4 * * *"
     }
   ]
 }
