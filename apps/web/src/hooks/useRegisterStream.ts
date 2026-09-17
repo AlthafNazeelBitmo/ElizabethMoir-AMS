@@ -9,7 +9,8 @@ import type { RegisterRow } from "../lib/api.js";
  * the stream drops, the user is told, and told what time the data is from.
  */
 
-export type ConnectionState = "connecting" | "live" | "reconnecting";
+/** `idle`: nothing to stream — a past date is settled and cannot change. */
+export type ConnectionState = "idle" | "connecting" | "live" | "reconnecting";
 
 export interface ScanEventPayload extends RegisterRow {
   type: "scan";
@@ -46,7 +47,14 @@ export function useRegisterStream({
   onResyncRef.current = onResync;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      // Leaving the last state in place would show "Live" over a settled
+      // day after switching the date, which is precisely the lie this
+      // indicator exists to prevent.
+      setState("idle");
+      return;
+    }
+    setState("connecting");
 
     let source: EventSource | null = null;
     let retryTimer: number | undefined;

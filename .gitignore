@@ -25,3 +25,7 @@ backups/
 *.dump
 *.dump.age
 *.dump.gpg
+
+# Playwright output
+apps/web/test-results/
+apps/web/playwright-report/

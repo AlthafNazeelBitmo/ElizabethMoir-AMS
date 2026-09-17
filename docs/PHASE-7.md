@@ -96,15 +96,43 @@ version; drizzle-kit still generates migrations, and the audit is clean.
   `scripts/restore.sh` is written and syntax-checked but has never run.
   **This is the outstanding item on the phase gate**, and it is the first
   thing to do once the school's server exists.
-- **No Playwright end-to-end tests.** The specification asks for them. The
-  flows they would cover (both roles' navigation, a scan appearing live,
-  filters surviving a reload, a manual adjustment writing an audit entry)
-  have each been driven by hand in a browser and are covered at the API
-  level, but that is not the same thing and I am not going to claim it is.
+- ~~No Playwright end-to-end tests.~~ Added after the phase closed; see
+  "End-to-end tests" below.
 - **The load figures are from PGlite, not production.** A real measurement
   against the deployed system is worth taking on the first quiet evening.
 - **Nothing here has met a real scan.** Still true, and still the largest
   open risk in the project.
+
+## End-to-end tests
+
+Added after the rest of the phase, and the last item in the specification's
+§12 that could be done on this machine. Seven tests in `apps/web/e2e/` drive
+the real front end in Chromium against the demo server — the whole
+application on an in-process Postgres, seeded — with nothing mocked. They
+cover exactly what §12 asks for:
+
+- **Both roles' navigation**, checked two ways: what the page shows, and
+  what the API answers when the student-only session asks it directly for
+  staff (`branch=staff` → no rows; `/api/admin/*` → 403). A hidden link is
+  a courtesy; the second check is the control.
+- **A scan appearing without a refresh** — and "without a refresh" is
+  asserted, not assumed: the test counts requests to the register endpoint
+  after the scan is posted and requires none. The row has to change because
+  the stream delivered it.
+- **Filters surviving a reload**, from the URL alone: group, status and
+  search are set, the page is reloaded, and the select, the search box, the
+  rail highlight, the counter tile and the rows must all come back.
+- **A manual correction writing an audit entry**, read back through the
+  admin screen and then through the API's own filter.
+
+Writing them found one real defect: switching the register from today to a
+past date closed the stream but left the indicator saying **Live**. It now
+says **Not live** for a settled day, which is what that indicator is for.
+
+They run one at a time against one shared demo process, so each test uses
+people the others do not touch; that is stated in the config and in the
+helpers, where the next person will look. In CI they are their own job, so
+the browser download never slows the unit tests.
 
 ## What remains before the school can rely on this
 

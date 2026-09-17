@@ -7,9 +7,11 @@ them as a live register with separate student and staff views.
 The build specification is held privately and is not in this repository.
 Progress and per-phase notes are in `docs/`.
 
-**Phase 0 — discovery harness:** built, deployed to Vercel, awaiting a
-school day of data. See `docs/PHASE-0.md`.
-**Phase 1 — schema, auth, RBAC:** built. See `docs/PHASE-1.md`.
+All seven phases are built; `docs/PHASE-0.md` through `docs/PHASE-7.md`
+record what each did, what it chose where the specification left room, and
+what it could not verify. What remains needs the school: a discovery day of
+real scans, the real directory spreadsheet, and a restore rehearsal on the
+real server. `docs/OPERATIONS.md` is the runbook.
 
 ## Layout
 
@@ -44,6 +46,9 @@ pnpm --filter @ams/web dev      # the web app on http://localhost:5173
 pnpm typecheck
 pnpm test                       # every test; needs no database or Docker
 pnpm test:load                  # load and throughput, run on their own
+pnpm e2e:install                # once: the Chromium build Playwright drives
+pnpm e2e                        # the front end in a real browser, against
+                                # the demo server — starts both itself
 pnpm audit                      # fails on a high-severity advisory
 pnpm build                      # compiles packages/shared then apps/api to dist/
 
@@ -63,6 +68,13 @@ The API applies pending migrations on boot; nothing is ever applied by hand.
 Tests run against PGlite — real Postgres compiled to WebAssembly, in-process,
 a fresh database per suite. They apply the committed migrations, so the suite
 also checks the migration SQL. No Docker required to run `pnpm test`.
+
+The end-to-end suite (`apps/web/e2e/`) drives the built front end in
+Chromium against the seeded demo server, with nothing mocked. It uses ports
+3100 and 5200 so it never collides with a running `pnpm dev`; override with
+`E2E_API_PORT` / `E2E_WEB_PORT`. If the system drive is short of space,
+`PLAYWRIGHT_BROWSERS_PATH` moves the browser cache elsewhere — set it for
+both `pnpm e2e:install` and `pnpm e2e`.
 
 ## Deploy
 

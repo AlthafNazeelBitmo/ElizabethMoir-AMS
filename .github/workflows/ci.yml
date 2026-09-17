@@ -40,6 +40,44 @@ jobs:
       - name: Load and throughput
         run: pnpm test:load
 
+  # The front end driven by a real browser against the real API on an
+  # in-process Postgres. Nothing is mocked. Its own job so a browser
+  # download never slows the unit tests down.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @ams/shared build
+
+      - name: Install Chromium
+        run: pnpm --filter @ams/web exec playwright install --with-deps chromium
+
+      - name: End-to-end
+        run: pnpm e2e
+
+      - name: Keep the failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/web/test-results/
+          retention-days: 7
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

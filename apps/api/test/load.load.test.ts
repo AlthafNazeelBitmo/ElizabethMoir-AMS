@@ -28,7 +28,7 @@ import {
  * fails for that reason teaches people to ignore failures.
  */
 
-const DEVICE = "DEMO000000001";
+const DEVICE = "TEST000000001";
 
 let h: TestHarness;
 

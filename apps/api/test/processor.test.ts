@@ -23,7 +23,7 @@ import {
  *
  * Times are Colombo local, as the feed sends them. 07:30 local is 02:00 UTC.
  */
-const GATE = "DEMO000000001";
+const GATE = "TEST000000001";
 const SCHOOL_DAY = "2026-09-16";
 
 let h: TestHarness;

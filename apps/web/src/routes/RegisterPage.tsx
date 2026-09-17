@@ -13,6 +13,7 @@ import {
 } from "../components/primitives.js";
 import {
   useRegisterStream,
+  type ConnectionState,
   type ScanEventPayload,
 } from "../hooks/useRegisterStream.js";
 import {
@@ -420,6 +421,7 @@ function RailSection({
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "true" : undefined}
       className={`block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide ${
         active ? "text-brand-700" : "text-neutral-500 hover:text-neutral-700"
       }`}
@@ -445,6 +447,7 @@ function RailItem({
   return (
     <button
       onClick={onClick}
+      aria-current={active ? "true" : undefined}
       className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
         active
           ? "bg-brand-50 font-medium text-brand-700"
@@ -463,10 +466,11 @@ function ConnectionIndicator({
   state,
   lastContactAt,
 }: {
-  state: "connecting" | "live" | "reconnecting";
+  state: ConnectionState;
   lastContactAt: Date | null;
 }) {
   const presentation = {
+    idle: { dot: "bg-neutral-300", label: "Not live" },
     live: { dot: "bg-brand-600", label: "Live" },
     connecting: { dot: "bg-neutral-400", label: "Connecting" },
     reconnecting: { dot: "bg-status-late", label: "Reconnecting" },

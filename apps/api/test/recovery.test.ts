@@ -22,7 +22,7 @@ import {
  * The load measurements live in load.load.test.ts.
  */
 
-const DEVICE = "DEMO000000001";
+const DEVICE = "TEST000000001";
 
 let h: TestHarness;
 

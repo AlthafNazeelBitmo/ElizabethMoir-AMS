@@ -8,7 +8,7 @@ import {
   type DirectionContext,
 } from "../src/domain/direction.js";
 
-const GATE = "DEMO000000001";
+const GATE = "TEST000000001";
 const ENTRY_DOOR = "ENTRY-1";
 const EXIT_DOOR = "EXIT-1";
 
