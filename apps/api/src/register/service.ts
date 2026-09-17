@@ -239,6 +239,8 @@ export class RegisterService {
         branch: groups.branch,
         groupId: groups.id,
         groupName: groups.name,
+        groupOrder: groups.displayOrder,
+        groupActive: groups.isActive,
         expectsAttendance: groups.expectsAttendance,
         groupLateThreshold: groups.lateThreshold,
         tutorInitials: tutors.initials,
@@ -265,6 +267,7 @@ export class RegisterService {
         groupId: number;
         name: string;
         branch: Branch;
+        order: number;
         onSite: number;
         total: number;
       }
@@ -272,10 +275,13 @@ export class RegisterService {
     for (const raw of rows) {
       if (raw.groupId === null || raw.branch === null || raw.groupName === null)
         continue;
+      // A deactivated group leaves the rail; its people stay in the register.
+      if (!raw.groupActive) continue;
       const entry = byGroup.get(raw.groupId) ?? {
         groupId: raw.groupId,
         name: raw.groupName,
         branch: raw.branch,
+        order: raw.groupOrder ?? 0,
         onSite: 0,
         total: 0,
       };
@@ -284,7 +290,11 @@ export class RegisterService {
       if (row.status === "on_site") entry.onSite += 1;
       byGroup.set(raw.groupId, entry);
     }
-    return [...byGroup.values()].sort((a, b) => a.name.localeCompare(b.name));
+    // In the order the school chose, so "Form 10" does not sit between
+    // "Form 1" and "Form 2"; the name only breaks ties.
+    return [...byGroup.values()]
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+      .map(({ order: _order, ...group }) => group);
   }
 
   /** One person, for the side panel. Role-scoped: 404 rather than 403. */

@@ -11,6 +11,7 @@ import {
   calendarDays,
   groups,
   people,
+  settings,
   tutors,
   users,
 } from "../db/schema/index.js";
@@ -52,6 +53,12 @@ async function main(): Promise<void> {
     PORT: process.env["PORT"] ?? "3000",
     ...process.env,
   });
+
+  // The name is a setting, so the demo sets it the way a school would.
+  await db
+    .insert(settings)
+    .values({ key: "school_name", value: "Demonstration School" })
+    .onConflictDoNothing();
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
   await db.insert(users).values([

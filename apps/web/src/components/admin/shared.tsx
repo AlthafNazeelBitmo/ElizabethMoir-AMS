@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { ApiError } from "../../lib/api.js";
 
+export { formatDateTime } from "../../lib/format.js";
+
 /** Chrome shared by the admin sections, so each one reads the same way. */
 export function Section({
   title,
@@ -111,16 +113,4 @@ export function OneTimePassword({
       </button>
     </div>
   );
-}
-
-export function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "—"
-    : new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Colombo",
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(date);
 }

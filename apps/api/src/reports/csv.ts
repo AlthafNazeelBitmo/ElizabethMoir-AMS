@@ -1,4 +1,4 @@
-import type { AttendanceReport } from "./service.js";
+import type { AttendanceReport, PersonReport } from "./service.js";
 import { formatArrival } from "./service.js";
 
 /**
@@ -102,5 +102,75 @@ export function attendanceReportToCsv(
 
   // CRLF and a byte-order mark: what Excel expects, and without the mark it
   // renders non-ASCII names as mojibake.
+  return `﻿${lines.join("\r\n")}\r\n`;
+}
+
+/**
+ * One person's days as a file. Times are written as the school's wall
+ * clock, since that is what a parent or a head of year will read them as.
+ */
+export function personReportToCsv(
+  report: PersonReport,
+  context: CsvContext & { timezone: string },
+): string {
+  const lines: string[] = [];
+  const { person, summary } = report;
+
+  lines.push(csvRow(["Attendance report"]));
+  lines.push(csvRow([person.fullName, person.enrollNo]));
+  lines.push(
+    csvRow([
+      [person.groupName, person.tutorInitials && `Tutor ${person.tutorInitials}`]
+        .filter(Boolean)
+        .join(" · "),
+    ]),
+  );
+  lines.push(csvRow([`${report.from} to ${report.to}`]));
+  lines.push(csvRow([`School days in range: ${report.schoolDaysInRange}`]));
+  lines.push(
+    csvRow([
+      summary
+        ? `Present ${summary.daysPresent} · Absent ${summary.daysAbsent} · Late ${summary.lateCount} · Attendance ${summary.attendancePercentage ?? "—"}% · Average arrival ${formatArrival(summary.averageArrivalSeconds) || "—"}`
+        : "No days expected in this range",
+    ]),
+  );
+  lines.push(csvRow([context.filtersDescription]));
+  lines.push(csvRow([`Generated ${context.generatedAt.toISOString()}`]));
+  lines.push("");
+
+  lines.push(
+    csvRow([
+      "Date",
+      "Status",
+      "First in",
+      "Last out",
+      "Late",
+      "Scans",
+      "Corrected by hand",
+    ]),
+  );
+
+  const wallClock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: context.timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const clock = (value: Date | null) => (value ? wallClock.format(value) : "");
+
+  for (const day of report.days) {
+    lines.push(
+      csvRow([
+        day.date,
+        day.status,
+        clock(day.firstIn),
+        clock(day.lastOut),
+        day.isLate ? "yes" : "",
+        day.scanCount,
+        day.hasManualEdit ? "yes" : "",
+      ]),
+    );
+  }
+
   return `﻿${lines.join("\r\n")}\r\n`;
 }

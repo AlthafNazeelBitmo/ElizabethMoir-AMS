@@ -6,7 +6,13 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 import { api, ApiError, type CurrentUser } from "./lib/api.js";
+import {
+  configureSchool,
+  schoolName,
+  type SchoolProfile,
+} from "./lib/format.js";
 import { Button } from "./components/primitives.js";
 
 /**
@@ -26,7 +32,25 @@ export function App() {
     retry: false,
   });
 
-  if (isPending) {
+  // The school's name and timezone, before anything that formats a time
+  // renders. Every page reads them through `format.ts`, so this is loaded
+  // once here rather than by each page in turn.
+  const school = useQuery({
+    queryKey: ["school"],
+    queryFn: () => api.get<SchoolProfile>("/api/school"),
+    enabled: !!data,
+    staleTime: 5 * 60_000,
+  });
+  // Applied during render, deliberately: the gate below keeps every child
+  // unrendered until this has run, so no page ever formats a time with the
+  // fallback and then re-renders with the real zone.
+  if (school.data) configureSchool(school.data);
+
+  useEffect(() => {
+    if (school.data) document.title = `${schoolName()} — Attendance`;
+  }, [school.data]);
+
+  if (isPending || (data && school.isPending)) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-neutral-500">Checking your session…</p>
@@ -34,8 +58,9 @@ export function App() {
     );
   }
 
-  if (isError) {
-    const unauthorised = error instanceof ApiError && error.status === 401;
+  if (isError || school.isError) {
+    const failure = isError ? error : school.error;
+    const unauthorised = failure instanceof ApiError && failure.status === 401;
     if (unauthorised)
       return (
         <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -49,7 +74,7 @@ export function App() {
     );
   }
 
-  const user = data.user;
+  const user = data!.user;
 
   // A forced password change blocks everything else, deliberately.
   if (user.mustChangePassword && location.pathname !== "/change-password") {
@@ -70,7 +95,7 @@ export function App() {
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 items-center gap-6 border-b border-neutral-200 bg-white px-4 py-2">
         <span className="text-sm font-semibold tracking-tight text-brand-700">
-          Attendance
+          {schoolName()}
         </span>
 
         <nav className="flex items-center gap-1" aria-label="Main">

@@ -308,6 +308,60 @@ describe("GET /api/register/summary", () => {
     );
     expect(form1).toMatchObject({ total: 2, onSite: 1 });
   });
+
+  it("lists groups in the school's display order, not alphabetically", async () => {
+    const [form1] = await h.db.db
+      .select()
+      .from(groups)
+      .where(eq(groups.name, "Form 1"));
+    const [form10] = await h.db.db
+      .insert(groups)
+      .values({ name: "Form 10", branch: "student", displayOrder: 10 })
+      .returning();
+    const [form2] = await h.db.db
+      .insert(groups)
+      .values({ name: "Form 2", branch: "student", displayOrder: 2 })
+      .returning();
+    await h.db.db.insert(people).values([
+      { enrollNo: "11101", fullName: "Ten", groupId: form10!.id },
+      { enrollNo: "11102", fullName: "Two", groupId: form2!.id },
+    ]);
+    // Order the school's way: 1, 2, 10. Alphabetically it would be 1, 10, 2.
+    await h.db.db
+      .update(groups)
+      .set({ displayOrder: 1 })
+      .where(eq(groups.id, form1!.id));
+
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(
+      body.groups
+        .filter((g: { branch: string }) => g.branch === "student")
+        .map((g: { name: string }) => g.name),
+    ).toEqual(["Form 1", "Form 2", "Form 10"]);
+  });
+
+  it("drops a deactivated group from the rail but keeps its people", async () => {
+    const [form1] = await h.db.db
+      .select()
+      .from(groups)
+      .where(eq(groups.name, "Form 1"));
+    await h.db.db
+      .update(groups)
+      .set({ isActive: false })
+      .where(eq(groups.id, form1!.id));
+
+    const summary = (
+      await get(`/api/register/summary?date=${DATE}`, full)
+    ).json();
+    expect(
+      summary.groups.some((g: { name: string }) => g.name === "Form 1"),
+    ).toBe(false);
+
+    const live = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(
+      live.rows.some((r: { enrollNo: string }) => r.enrollNo === "11007"),
+    ).toBe(true);
+  });
 });
 
 describe("person detail", () => {

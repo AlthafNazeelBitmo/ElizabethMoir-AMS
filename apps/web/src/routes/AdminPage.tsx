@@ -5,6 +5,7 @@ import { AdminCalendar } from "../components/admin/AdminCalendar.js";
 import { AdminAudit } from "../components/admin/AdminAudit.js";
 import { AdminFailures } from "../components/admin/AdminFailures.js";
 import { AdminDirectory } from "../components/admin/AdminDirectory.js";
+import { AdminGroups } from "../components/admin/AdminGroups.js";
 import { AdminDevices } from "../components/admin/AdminDevices.js";
 import { AdminUnknownIds } from "../components/admin/AdminUnknownIds.js";
 
@@ -19,6 +20,7 @@ import { AdminUnknownIds } from "../components/admin/AdminUnknownIds.js";
 
 const SECTIONS = [
   { id: "directory", label: "People", element: <AdminDirectory /> },
+  { id: "groups", label: "Groups", element: <AdminGroups /> },
   { id: "unknown", label: "Unknown IDs", element: <AdminUnknownIds /> },
   { id: "devices", label: "Devices", element: <AdminDevices /> },
   { id: "calendar", label: "Calendar", element: <AdminCalendar /> },

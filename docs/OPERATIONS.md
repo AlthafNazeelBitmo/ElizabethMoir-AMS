@@ -54,20 +54,26 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
 
 ## First-week checklist
 
-1. **Set the calendar.** Admin → Calendar. Until a date is marked a school
+1. **Name the school.** Admin → Rules → School name. It is printed on
+   every report and shown in the title bar; until it is set, they say
+   "School".
+2. **Set the calendar.** Admin → Calendar. Until a date is marked a school
    day, nobody can be absent on it — so absence reporting says nothing
    until this is done. Set the term as weekdays, then carve out holidays.
-2. **Import the directory.** Admin → People, or from a checkout:
-   `pnpm --filter @ams/api import-directory people.csv --confirm`.
-3. **Name the readers.** Admin → Devices. If a reader is mounted so that
+3. **Import the directory.** Admin → People, or from a checkout:
+   `pnpm --filter @ams/api import-directory people.csv --confirm`. Groups
+   named in the file are created as it loads; tidy them afterwards under
+   Admin → Groups — the order they appear in, which ones expect attendance
+   (contractors do not), and any group with its own late threshold.
+4. **Name the readers.** Admin → Devices. If a reader is mounted so that
    everyone passing it is arriving, set it to _Entry only_ — that makes
    every direction from it certain instead of inferred.
-4. **Confirm the timezone.** Admin → Rules. It is set to `Asia/Colombo`
+5. **Confirm the timezone.** Admin → Rules. It is set to `Asia/Colombo`
    from evidence, not from the feed. Check it against the discovery report
    before quoting any late or absent figure to anybody.
-5. **Fill in the allowlist.** Once the report shows which addresses the
+6. **Fill in the allowlist.** Once the report shows which addresses the
    platform posts from, put them in `INGEST_ALLOWED_IPS` and restart.
-6. **Take a backup and restore it** (below). A backup nobody has restored
+7. **Take a backup and restore it** (below). A backup nobody has restored
    is a hope, not a backup.
 
 ## Backups
@@ -131,6 +137,13 @@ under ADMS → System → Webhook, and the `INGEST_ALLOWED_IPS` setting.
 **A time is wrong for one person.** Open them in the register, press
 _Correct_, and give a reason. The correction is recorded against your name
 and survives recomputation.
+
+**A parent asks for their child's record.** Reports → the child's name →
+Print, or Export CSV. The file is named by enrolment number, not by name.
+
+**Somebody asks who changed something.** Admin → Audit log, filter by
+action or date, and Export CSV if they want to take it away. The export is
+itself logged.
 
 **Every time is wrong by the same amount.** That is the timezone. Admin →
 Rules. Scans keep the time exactly as transmitted, so fixing the setting

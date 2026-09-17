@@ -6,6 +6,7 @@ import { App } from "./App.js";
 import { LoginPage } from "./routes/LoginPage.js";
 import { RegisterPage } from "./routes/RegisterPage.js";
 import { ReportsPage } from "./routes/ReportsPage.js";
+import { PersonReportPage } from "./routes/PersonReportPage.js";
 import { AdminPage } from "./routes/AdminPage.js";
 import { ChangePasswordPage } from "./routes/ChangePasswordPage.js";
 import "./index.css";
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { index: true, element: <Navigate to="/register" replace /> },
       { path: "register", element: <RegisterPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "reports/person/:id", element: <PersonReportPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "change-password", element: <ChangePasswordPage /> },
     ],

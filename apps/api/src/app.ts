@@ -20,6 +20,7 @@ import { RegisterBroadcaster } from "./register/broadcaster.js";
 import { registerRoutes } from "./register/routes.js";
 import { RegisterService } from "./register/service.js";
 import { reportRoutes } from "./reports/routes.js";
+import { schoolRoutes } from "./school/routes.js";
 import { ReportService } from "./reports/service.js";
 import { ScanProcessor } from "./processing/processor.js";
 import { SettingsService } from "./settings/service.js";
@@ -131,7 +132,8 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   await server.register(discoveryRoutes, { config, db });
   await server.register(processingRoutes, { config, processor });
   await server.register(registerRoutes, { db, auth, cookies, register, broadcaster });
-  await server.register(reportRoutes, { db, auth, cookies, reports });
+  await server.register(schoolRoutes, { auth, cookies, settings });
+  await server.register(reportRoutes, { db, auth, cookies, reports, settings });
   await server.register(adminRoutes, {
     db,
     auth,

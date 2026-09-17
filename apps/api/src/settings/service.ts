@@ -21,6 +21,8 @@ import {
  * run can actually establish.
  */
 export interface AttendanceSettings {
+  /** Printed on reports and shown in the title bar. */
+  schoolName: string;
   timezone: string;
   lateThresholdDefault: TimeOfDay | null;
   duplicateWindowSeconds: number;
@@ -32,6 +34,7 @@ export interface AttendanceSettings {
 }
 
 export const SETTING_KEYS = {
+  schoolName: "school_name",
   timezone: "timezone",
   lateThresholdDefault: "late_threshold_default",
   duplicateWindowSeconds: "duplicate_window_seconds",
@@ -40,7 +43,13 @@ export const SETTING_KEYS = {
   absenceDecidedAfter: "absence_decided_after",
 } as const;
 
+/** The longest a school name may be. Long enough for any real one. */
+export const SCHOOL_NAME_MAX_LENGTH = 100;
+
 export const DEFAULT_SETTINGS: AttendanceSettings = {
+  // Deliberately generic: the name is set by the school in Admin → Rules,
+  // and a report printed before that says so rather than guessing.
+  schoolName: "School",
   // Provisional: the reader's transaction times read as Sri Lanka local
   // time. Must be confirmed against the discovery report.
   timezone: "Asia/Colombo",
@@ -114,6 +123,9 @@ export class SettingsService {
 /** Turns stored JSON into settings, falling back per field rather than wholesale. */
 export function coerce(byKey: Map<string, unknown>): AttendanceSettings {
   return {
+    schoolName:
+      asSchoolName(byKey.get(SETTING_KEYS.schoolName)) ??
+      DEFAULT_SETTINGS.schoolName,
     timezone:
       asTimeZone(byKey.get(SETTING_KEYS.timezone)) ?? DEFAULT_SETTINGS.timezone,
     lateThresholdDefault:
@@ -132,6 +144,15 @@ export function coerce(byKey: Map<string, unknown>): AttendanceSettings {
       asTimeOfDay(byKey.get(SETTING_KEYS.absenceDecidedAfter)) ??
       DEFAULT_SETTINGS.absenceDecidedAfter,
   };
+}
+
+/** A non-empty string within the limit, trimmed; anything else is refused. */
+export function asSchoolName(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed.length > 0 && trimmed.length <= SCHOOL_NAME_MAX_LENGTH
+    ? trimmed
+    : null;
 }
 
 function asTimeZone(v: unknown): string | null {

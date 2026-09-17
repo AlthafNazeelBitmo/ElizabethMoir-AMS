@@ -23,8 +23,11 @@ export const AUDIT_ACTIONS = [
   "csv_import",
   "manual_adjustment",
   "device_configured",
+  "group_created",
+  "group_modified",
   "attendance_rule_changed",
   "report_export",
+  "audit_export",
   "dead_letter_replay",
 ] as const;
 

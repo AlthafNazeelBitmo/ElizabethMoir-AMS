@@ -571,6 +571,104 @@ describe("groups", () => {
     expect(await h.db.db.select().from(groups)).toHaveLength(3);
   });
 
+  async function importTheFile() {
+    const preview = (await upload("/api/admin/people/import", FILE)).json();
+    await upload("/api/admin/people/import/confirm", FILE, {
+      "x-plan-hash": preview.planHash,
+    });
+  }
+
+  it("says how many people each group holds", async () => {
+    await importTheFile();
+    const body = (await get("/api/admin/groups")).json();
+    const form1 = body.groups.find((g: { name: string }) => g.name === "Form 1");
+    const staff = body.groups.find(
+      (g: { name: string }) => g.name === "Junior Staff",
+    );
+    expect(form1.peopleCount).toBe(2);
+    expect(staff.peopleCount).toBe(1);
+  });
+
+  it("refuses a second group with the same name, whatever the case", async () => {
+    const res = await post("/api/admin/groups", {
+      name: "form 1",
+      branch: "student",
+      displayOrder: 9,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().message).toMatch(/already a group called/);
+    expect(await h.db.db.select().from(groups)).toHaveLength(2);
+  });
+
+  it("records who created a group", async () => {
+    await post("/api/admin/groups", {
+      name: "Upper 6",
+      branch: "student",
+      displayOrder: 7,
+    });
+    const entries = await h.db.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "group_created"));
+    expect(entries).toHaveLength(1);
+    expect((entries[0]!.after as { name: string }).name).toBe("Upper 6");
+  });
+
+  it("refuses to move a group with people in it to the other branch", async () => {
+    // A staff group becoming a student group would put its members in
+    // front of every student-only account. That is not an edit.
+    await importTheFile();
+    const [staff] = await h.db.db
+      .select()
+      .from(groups)
+      .where(eq(groups.name, "Junior Staff"));
+    const res = await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/groups/${staff!.id}`,
+      payload: { branch: "student" },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toBe("group_has_people");
+
+    // An empty group may be moved, because nobody's visibility changes.
+    const created = (
+      await post("/api/admin/groups", {
+        name: "Empty",
+        branch: "student",
+        displayOrder: 20,
+      })
+    ).json().group;
+    const moved = await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/groups/${created.id}`,
+      payload: { branch: "staff" },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(moved.statusCode).toBe(200);
+    expect(moved.json().group.branch).toBe("staff");
+  });
+
+  it("records a change with what it was before", async () => {
+    const [group] = await h.db.db
+      .select()
+      .from(groups)
+      .where(eq(groups.name, "Form 1"));
+    await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/groups/${group!.id}`,
+      payload: { expectsAttendance: false },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    const [entry] = await h.db.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "group_modified"));
+    expect(entry).toBeDefined();
+    expect((entry!.before as { expectsAttendance: boolean }).expectsAttendance).toBe(true);
+    expect((entry!.after as { expectsAttendance: boolean }).expectsAttendance).toBe(false);
+  });
+
   it("renames a group without a deploy", async () => {
     const [group] = await h.db.db
       .select()

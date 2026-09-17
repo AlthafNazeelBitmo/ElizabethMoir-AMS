@@ -13,6 +13,8 @@ export const DEMO = {
   timezone: "Asia/Colombo",
   /** Students 11000–11054 arrive in the seed; 11055–11089 have no scans. */
   seededStudent: "11001",
+  /** Left untouched by the correction test, so its day reads as seeded. */
+  reportStudent: "11002",
   unscannedStudent: "11060",
 } as const;
 

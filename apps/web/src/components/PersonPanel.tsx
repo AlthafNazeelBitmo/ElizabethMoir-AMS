@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   api,
   ApiError,
@@ -127,9 +128,17 @@ export function PersonPanel({
         {today && <ManualAdjustment dayRecord={today} onChanged={onChanged} />}
 
         <section className="mb-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-            Last 30 days
-          </h3>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Last 30 days
+            </h3>
+            <Link
+              to={`/reports/person/${personId}?from=${from}&to=${date}`}
+              className="text-xs text-brand-700 hover:underline"
+            >
+              Full report
+            </Link>
+          </div>
           <History days={history.data?.days ?? []} />
         </section>
       </div>

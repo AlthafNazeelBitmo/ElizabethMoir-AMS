@@ -363,6 +363,83 @@ describe("role isolation on reports", () => {
   });
 });
 
+describe("GET /api/reports/person/:id", () => {
+  async function annId(): Promise<string> {
+    const [ann] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "11007"));
+    return ann!.id;
+  }
+
+  it("agrees with the school-wide report to the digit", async () => {
+    await seedAWeek();
+    const id = await annId();
+    const person = (
+      await get(`/api/reports/person/${id}?from=${FROM}&to=${TO}`)
+    ).json();
+    const whole: AttendanceReport = (
+      await get(`/api/reports/attendance?from=${FROM}&to=${TO}`)
+    ).json();
+
+    expect(person.person.enrollNo).toBe("11007");
+    expect(person.from).toBe(FROM);
+    expect(person.to).toBe(TO);
+    expect(person.schoolDaysInRange).toBe(5);
+    expect(person.summary).toEqual(
+      whole.rows.find((r) => r.enrollNo === "11007"),
+    );
+    expect(person.days).toHaveLength(5);
+    // Nobody tapped out, so each present day stays "on site" — the system
+    // does not invent a departure it never saw.
+    expect(person.days.map((d: { status: string }) => d.status)).toEqual([
+      "on_site",
+      "on_site",
+      "on_site",
+      "absent",
+      "absent",
+    ]);
+  });
+
+  it("exports one person's days as CSV, named by number rather than by name", async () => {
+    await seedAWeek();
+    const id = await annId();
+    const res = await get(
+      `/api/reports/person/${id}?from=${FROM}&to=${TO}&format=csv`,
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/csv/);
+    expect(res.headers["content-disposition"]).toContain(
+      `attendance-11007-${FROM}-to-${TO}.csv`,
+    );
+    expect(res.headers["content-disposition"]).not.toContain("Ann");
+
+    expect(res.body).toContain('"Ann Perera","11007"');
+    expect(res.body).toContain("School days in range: 5");
+    expect(res.body).toContain("Present 3");
+    // The school's wall clock, not UTC: 07:30 Colombo is 02:00 UTC.
+    expect(res.body).toContain('"2026-09-14","on_site","07:30"');
+    expect(res.body).toContain('"2026-09-16","on_site","08:50","","yes"');
+    expect(res.body).toContain('"2026-09-17","absent",""');
+
+    const entries = await h.db.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "report_export"));
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.entity).toBe("person_report");
+  });
+
+  it("refuses a range that is too long, like the main report", async () => {
+    const id = await annId();
+    const res = await get(
+      `/api/reports/person/${id}?from=2020-01-01&to=2026-09-20`,
+    );
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe("range_too_long");
+  });
+});
+
 describe("CSV export", () => {
   it("is served as a download with a descriptive filename", async () => {
     await seedAWeek();

@@ -6,7 +6,8 @@ import { requireSession, type CookieContext } from "../auth/http.js";
 import type { AuthService } from "../auth/service.js";
 import type { Db } from "../db/client.js";
 import { BRANCHES, groups, tutors } from "../db/schema/index.js";
-import { attendanceReportToCsv } from "./csv.js";
+import type { SettingsService } from "../settings/service.js";
+import { attendanceReportToCsv, personReportToCsv } from "./csv.js";
 import type { ReportService } from "./service.js";
 
 export interface ReportRoutesOptions {
@@ -14,6 +15,7 @@ export interface ReportRoutesOptions {
   auth: AuthService;
   cookies: CookieContext;
   reports: ReportService;
+  settings: SettingsService;
 }
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
@@ -32,14 +34,23 @@ const attendanceQuery = z
     path: ["from"],
   });
 
-const personQuery = z.object({ from: dateString, to: dateString });
+const personQuery = z
+  .object({
+    from: dateString,
+    to: dateString,
+    format: z.enum(["json", "csv"]).default("json"),
+  })
+  .refine((value) => value.from <= value.to, {
+    message: "The start date must not be after the end date.",
+    path: ["from"],
+  });
 
 /** A range longer than this is almost certainly a mistake, and is slow. */
 const MAX_RANGE_DAYS = 400;
 
 export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
   app,
-  { db, auth, cookies, reports },
+  { db, auth, cookies, reports, settings },
 ) => {
   const preHandler = [requireSession({ auth, cookies })];
 
@@ -109,11 +120,19 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
           .code(400)
           .send({ error: "invalid_query", message: "Give from and to dates." });
       }
+      const { from, to, format } = parsed.data;
+      if (daysBetween(from, to) > MAX_RANGE_DAYS) {
+        return reply.code(400).send({
+          error: "range_too_long",
+          message: `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`,
+        });
+      }
+
       const result = await reports.person(
         req.auth!.role,
         req.params.id,
-        parsed.data.from,
-        parsed.data.to,
+        from,
+        to,
       );
       // 404 rather than 403: a person this role cannot see does not exist
       // as far as it is concerned.
@@ -122,7 +141,34 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
           .code(404)
           .send({ error: "not_found", message: "No such person." });
       }
-      return reply.send(result);
+      if (format === "json") return reply.send(result);
+
+      await writeAudit(db, req.log, {
+        action: "report_export",
+        userId: req.auth!.userId,
+        entity: "person_report",
+        entityId: result.person.id,
+        after: { from, to, days: result.days.length },
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+
+      const csv = personReportToCsv(result, {
+        filtersDescription: "One person",
+        generatedAt: new Date(),
+        timezone: (await settings.get()).timezone,
+      });
+      // The filename carries the enrolment number, not the name: a file
+      // called after a child is the kind of thing that ends up in a search.
+      return reply
+        .code(200)
+        .header("content-type", "text/csv; charset=utf-8")
+        .header(
+          "content-disposition",
+          `attachment; filename="attendance-${result.person.enrollNo}-${from}-to-${to}.csv"`,
+        )
+        .header("cache-control", "no-store")
+        .send(csv);
     },
   );
 };

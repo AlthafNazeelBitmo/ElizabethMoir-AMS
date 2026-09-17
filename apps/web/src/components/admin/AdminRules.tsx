@@ -6,6 +6,7 @@ import { Problem, Section } from "./shared.js";
 
 interface SettingsResponse {
   settings: {
+    school_name: string;
     timezone: string;
     late_threshold_default: string | null;
     duplicate_window_seconds: number;
@@ -45,6 +46,8 @@ export function AdminRules() {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 3000);
       void queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+      // The shell reads the name and timezone from its own query.
+      void queryClient.invalidateQueries({ queryKey: ["school"] });
     },
   });
 
@@ -71,6 +74,7 @@ export function AdminRules() {
         onSubmit={(e) => {
           e.preventDefault();
           save.mutate({
+            school_name: draft.school_name,
             timezone: draft.timezone,
             late_threshold_default: draft.late_threshold_default,
             duplicate_window_seconds: draft.duplicate_window_seconds,
@@ -80,6 +84,19 @@ export function AdminRules() {
           });
         }}
       >
+        <Field
+          label="School name"
+          hint="Printed at the top of every report and shown in the title bar."
+        >
+          <input
+            className={inputClass}
+            value={draft.school_name}
+            maxLength={100}
+            required
+            onChange={(e) => setDraft({ ...draft, school_name: e.target.value })}
+          />
+        </Field>
+
         <Field
           label="Timezone"
           hint="The readers send times with no offset, so this decides what those times mean. Confirm it against the discovery report before quoting any late or absent figure."

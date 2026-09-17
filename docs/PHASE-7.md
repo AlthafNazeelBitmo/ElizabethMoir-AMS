@@ -134,6 +134,36 @@ people the others do not touch; that is stated in the config and in the
 helpers, where the next person will look. In CI they are their own job, so
 the browser download never slows the unit tests.
 
+## After the phases: four things that were nice to have
+
+Done once the specification's scope was complete, each small, each closing
+something the handover notes had listed as missing:
+
+- **The school's name is a setting** (Admin → Rules), served with the
+  timezone by `GET /api/school` and loaded by the shell before any screen
+  renders. This also removed the last hard-coded timezone from the front
+  end: the rules screen already let an administrator change it, but the
+  pages were formatting every time with a constant. Now they cannot
+  disagree.
+- **Groups have a screen.** Add, rename, reorder, set a late threshold,
+  mark a group as not expecting attendance, deactivate. Every change is
+  audited with its before and after; a name clash is refused
+  case-insensitively; and a group with people in it **cannot be moved
+  between branches**, because that would move its members across the line
+  a student-only account must never see over. The register's rail now
+  follows the display order (so Form 10 no longer sits between Form 1 and
+  Form 2) and drops deactivated groups.
+- **A per-person report page** (`/reports/person/:id`), reached from the
+  school-wide table with the same range, or from the register's side panel.
+  Its figures come from the same query as the main table, narrowed to one
+  person, so they cannot differ from it. Prints, and exports as CSV named by
+  enrolment number rather than by name.
+- **The audit log exports as CSV**, with the same filters as the screen,
+  capped at 20,000 rows with a plain message to narrow the dates beyond
+  that. Exporting the log is itself written to the log.
+
+Seventeen API tests and two end-to-end tests cover them.
+
 ## What remains before the school can rely on this
 
 1. **Run the discovery day.** The timezone is a guess, `CheckingStatus` is

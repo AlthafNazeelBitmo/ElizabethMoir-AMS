@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import {
   Button,
   EmptyState,
@@ -15,7 +15,7 @@ import {
   type GroupCount,
   type SummaryResponse,
 } from "../lib/api.js";
-import { formatDate, SCHOOL_NAME, schoolToday } from "../lib/format.js";
+import { formatDate, schoolName, schoolToday } from "../lib/format.js";
 
 /**
  * Attendance over a range.
@@ -149,7 +149,7 @@ export function ReportsPage() {
     <div className="flex h-full min-h-0 flex-col">
       {/* Printed instead of the controls: the sheet must explain itself. */}
       <div className="hidden print:block print:mb-4">
-        <h1 className="text-lg font-semibold">{SCHOOL_NAME} — attendance report</h1>
+        <h1 className="text-lg font-semibold">{schoolName()} — attendance report</h1>
         <p className="text-sm">
           {formatDate(from)} to {formatDate(to)}
           {report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""}
@@ -355,7 +355,13 @@ export function ReportsPage() {
               {sorted.map((row) => (
                 <tr key={row.personId} className="border-b border-neutral-100">
                   <td className="px-3 py-1.5 text-neutral-800">
-                    {row.fullName}
+                    {/* The same range carries through to the person's page. */}
+                    <Link
+                      to={`/reports/person/${row.personId}?from=${from}&to=${to}`}
+                      className="hover:text-brand-700 hover:underline print:no-underline"
+                    >
+                      {row.fullName}
+                    </Link>
                   </td>
                   <td className="tabular px-3 py-1.5 text-neutral-500">
                     {row.enrollNo}

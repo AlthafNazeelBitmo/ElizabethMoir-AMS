@@ -27,14 +27,25 @@ const PAGE_SIZE = 50;
  */
 export function AdminAudit() {
   const [action, setAction] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  const query = new URLSearchParams({
-    page: String(page),
-    limit: String(PAGE_SIZE),
-  });
-  if (action) query.set("action", action);
+  const filters = new URLSearchParams();
+  if (action) filters.set("action", action);
+  if (from) filters.set("from", from);
+  if (to) filters.set("to", to);
+
+  const query = new URLSearchParams(filters);
+  query.set("page", String(page));
+  query.set("limit", String(PAGE_SIZE));
+
+  // The same filters as the screen, as a file. A plain link so the browser
+  // downloads it under the name the server chose.
+  const exportQuery = new URLSearchParams(filters);
+  exportQuery.set("format", "csv");
+  const exportUrl = `/api/admin/audit?${exportQuery.toString()}`;
 
   const log = useQuery({
     queryKey: ["admin-audit", query.toString()],
@@ -50,8 +61,16 @@ export function AdminAudit() {
     <Section
       title="Audit log"
       description="Who did what, and when. Entries cannot be edited or removed by anyone, including administrators — the database refuses it."
+      actions={
+        <a
+          href={exportUrl}
+          className="inline-flex items-center rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Export CSV
+        </a>
+      }
     >
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <select
           className={inputClass}
           aria-label="Filter by action"
@@ -68,6 +87,28 @@ export function AdminAudit() {
             </option>
           ))}
         </select>
+        <input
+          type="date"
+          className={inputClass}
+          aria-label="From date"
+          value={from}
+          max={to || undefined}
+          onChange={(e) => {
+            setFrom(e.target.value);
+            setPage(1);
+          }}
+        />
+        <input
+          type="date"
+          className={inputClass}
+          aria-label="To date"
+          value={to}
+          min={from || undefined}
+          onChange={(e) => {
+            setTo(e.target.value);
+            setPage(1);
+          }}
+        />
         {log.data && (
           <span className="tabular text-xs text-neutral-500">
             {log.data.total} entries

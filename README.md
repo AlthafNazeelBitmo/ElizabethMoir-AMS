@@ -16,8 +16,8 @@ real server. `docs/OPERATIONS.md` is the runbook.
 ## Layout
 
 ```
-apps/api           Fastify API (ingest, report, later: auth, register, admin)
-apps/web           React front end: live register, person panel, login
+apps/api           Fastify API: ingest, processing, register, reports, admin
+apps/web           React front end: live register, reports, admin; e2e/ tests
 packages/shared    Types and Zod schemas shared by api and web
 deploy/            Caddyfile, Postgres init scripts
 docs/              Phase notes, decisions, runbooks

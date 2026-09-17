@@ -35,6 +35,8 @@ export interface ReportFilters {
   branch?: Branch | undefined;
   groupId?: number | undefined;
   tutorId?: number | undefined;
+  /** One person only — the per-person report, computed by the same rules. */
+  personId?: string | undefined;
 }
 
 export interface PersonReportRow {
@@ -53,6 +55,10 @@ export interface PersonReportRow {
   /** Seconds after local midnight, averaged over the days they arrived. */
   averageArrivalSeconds: number | null;
 }
+
+export type PersonReport = NonNullable<
+  Awaited<ReturnType<ReportService["person"]>>
+>;
 
 export interface AttendanceReport {
   from: string;
@@ -89,6 +95,7 @@ export class ReportService {
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
+      filters.personId ? eq(people.id, filters.personId) : undefined,
     ];
     const present = conditions.filter((c): c is SQL => c !== undefined);
     const where = present.length > 0 ? and(...present) : undefined;
@@ -215,11 +222,16 @@ export class ReportService {
       )
       .orderBy(asc(dayRecords.date));
 
-    const summary = await this.attendance(role, { from, to });
+    // The same query as the school-wide report, narrowed to one person, so
+    // the figure here can never disagree with the figure on the main table.
+    const summary = await this.attendance(role, { from, to, personId });
     return {
       person: subject,
+      from,
+      to,
+      schoolDaysInRange: summary.schoolDaysInRange,
       days,
-      summary: summary.rows.find((r) => r.personId === personId) ?? null,
+      summary: summary.rows[0] ?? null,
     };
   }
 }

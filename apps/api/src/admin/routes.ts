@@ -457,12 +457,45 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
   // ── Groups ──────────────────────────────────────────────────────────────
 
   app.get("/api/admin/groups", { preHandler }, async (_req, reply) => {
+    // Active people in each group, so an edit is made knowing who it touches.
+    const peopleCount = db
+      .select({
+        groupId: people.groupId,
+        n: count().as("n"),
+      })
+      .from(people)
+      .where(eq(people.isActive, true))
+      .groupBy(people.groupId)
+      .as("people_count");
+
     const rows = await db
-      .select()
+      .select({
+        id: groups.id,
+        name: groups.name,
+        branch: groups.branch,
+        displayOrder: groups.displayOrder,
+        lateThreshold: groups.lateThreshold,
+        expectsAttendance: groups.expectsAttendance,
+        isActive: groups.isActive,
+        peopleCount: sql<number>`coalesce(${peopleCount.n}, 0)::int`,
+      })
       .from(groups)
-      .orderBy(asc(groups.branch), asc(groups.displayOrder));
+      .leftJoin(peopleCount, eq(peopleCount.groupId, groups.id))
+      .orderBy(asc(groups.branch), asc(groups.displayOrder), asc(groups.name));
     return reply.send({ groups: rows });
   });
+
+  async function groupNameTaken(
+    name: string,
+    exceptId: number | null,
+  ): Promise<boolean> {
+    const rows = await db
+      .select({ id: groups.id })
+      .from(groups)
+      .where(ilike(groups.name, name))
+      .limit(2);
+    return rows.some((r) => r.id !== exceptId);
+  }
 
   app.post("/api/admin/groups", { preHandler }, async (req, reply) => {
     const parsed = upsertGroup.safeParse(req.body);
@@ -471,7 +504,26 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         .code(400)
         .send({ error: "invalid_request", message: "Check the values." });
     }
+    // Case-insensitively: "Form 1" and "form 1" on the same rail would be
+    // read as one group and filtered as two.
+    if (await groupNameTaken(parsed.data.name, null)) {
+      return reply.code(409).send({
+        error: "conflict",
+        message: `There is already a group called ${parsed.data.name}.`,
+      });
+    }
     const [row] = await db.insert(groups).values(parsed.data).returning();
+
+    await writeAudit(db, req.log, {
+      action: "group_created",
+      userId: req.auth!.userId,
+      entity: "group",
+      entityId: String(row!.id),
+      after: row,
+      ip: req.ip || null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+
     return reply.code(201).send({ group: row });
   });
 
@@ -485,16 +537,66 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
           .code(400)
           .send({ error: "invalid_request", message: "Check the values." });
       }
-      const [row] = await db
-        .update(groups)
-        .set(parsed.data)
-        .where(eq(groups.id, Number(req.params.id)))
-        .returning();
-      if (!row)
+      const id = Number(req.params.id);
+      const [before] = await db
+        .select()
+        .from(groups)
+        .where(eq(groups.id, id))
+        .limit(1);
+      if (!before)
         return reply
           .code(404)
           .send({ error: "not_found", message: "No such group." });
-      return reply.send({ group: row });
+
+      if (
+        parsed.data.name !== undefined &&
+        (await groupNameTaken(parsed.data.name, id))
+      ) {
+        return reply.code(409).send({
+          error: "conflict",
+          message: `There is already a group called ${parsed.data.name}.`,
+        });
+      }
+
+      // Moving a group between branches moves everyone in it across the
+      // line a student-only account must never see over. With people in
+      // it, that is not a rename; it is a change to who may see whom, and
+      // it is refused rather than audited.
+      if (
+        parsed.data.branch !== undefined &&
+        parsed.data.branch !== before.branch
+      ) {
+        const [members] = await db
+          .select({ n: count() })
+          .from(people)
+          .where(eq(people.groupId, id));
+        if ((members?.n ?? 0) > 0) {
+          return reply.code(422).send({
+            error: "group_has_people",
+            message:
+              "This group has people in it, so its branch cannot be changed. Move them to another group first.",
+          });
+        }
+      }
+
+      const [after] = await db
+        .update(groups)
+        .set(parsed.data)
+        .where(eq(groups.id, id))
+        .returning();
+
+      await writeAudit(db, req.log, {
+        action: "group_modified",
+        userId: req.auth!.userId,
+        entity: "group",
+        entityId: String(id),
+        before,
+        after,
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+
+      return reply.send({ group: after });
     },
   );
 

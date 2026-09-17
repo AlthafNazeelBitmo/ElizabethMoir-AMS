@@ -32,9 +32,12 @@ import {
 } from "../db/schema/index.js";
 import { parseStatusMap } from "../domain/direction.js";
 import { isValidTimeZone, parseTimeOfDay } from "../domain/time.js";
+import { auditLogToCsv } from "./audit-csv.js";
 import type { ScanProcessor } from "../processing/processor.js";
 import {
+  asSchoolName,
   DEFAULT_SETTINGS,
+  SCHOOL_NAME_MAX_LENGTH,
   SETTING_KEYS,
   type SettingsService,
 } from "../settings/service.js";
@@ -293,6 +296,7 @@ export const adminSystemRoutes: FastifyPluginAsync<
     const current = await settings.get();
     return reply.send({
       settings: {
+        school_name: current.schoolName,
         timezone: current.timezone,
         late_threshold_default: formatTimeOfDay(current.lateThresholdDefault),
         duplicate_window_seconds: current.duplicateWindowSeconds,
@@ -301,6 +305,7 @@ export const adminSystemRoutes: FastifyPluginAsync<
         absence_decided_after: formatTimeOfDay(current.absenceDecidedAfter),
       },
       defaults: {
+        school_name: DEFAULT_SETTINGS.schoolName,
         timezone: DEFAULT_SETTINGS.timezone,
         late_threshold_default: formatTimeOfDay(
           DEFAULT_SETTINGS.lateThresholdDefault,
@@ -474,7 +479,11 @@ export const adminSystemRoutes: FastifyPluginAsync<
     to: dateString.optional(),
     user: z.string().uuid().optional(),
     action: z.enum(AUDIT_ACTIONS).optional(),
+    format: z.enum(["json", "csv"]).default("json"),
   });
+
+  /** More rows than this in one file is a sign the dates need narrowing. */
+  const MAX_AUDIT_EXPORT_ROWS = 20_000;
 
   app.get("/api/admin/audit", { preHandler }, async (req, reply) => {
     const parsed = auditQuery.safeParse(req.query);
@@ -483,7 +492,7 @@ export const adminSystemRoutes: FastifyPluginAsync<
         .code(400)
         .send({ error: "invalid_query", message: "Check the filters." });
     }
-    const { page, limit, from, to, user, action } = parsed.data;
+    const { page, limit, from, to, user, action, format } = parsed.data;
 
     const conditions = [
       from
@@ -495,26 +504,69 @@ export const adminSystemRoutes: FastifyPluginAsync<
     ].filter((c): c is NonNullable<typeof c> => c !== undefined);
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const rows = await db
-      .select({
-        id: auditLog.id,
-        action: auditLog.action,
-        entity: auditLog.entity,
-        entityId: auditLog.entityId,
-        before: auditLog.before,
-        after: auditLog.after,
-        createdAt: auditLog.createdAt,
-        userEmail: users.email,
-        userName: users.fullName,
-      })
-      .from(auditLog)
-      .leftJoin(users, eq(users.id, auditLog.userId))
-      .where(where)
-      .orderBy(desc(auditLog.createdAt), desc(auditLog.id))
-      .limit(limit)
-      .offset((page - 1) * limit);
+    const selectEntries = () =>
+      db
+        .select({
+          id: auditLog.id,
+          action: auditLog.action,
+          entity: auditLog.entity,
+          entityId: auditLog.entityId,
+          before: auditLog.before,
+          after: auditLog.after,
+          createdAt: auditLog.createdAt,
+          userEmail: users.email,
+          userName: users.fullName,
+        })
+        .from(auditLog)
+        .leftJoin(users, eq(users.id, auditLog.userId))
+        .where(where)
+        .orderBy(desc(auditLog.createdAt), desc(auditLog.id));
 
     const [total] = await db.select({ n: count() }).from(auditLog).where(where);
+
+    if (format === "csv") {
+      if ((total?.n ?? 0) > MAX_AUDIT_EXPORT_ROWS) {
+        return reply.code(400).send({
+          error: "too_many_rows",
+          message: `That is ${total?.n} entries. Narrow the dates to ${MAX_AUDIT_EXPORT_ROWS} or fewer.`,
+        });
+      }
+      const entries = await selectEntries().limit(MAX_AUDIT_EXPORT_ROWS);
+
+      // Exporting the log is itself something the log should say happened.
+      await writeAudit(db, req.log, {
+        action: "audit_export",
+        userId: req.auth!.userId,
+        entity: "audit_log",
+        after: { from, to, user, action, rows: entries.length },
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+
+      const parts: string[] = [];
+      if (from || to) parts.push(`${from ?? "start"} to ${to ?? "now"}`);
+      if (action) parts.push(`Action: ${action}`);
+      if (user) parts.push(`User: ${entries[0]?.userEmail ?? user}`);
+      const csv = auditLogToCsv(entries, {
+        filtersDescription:
+          parts.length > 0 ? `Filters — ${parts.join("; ")}` : "Every entry",
+        generatedAt: new Date(),
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      return reply
+        .code(200)
+        .header("content-type", "text/csv; charset=utf-8")
+        .header(
+          "content-disposition",
+          `attachment; filename="audit-log-${stamp}.csv"`,
+        )
+        .header("cache-control", "no-store")
+        .send(csv);
+    }
+
+    const rows = await selectEntries()
+      .limit(limit)
+      .offset((page - 1) * limit);
     // The IP is deliberately not returned: it is recorded for investigation,
     // not for routine display next to a person's name.
     return reply.send({
@@ -635,6 +687,16 @@ export function validateSetting(
   value: unknown,
 ): SettingValidation {
   switch (key) {
+    case SETTING_KEYS.schoolName: {
+      const name = asSchoolName(value);
+      return name !== null
+        ? { ok: true, value: name }
+        : {
+            ok: false,
+            problem: `${key}: give a name of 1 to ${SCHOOL_NAME_MAX_LENGTH} characters.`,
+          };
+    }
+
     case SETTING_KEYS.timezone:
       return typeof value === "string" && isValidTimeZone(value)
         ? { ok: true, value }

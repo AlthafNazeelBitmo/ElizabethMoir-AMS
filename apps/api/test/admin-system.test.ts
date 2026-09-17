@@ -307,6 +307,59 @@ describe("attendance rules", () => {
   });
 });
 
+describe("school name", () => {
+  it("starts generic and is set by the school, not by the code", async () => {
+    const body = (await get("/api/admin/settings")).json();
+    expect(body.settings.school_name).toBe("School");
+    expect(body.defaults.school_name).toBe("School");
+  });
+
+  it("is trimmed, stored and audited like any other rule", async () => {
+    const res = await send("PATCH", "/api/admin/settings", {
+      school_name: "  Example High School  ",
+    });
+    expect(res.statusCode).toBe(200);
+    expect((await get("/api/admin/settings")).json().settings.school_name).toBe(
+      "Example High School",
+    );
+    const entries = await h.db.db.select().from(auditLog);
+    expect(entries.map((e) => e.action)).toContain("attendance_rule_changed");
+  });
+
+  it("refuses an empty name or one nobody could print", async () => {
+    expect(
+      (await send("PATCH", "/api/admin/settings", { school_name: "   " }))
+        .statusCode,
+    ).toBe(422);
+    expect(
+      (
+        await send("PATCH", "/api/admin/settings", {
+          school_name: "x".repeat(101),
+        })
+      ).statusCode,
+    ).toBe(422);
+  });
+
+  it("is readable by every signed-in account through /api/school, with the timezone", async () => {
+    await send("PATCH", "/api/admin/settings", {
+      school_name: "Example High School",
+    });
+    const office = await login(h, OFFICE);
+    const res = await get("/api/school", office);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      name: "Example High School",
+      timezone: "Asia/Colombo",
+    });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("is not readable without a session", async () => {
+    const res = await h.app.server.inject({ method: "GET", url: "/api/school" });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
 describe("validateSetting", () => {
   it("accepts good values", () => {
     expect(validateSetting("timezone", "Europe/London").ok).toBe(true);
@@ -441,6 +494,46 @@ describe("audit log", () => {
     const body = (await get("/api/admin/audit?limit=1")).json();
     expect(body.entries).toHaveLength(1);
     expect(body.total).toBeGreaterThan(1);
+  });
+
+  it("exports as CSV, and says in the log that it did", async () => {
+    const res = await get("/api/admin/audit?format=csv&action=attendance_rule_changed");
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/csv/);
+    expect(res.headers["content-disposition"]).toMatch(/audit-log-\d{4}-\d{2}-\d{2}\.csv/);
+    expect(res.headers["cache-control"]).toBe("no-store");
+
+    const body = res.body;
+    expect(body.startsWith("\uFEFF")).toBe(true);
+    expect(body).toContain("Action: attendance_rule_changed");
+    expect(body).toContain('"attendance_rule_changed"');
+    expect(body).toContain('"head"');
+    expect(body).toContain(HEAD);
+    // The filter applied to the file as it does to the screen.
+    expect(body).not.toContain('"login_success"');
+    // No address next to anybody's name.
+    expect(body).not.toMatch(/127\.0\.0\.1/);
+
+    const entries = await h.db.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "audit_export"));
+    expect(entries).toHaveLength(1);
+    expect((entries[0]!.after as { rows: number }).rows).toBeGreaterThan(0);
+  });
+
+  it("defuses a formula in an exported value", async () => {
+    await send("PATCH", "/api/admin/settings", {
+      school_name: "=HYPERLINK(\"http://x\")",
+    });
+    const res = await get("/api/admin/audit?format=csv");
+    // Inside the JSON column the value is still there, but the cell itself
+    // never begins with the character a spreadsheet would execute.
+    for (const line of res.body.split("\r\n")) {
+      for (const cell of line.split('","')) {
+        expect(cell.replace(/^"/, "")).not.toMatch(/^[=+\-@]/);
+      }
+    }
   });
 
   it("offers the list of actions so a filter can be built without guessing", async () => {
