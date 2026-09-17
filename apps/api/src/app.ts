@@ -13,6 +13,7 @@ import { RawEventStore } from "./ingest/store.js";
 import { loggerOptions } from "./logger.js";
 import multipart from "@fastify/multipart";
 import { adminRoutes } from "./admin/routes.js";
+import { adminSystemRoutes } from "./admin/system.js";
 import { DirectoryImporter } from "./directory/import.js";
 import { processingRoutes } from "./processing/routes.js";
 import { RegisterBroadcaster } from "./register/broadcaster.js";
@@ -139,6 +140,7 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
     processor,
     maxUploadBytes: config.MAX_UPLOAD_BYTES,
   });
+  await server.register(adminSystemRoutes, { db, auth, cookies, settings, processor });
 
   return {
     server,

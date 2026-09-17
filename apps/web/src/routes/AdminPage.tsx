@@ -1,85 +1,62 @@
-import { useQuery } from "@tanstack/react-query";
-import { EmptyState, ErrorState } from "../components/primitives.js";
-import { api } from "../lib/api.js";
-import { formatDate } from "../lib/format.js";
-
-interface UnknownEnrollment {
-  enrollNo: string;
-  firstSeenAt: string;
-  lastSeenAt: string;
-  scanCount: number;
-}
+import { useState } from "react";
+import { AdminUsers } from "../components/admin/AdminUsers.js";
+import { AdminRules } from "../components/admin/AdminRules.js";
+import { AdminCalendar } from "../components/admin/AdminCalendar.js";
+import { AdminAudit } from "../components/admin/AdminAudit.js";
+import { AdminFailures } from "../components/admin/AdminFailures.js";
+import { AdminDirectory } from "../components/admin/AdminDirectory.js";
+import { AdminDevices } from "../components/admin/AdminDevices.js";
+import { AdminUnknownIds } from "../components/admin/AdminUnknownIds.js";
 
 /**
- * Admin, partially built.
+ * Administration.
  *
- * The unknown-enrolment list is here because the office uses it weekly and
- * it is the mechanism by which a newly enrolled student becomes visible
- * without a separate registration module. The rest of admin arrives in
- * Phase 6; the endpoints behind it already exist and are tested.
+ * The test for this screen is whether the school can run the system without
+ * ringing a developer: add a member of staff, mark a holiday, change the
+ * late threshold, attach an unrecognised card, see who changed what, and
+ * retry a delivery that failed.
  */
+
+const SECTIONS = [
+  { id: "directory", label: "People", element: <AdminDirectory /> },
+  { id: "unknown", label: "Unknown IDs", element: <AdminUnknownIds /> },
+  { id: "devices", label: "Devices", element: <AdminDevices /> },
+  { id: "calendar", label: "Calendar", element: <AdminCalendar /> },
+  { id: "rules", label: "Rules", element: <AdminRules /> },
+  { id: "users", label: "Users", element: <AdminUsers /> },
+  { id: "audit", label: "Audit log", element: <AdminAudit /> },
+  { id: "failures", label: "Failed events", element: <AdminFailures /> },
+] as const;
+
 export function AdminPage() {
-  const unknown = useQuery({
-    queryKey: ["unknown-enrollments"],
-    queryFn: () =>
-      api.get<{ unknownEnrollments: UnknownEnrollment[]; total: number }>(
-        "/api/admin/unknown-enrollments",
-      ),
-  });
+  const [active, setActive] =
+    useState<(typeof SECTIONS)[number]["id"]>("directory");
 
   return (
-    <div className="h-full overflow-auto p-4">
-      <h1 className="mb-3 text-sm font-semibold text-brand-700">Unknown IDs</h1>
+    <div className="flex h-full min-h-0">
+      <nav
+        aria-label="Admin sections"
+        className="w-44 shrink-0 overflow-auto border-r border-neutral-200 bg-white py-2"
+      >
+        {SECTIONS.map((section) => (
+          <button
+            key={section.id}
+            onClick={() => setActive(section.id)}
+            aria-current={active === section.id}
+            className={`block w-full px-3 py-1.5 text-left text-sm transition-colors ${
+              active === section.id
+                ? "bg-brand-50 font-medium text-brand-700"
+                : "text-neutral-700 hover:bg-neutral-50"
+            }`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
 
-      {unknown.isPending && (
-        <p className="text-sm text-neutral-500">Loading…</p>
-      )}
-
-      {unknown.isError && (
-        <ErrorState
-          title="The unknown ID list could not be loaded."
-          onRetry={() => void unknown.refetch()}
-        />
-      )}
-
-      {unknown.isSuccess && unknown.data.unknownEnrollments.length === 0 && (
-        <EmptyState title="Every scan is matched to a person." />
-      )}
-
-      {unknown.isSuccess && unknown.data.unknownEnrollments.length > 0 && (
-        <table className="w-full max-w-3xl border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-600">
-              <th className="py-2">Enrolment number</th>
-              <th className="py-2">Scans</th>
-              <th className="py-2">First seen</th>
-              <th className="py-2">Last seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {unknown.data.unknownEnrollments.map((row) => (
-              <tr key={row.enrollNo} className="border-b border-neutral-100">
-                <td className="tabular py-2 font-medium">{row.enrollNo}</td>
-                <td className="tabular py-2">{row.scanCount}</td>
-                <td className="py-2 text-neutral-600">
-                  {formatDate(new Date(row.firstSeenAt))}
-                </td>
-                <td className="py-2 text-neutral-600">
-                  {formatDate(new Date(row.lastSeenAt))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      <p className="mt-6 max-w-xl text-sm text-neutral-500">
-        Attaching a number to a person, the directory import, devices, groups
-        and users arrive in Phase 6. Until then the command line does it:{" "}
-        <code className="rounded bg-neutral-100 px-1 py-0.5">
-          pnpm --filter @ams/api import-directory people.csv
-        </code>
-      </p>
+      <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+        {SECTIONS.find((s) => s.id === active)?.element}
+      </div>
     </div>
   );
 }

@@ -39,6 +39,7 @@ pnpm dev                        # API with reload on http://localhost:3000
 pnpm demo                       # the whole stack on an in-process Postgres,
                                 # seeded — no Docker or database needed
 pnpm --filter @ams/web dev      # the web app on http://localhost:5173
+                                # API_PORT / WEB_PORT override the ports
 
 pnpm typecheck
 pnpm test                       # every test; needs no database or Docker
