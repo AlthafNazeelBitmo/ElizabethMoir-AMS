@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/shell/CommandPalette.js";
+import { MobileNav } from "@/components/shell/MobileNav.js";
 import { Sidebar } from "@/components/shell/Sidebar.js";
 import { ErrorState } from "@/components/states.js";
 import { Skeleton } from "@/components/ui/misc.js";
@@ -90,8 +91,11 @@ function Shell({ user }: { user: CurrentUser }) {
   });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [theme] = useTheme();
-  // A phone gets the icon rail whatever was chosen on a desk.
-  const narrow = useNarrowViewport();
+  // A tablet gets the icon rail whatever was chosen on a desk; a phone gets
+  // a bar along the bottom and no sidebar at all.
+  const narrow = useMediaQuery("(max-width: 1023px)");
+  const phone = useMediaQuery("(max-width: 767px)");
+  const location = useLocation();
 
   const toggleSidebar = useCallback(() => {
     setCollapsed((current) => {
@@ -120,16 +124,27 @@ function Shell({ user }: { user: CurrentUser }) {
 
   return (
     <TooltipProvider>
-      <div className="flex h-full">
-        <Sidebar
-          user={user}
-          collapsed={collapsed || narrow}
-          onToggle={toggleSidebar}
-          onOpenSearch={() => setPaletteOpen(true)}
-        />
+      <div className="flex h-full flex-col md:flex-row">
+        {!phone && (
+          <Sidebar
+            user={user}
+            collapsed={collapsed || narrow}
+            onToggle={toggleSidebar}
+            onOpenSearch={() => setPaletteOpen(true)}
+          />
+        )}
         <main className="min-h-0 min-w-0 flex-1">
-          <Outlet context={user} />
+          {/* Keyed on the path so a new page fades in; 150ms, nothing more. */}
+          <div
+            key={location.pathname}
+            className="h-full animate-in fade-in-0 duration-150"
+          >
+            <Outlet context={user} />
+          </div>
         </main>
+        {phone && (
+          <MobileNav user={user} onOpenSearch={() => setPaletteOpen(true)} />
+        )}
       </div>
       <CommandPalette
         open={paletteOpen}
@@ -153,17 +168,18 @@ function Shell({ user }: { user: CurrentUser }) {
   );
 }
 
-function useNarrowViewport(): boolean {
-  const [narrow, setNarrow] = useState(
-    () => window.matchMedia("(max-width: 1023px)").matches,
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => window.matchMedia(query).matches,
   );
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 1023px)");
-    const onChange = (e: MediaQueryListEvent) => setNarrow(e.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return narrow;
+    const list = window.matchMedia(query);
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+    setMatches(list.matches);
+    list.addEventListener("change", onChange);
+    return () => list.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
 }
 
 /** The shape of the shell while the session is checked; never a spinner. */

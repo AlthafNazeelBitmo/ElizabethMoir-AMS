@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
+import { AttentionStrip } from "@/components/register/AttentionStrip.js";
 import { GroupsPanel } from "@/components/register/GroupsPanel.js";
 import { PersonSheet } from "@/components/register/PersonSheet.js";
 import {
@@ -217,6 +218,7 @@ export function RegisterPage() {
 
   const showTutor = filters.branch !== "staff";
   const isNarrow = useIsNarrow();
+  const isCompact = useMediaQuery("(max-width: 1023px)");
   const isToday = filters.date === today;
 
   const shiftDate = (days: number) => {
@@ -227,7 +229,10 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-5">
+    // On a desk the page never scrolls and the table has its own scroll; on a
+    // phone the page scrolls and the list is just a list. A trapped list
+    // showing one card at a time is the worst of both.
+    <div className="flex flex-col gap-4 overflow-y-auto p-4 md:h-full md:min-h-0 md:overflow-hidden lg:p-5">
       <PageHeader
         title="Live register"
         description={
@@ -310,6 +315,8 @@ export function RegisterPage() {
         </div>
       )}
 
+      <AttentionStrip user={user} />
+
       <StatCards
         counts={summary.data?.counts}
         rows={rows}
@@ -318,17 +325,17 @@ export function RegisterPage() {
         isLoading={summary.isPending}
       />
 
-      <div className="flex min-h-0 flex-1 gap-4">
+      <div className="flex gap-4 md:min-h-0 md:flex-1">
         <GroupsPanel
           groups={summary.data?.groups ?? []}
           activeGroup={filters.group}
           activeBranch={filters.branch}
           canSeeStaff={user.role === "full"}
           onSelect={(branch, group) => setFilters({ branch, group })}
-          className="hidden w-56 shrink-0 md:flex"
+          className="hidden w-56 shrink-0 lg:flex"
         />
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-xs">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-xs md:min-h-0">
           <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
             <div className="relative">
               <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -343,6 +350,43 @@ export function RegisterPage() {
               />
               <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>
             </div>
+
+            {/* The rail is hidden on a phone; the same choice, as a select. */}
+            <NativeSelect
+              aria-label="Group"
+              className="lg:hidden"
+              value={filters.group ?? (filters.branch ? `branch:${filters.branch}` : "")}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value) return setFilters({ branch: null, group: null });
+                if (value.startsWith("branch:"))
+                  return setFilters({ branch: value.slice(7) as "student" | "staff", group: null });
+                const group = (summary.data?.groups ?? []).find((g) => String(g.groupId) === value);
+                setFilters({ branch: group?.branch ?? null, group: Number(value) });
+              }}
+            >
+              <option value="">Everyone</option>
+              <option value="branch:student">All students</option>
+              {(summary.data?.groups ?? [])
+                .filter((g) => g.branch === "student")
+                .map((g) => (
+                  <option key={g.groupId} value={g.groupId}>
+                    {g.name}
+                  </option>
+                ))}
+              {user.role === "full" && (
+                <>
+                  <option value="branch:staff">All staff</option>
+                  {(summary.data?.groups ?? [])
+                    .filter((g) => g.branch === "staff")
+                    .map((g) => (
+                      <option key={g.groupId} value={g.groupId}>
+                        {g.name}
+                      </option>
+                    ))}
+                </>
+              )}
+            </NativeSelect>
 
             <NativeSelect
               aria-label="Status"
@@ -399,7 +443,7 @@ export function RegisterPage() {
             </button>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-col md:min-h-0 md:flex-1">
             {register.isPending && <TableSkeleton />}
 
             {register.isError && (
@@ -439,6 +483,7 @@ export function RegisterPage() {
                   rows={visibleRows}
                   recentlyChanged={recentlyChanged}
                   showTutor={showTutor}
+                  compact={isCompact}
                   selectedPersonId={selectedPersonId}
                   onSelect={setSelectedPersonId}
                   scrollToPersonId={scrollToPersonId}
@@ -536,15 +581,20 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-function useIsNarrow(): boolean {
-  const [narrow, setNarrow] = useState(
-    () => window.matchMedia("(max-width: 767px)").matches,
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => window.matchMedia(query).matches,
   );
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 767px)");
-    const onChange = (e: MediaQueryListEvent) => setNarrow(e.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return narrow;
+    const list = window.matchMedia(query);
+    const onChange = (e: MediaQueryListEvent) => setMatches(e.matches);
+    setMatches(list.matches);
+    list.addEventListener("change", onChange);
+    return () => list.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
+function useIsNarrow(): boolean {
+  return useMediaQuery("(max-width: 767px)");
 }

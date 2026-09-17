@@ -28,6 +28,8 @@ export interface RegisterTableProps {
   /** Person ids changed recently, for the highlight. */
   recentlyChanged: ReadonlySet<string>;
   showTutor: boolean;
+  /** Tighter columns for a tablet, where the groups rail is gone. */
+  compact?: boolean;
   selectedPersonId: string | null;
   onSelect: (personId: string) => void;
   scrollToPersonId: string | null;
@@ -40,6 +42,7 @@ export function RegisterTable({
   rows,
   recentlyChanged,
   showTutor,
+  compact = false,
   selectedPersonId,
   onSelect,
   scrollToPersonId,
@@ -61,9 +64,13 @@ export function RegisterTable({
     onScrolledTo();
   }, [scrollToPersonId, rows, virtualiser, onScrolledTo]);
 
-  const gridTemplate = showTutor
-    ? "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 4rem 5rem 5rem minmax(9.5rem,auto)"
-    : "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 5rem 5rem minmax(9.5rem,auto)";
+  const gridTemplate = compact
+    ? showTutor
+      ? "minmax(10rem,2fr) 4.5rem minmax(5.5rem,1fr) 3rem 4.25rem 4.25rem minmax(8.5rem,auto)"
+      : "minmax(10rem,2fr) 4.5rem minmax(5.5rem,1fr) 4.25rem 4.25rem minmax(8.5rem,auto)"
+    : showTutor
+      ? "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 4rem 5rem 5rem minmax(9.5rem,auto)"
+      : "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 5rem 5rem minmax(9.5rem,auto)";
 
   return (
     <div
@@ -74,7 +81,10 @@ export function RegisterTable({
       {/* Header, outside the scroll area so it stays put. */}
       <div
         role="row"
-        className="grid shrink-0 items-center gap-3 border-b bg-muted/40 px-3 text-xs font-medium text-muted-foreground"
+        className={cn(
+          "grid shrink-0 items-center border-b bg-muted/40 px-3 text-xs font-medium text-muted-foreground",
+          compact ? "gap-2" : "gap-3",
+        )}
         style={{ gridTemplateColumns: gridTemplate, height: 36 }}
       >
         <span role="columnheader">Name</span>
@@ -116,7 +126,8 @@ export function RegisterTable({
                   }
                 }}
                 className={cn(
-                  "absolute left-0 grid w-full cursor-pointer items-center gap-3 border-b px-3 text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/60",
+                  "absolute left-0 grid w-full cursor-pointer items-center border-b px-3 text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/60",
+                  compact ? "gap-2" : "gap-3",
                   selected && "bg-accent hover:bg-accent",
                   changed && "animate-row-flash",
                 )}
@@ -194,7 +205,7 @@ export function RegisterCards({
   onSelect,
 }: Pick<RegisterTableProps, "rows" | "recentlyChanged" | "onSelect">) {
   return (
-    <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
+    <div className="space-y-2 p-2">
       {rows.map((row) => (
         <button
           key={row.personId}

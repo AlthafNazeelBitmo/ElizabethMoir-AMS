@@ -39,11 +39,15 @@ test("a posted scan reaches the open register through the stream", async ({
   const fetchesBeforeScan = registerFetches;
 
   // The scan is stamped with the school's current time, as a reader would.
-  // (Between 00:00 and 03:00 Colombo the day rollover assigns it to the
-  // previous school day, which the register does not show by default; a
-  // school register is not watched at that hour, and the test is not
-  // engineered around it.)
+  // Between 00:00 and 03:00 Colombo the day rollover files it under the
+  // previous school day, which today's register does not show. A school
+  // register is not watched at that hour; the test says so rather than
+  // failing for a reason that has nothing to do with the stream.
   const { date, time } = schoolNow();
+  test.skip(
+    Number(time.slice(0, 2)) < 3,
+    `It is ${time} at the school: a scan now belongs to yesterday's day.`,
+  );
   const response = await page.request.post(DEMO.ingestPath, {
     data: [
       {

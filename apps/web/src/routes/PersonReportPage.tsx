@@ -329,13 +329,13 @@ function Summary({ report }: { report: PersonReport }) {
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-6">
       {tiles.map((tile) => (
         <div
           key={tile.label}
           role="group"
           aria-label={tile.label}
-          className="flex flex-col gap-1 rounded-xl border bg-card p-3.5 shadow-xs"
+          className="flex flex-col gap-1 bg-card p-3.5"
         >
           <span className="text-xs font-medium text-muted-foreground">
             {tile.label}

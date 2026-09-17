@@ -56,7 +56,9 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
 
 1. **Name the school.** Admin → Rules → School name. It is printed on
    every report and shown in the title bar; until it is set, they say
-   "School".
+   "School". To show the crest, put it at `apps/web/public/branding/logo.svg`
+   (or `.png`) on the server; it is picked up on the next load and is never
+   part of the code.
 2. **Set the calendar.** Admin → Calendar. Until a date is marked a school
    day, nobody can be absent on it — so absence reporting says nothing
    until this is done. Set the term as weekdays, then carve out holidays.

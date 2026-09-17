@@ -228,8 +228,8 @@ export function ReportsPage() {
         }
       />
 
-      <Card className="print:hidden">
-        <CardContent className="flex flex-wrap items-end gap-3 p-3">
+      <div className="flex flex-wrap items-end gap-3 print:hidden">
+        <div className="flex flex-wrap items-end gap-3">
           <Field label="From">
             <Input
               type="date"
@@ -305,16 +305,16 @@ export function ReportsPage() {
               ))}
             </NativeSelect>
           </Field>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs xl:grid-cols-4">
         {report.isPending ? (
           <>
-            <CardSkeleton />
-            <CardSkeleton />
-            <CardSkeleton />
-            <CardSkeleton />
+            <CardSkeleton className="rounded-none border-0" />
+            <CardSkeleton className="rounded-none border-0" />
+            <CardSkeleton className="rounded-none border-0" />
+            <CardSkeleton className="rounded-none border-0" />
           </>
         ) : (
           <>
@@ -540,7 +540,7 @@ function Stat({
   barClass?: string;
 }) {
   return (
-    <Card className="gap-1 p-4">
+    <div className="flex flex-col gap-1 bg-card p-4">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <span
         className={cn("tabular text-2xl font-semibold tracking-tight", accent)}
@@ -556,7 +556,7 @@ function Stat({
         </span>
       )}
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-    </Card>
+    </div>
   );
 }
 

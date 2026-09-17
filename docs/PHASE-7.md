@@ -195,6 +195,17 @@ five flake and passes six runs clean after the fix.
 Every existing end-to-end test passes against the new interface with only
 locator changes (admin sections are links now, not buttons).
 
+A second pass, against the school's crest and a stricter brief, changed
+the accent from an inherited indigo to the crest's cyan (deepened for
+contrast) with the banner red reserved for the brand mark and destructive
+actions; merged the stat cards into one hairline-divided strip and took
+the filters out of their box; gave the register an attention layer
+(unknown cards, unread deliveries — only when present, only to an admin);
+replaced the sidebar with a bottom bar on phones and let the page scroll
+there; tightened the table for tablets; and added a slot for the school's
+logo that is never committed. `docs/DESIGN.md` records the type scale and
+the behaviour at each breakpoint.
+
 ## What remains before the school can rely on this
 
 1. **Run the discovery day.** The timezone is a guess, `CheckingStatus` is

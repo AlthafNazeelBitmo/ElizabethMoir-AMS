@@ -76,7 +76,9 @@ export function StatCards({
 }) {
   const total = counts?.total ?? 0;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+    // One surface, hairlines between the numbers: six figures read as one
+    // line of thought, not six boxes competing for attention.
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-7">
       {TILES.map((tile) => {
         const value = counts?.[tile.key] ?? 0;
         const filterable = tile.filter !== null;
@@ -95,10 +97,9 @@ export function StatCards({
             }}
             disabled={isLoading || (!filterable && tile.key !== "total")}
             className={cn(
-              "group flex flex-col gap-1 rounded-xl border bg-card p-3.5 text-left shadow-xs transition-[border-color,box-shadow,background-color] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:cursor-default",
-              (filterable || tile.key === "total") &&
-                "hover:border-foreground/20 hover:shadow-sm",
-              active && "border-primary/60 bg-accent/60 ring-1 ring-primary/30",
+              "group flex flex-col gap-1 bg-card p-3.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset disabled:cursor-default",
+              (filterable || tile.key === "total") && "hover:bg-muted/50",
+              active && "bg-accent/70 hover:bg-accent/70",
             )}
           >
             <span className="text-xs font-medium text-muted-foreground">
@@ -123,10 +124,9 @@ export function StatCards({
           </button>
         );
       })}
-      <ArrivalsCard
-        rows={rows}
-        className="col-span-2 md:col-span-3 xl:col-span-2"
-      />
+      {/* Six cells: 2×3 on a phone, 3×2 on a tablet, one row of seven with
+          the curve given two columns on a desk. Never a gap. */}
+      <ArrivalsCard rows={rows} className="xl:col-span-2" />
     </div>
   );
 }
@@ -183,10 +183,7 @@ function ArrivalsCard({
 
   return (
     <div
-      className={cn(
-        "flex flex-col rounded-xl border bg-card p-3.5 shadow-xs",
-        className,
-      )}
+      className={cn("flex flex-col bg-card p-3.5", className)}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">

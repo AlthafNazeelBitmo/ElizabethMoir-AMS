@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { RadioIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BrandMark } from "@/components/shell/BrandMark.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { Field } from "@/components/ui/misc.js";
@@ -55,9 +55,7 @@ export function LoginPage() {
         }}
       >
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
-            <RadioIcon className="size-5" />
-          </div>
+          <BrandMark size="lg" />
           <div>
             <h1 className="text-base font-semibold tracking-tight">
               Attendance

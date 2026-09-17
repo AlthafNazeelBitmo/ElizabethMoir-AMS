@@ -30,46 +30,97 @@ with a share bar, a chart above a rich table, dark mode as a first-class
 theme. Not because it is fashionable — because it is what people who use
 such tools all day have converged on.
 
-## Tokens
+## Colour
 
 All colour lives in `src/index.css` as CSS variables on `:root` and
 `.dark`, exposed to Tailwind through `@theme inline`. Use the semantic
 names — `bg-card`, `text-muted-foreground`, `border-border` — never a raw
-palette colour. The one accent is `primary` (the school's indigo). It is
-used for primary actions, the active navigation item, the "on site" status
-and the live indicator, and nothing else.
+palette colour.
+
+Two colours come from the school's crest: the **cyan** of the monogram and
+the **red** of the banner.
+
+- `primary` is the cyan, deepened until white text passes AA on it. It is
+  the one working accent: primary actions, the active navigation item, the
+  "on site" status, the live indicator. Nothing else.
+- `brand` is the banner red. It is reserved for the brand mark and for
+  destructive actions, so it keeps its force when it appears.
+- Everything else is a cool neutral scale, so the accent reads as a signal
+  and not as decoration.
 
 Status colours are deliberate and must not be "tidied":
 
-| Status       | Colour           | Shape          | Token             |
-| ------------ | ---------------- | -------------- | ----------------- |
-| On site      | indigo           | filled dot     | `status-onsite`   |
-| Departed     | mid neutral      | half dot       | `status-departed` |
-| Late         | amber            | hollow ring    | `status-late`     |
-| Absent       | desaturated rose | cross          | `status-absent`   |
-| Not expected | none             | dashed outline | `status-idle`     |
+| Status | Colour | Shape | Token |
+| --- | --- | --- | --- |
+| On site | the cyan | filled dot | `status-onsite` |
+| Departed | mid neutral | half dot | `status-departed` |
+| Late | amber | hollow ring | `status-late` |
+| Absent | the red, chroma pulled back | cross | `status-absent` |
+| Not expected | none | dashed outline | `status-idle` |
 
-There is no red/green pairing anywhere. Someone with deuteranopia cannot
-separate those, and a register that one in twelve men cannot read is not
-a register. `StatusBadge` and `StatusShape` in `src/components/status.tsx`
-are the only places a status is drawn.
+There is no green anywhere, so red can mean "absent" without a red/green
+pair that one in twelve men cannot separate. `StatusBadge` and
+`StatusShape` in `src/components/status.tsx` are the only places a status
+is drawn.
+
+### The school's mark
+
+`BrandMark` shows `public/branding/logo.svg` (or `.png`) if the school has
+put its crest there, and otherwise a tile in the banner red carrying the
+school's initials. The crest is never committed — it is the school's, not
+the code's — and the path is gitignored.
+
+## Type
+
+Inter Variable, self-hosted. One scale, used everywhere:
+
+| Role | Size / weight | Where |
+| --- | --- | --- |
+| Page title | 18px semibold, tight tracking | `PageHeader` |
+| Panel title | 14px semibold | `Panel`, `CardTitle`, sheet title |
+| Section label | 11px medium, uppercase, tracked | inside panels and the sheet |
+| Body | 14px | prose, controls, table cells |
+| Table / dense | 13px | rows in the register and admin tables |
+| Label | 12px medium, muted | `Field` labels, column headers |
+| Metadata | 12px muted | counts, hints, timestamps |
+| Figure | 24px semibold, tabular | stat strips |
+
+`tabular` on every number and time. No display sizes: nothing on these
+screens is a headline.
 
 ## Layout
 
 - **Sidebar** (`components/shell/Sidebar.tsx`): brand, search trigger,
   the three destinations, the admin sections while inside admin, and the
   account menu (appearance, password, sign out). Collapses to an icon rail
-  by choice, and always below 1024px.
+  by choice.
 - **Pages** own their header (`PageHeader`) and their controls. There is no
   top bar; the sidebar is the only chrome.
-- **Surfaces**: `Card` / `Panel` are bordered, `shadow-xs`, `rounded-xl`.
-  One level of elevation. Popovers and sheets sit above with a real shadow.
-- **Density**: 14px body, 13px tables, 11px labels. `tabular` on every
-  number and time.
+- **Surfaces**: one level of elevation. `Card` / `Panel` are bordered,
+  `shadow-xs`, `rounded-xl`. Related figures share **one** surface with
+  hairlines between them (the stat strips) rather than a box each; filters
+  are a toolbar row, not a card. Popovers and sheets sit above with a real
+  shadow. If a section could be a heading and some whitespace, it is not a
+  box.
+- **Breakpoints**, each designed, not squeezed:
+  - **Phone (<768)**: no sidebar; a bar along the bottom with Register,
+    Reports, Search, Admin, Account. The page scrolls; the register is a
+    list of cards; the groups rail becomes a select; the stat strip is 2×3.
+  - **Tablet (768–1023)**: the icon rail; the groups rail is still a
+    select; the table tightens its columns; the stat strip is 3×2.
+  - **Desk (1024+)**: the sidebar as chosen; the groups rail; the table has
+    its own scroll and the page none; the stat strip is one row.
+- **Density**: see Type. Row height 44px in the register, 36px in admin
+  tables.
 
 ## The register
 
-`StatCards` are the counts, each with a share bar and a click that filters.
+The register is the dashboard: what is, and what to do next.
+`AttentionStrip` is the "what next" — cards that scanned but match nobody,
+deliveries that could not be read — shown only when there is something and
+only to an account that can act on it, each one click from the screen that
+fixes it. `StatCards` are the counts in one strip, each with a share bar
+and a click that filters.
 `ArrivalsSparkline` is the morning's arrivals in ten-minute slots, computed
 from the rows already on screen — nothing is fetched for it. `GroupsPanel`
 is the rail with an on-site bar under each group so the half-empty form is
@@ -92,9 +143,9 @@ opened.
 ## Motion
 
 Three animations start on their own: the row flash on a live scan, the
-count pulse when a number changes, and the live-dot breath. Everything else
-is a 150–300ms enter/exit on things the person opened. `prefers-reduced-
-motion` removes all of it.
+count pulse when a number changes, and the live-dot breath. A page fades in
+over 150ms on navigation. Everything else is a 150–300ms enter/exit on
+things the person opened. `prefers-reduced-motion` removes all of it.
 
 ## Dark mode
 

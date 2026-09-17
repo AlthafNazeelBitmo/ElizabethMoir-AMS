@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { BrandMark } from "./BrandMark.js";
 import { Avatar, Kbd, Separator } from "@/components/ui/misc.js";
 import { Button } from "@/components/ui/button.js";
 import {
@@ -102,9 +103,7 @@ export function Sidebar({
           collapsed && "justify-center px-0",
         )}
       >
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-xs">
-          <RadioIcon className="size-4" />
-        </div>
+        <BrandMark name={schoolName()} />
         {!collapsed && (
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold tracking-tight">
