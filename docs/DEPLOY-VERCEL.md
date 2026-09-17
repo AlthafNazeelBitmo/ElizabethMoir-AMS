@@ -80,6 +80,12 @@ npx vercel login                      # once, interactive
 bash scripts/setup-vercel-env.sh      # sets the variables, then deploys
 ```
 
+On Windows, run that from **Git Bash**, not PowerShell — PowerShell has no
+`bash`. (Git for Windows installs it; it is the shell VS Code and Claude
+Code use.) The variables are not optional: without `INGEST_PATH_TOKEN` and
+`REPORT_TOKEN` the function refuses to start and every route answers 503
+"Service is misconfigured", with the missing name in the function log.
+
 It reads the values from `.env.vercel.local` (gitignored), sets each variable
 for production, preview and development, and triggers a production
 deployment. Re-running is safe.
