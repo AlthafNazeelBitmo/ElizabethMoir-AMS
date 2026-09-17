@@ -443,6 +443,38 @@ describe("unknown enrolment numbers", () => {
     });
   });
 
+  it("adding the person by hand claims the scans too, the same as attaching", async () => {
+    await scanFromUnknown("99999", "2026-09-16 07:30:00");
+    const [group] = await h.db.db
+      .select()
+      .from(groups)
+      .where(eq(groups.branch, "student"));
+
+    const res = await post("/api/admin/people", {
+      enrollNo: "99999",
+      fullName: "Added By Hand",
+      groupId: group!.id,
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().daysRecomputed).toBe(1);
+
+    const [scan] = await h.db.db
+      .select()
+      .from(scans)
+      .where(eq(scans.enrollNo, "99999"));
+    expect(scan?.personId).toBe(res.json().person.id);
+
+    // No longer unknown, and their morning is on the register.
+    expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
+    const live = (
+      await get("/api/register/live?date=2026-09-16")
+    ).json();
+    const row = live.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "99999",
+    );
+    expect(row?.firstIn).toBeTruthy();
+  });
+
   it("attaches the number to a new person and claims the scans already stored", async () => {
     await scanFromUnknown("99999", "2026-09-16 07:30:00");
     const [group] = await h.db.db

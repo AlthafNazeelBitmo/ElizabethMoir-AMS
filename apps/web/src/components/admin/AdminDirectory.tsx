@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  BarChart3Icon,
   FileSpreadsheetIcon,
+  MoreHorizontalIcon,
+  PencilLineIcon,
   SearchIcon,
   UploadIcon,
+  UserCheckIcon,
+  UserPlusIcon,
+  UserXIcon,
   UsersIcon,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -11,20 +17,24 @@ import { toast } from "sonner";
 import { EmptyState, TableSkeleton } from "@/components/states.js";
 import { Badge } from "@/components/ui/badge.js";
 import { Button } from "@/components/ui/button.js";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.js";
+import { PersonDialog, type PersonRecord } from "./PersonForm.js";
 import { Input } from "@/components/ui/input.js";
 import { Avatar, Checkbox } from "@/components/ui/misc.js";
 import { api, ApiError, type Branch } from "@/lib/api.js";
 import { cn } from "@/lib/utils.js";
 import { Panel, Problem, Section, Table, Td, Th, Tr } from "./shared.js";
 
-interface Person {
-  id: string;
-  enrollNo: string;
-  fullName: string;
+interface Person extends PersonRecord {
   groupName: string | null;
   branch: Branch | null;
   tutorInitials: string | null;
-  isActive: boolean;
 }
 
 interface ImportPreview {
@@ -61,6 +71,11 @@ interface ImportPreview {
 export function AdminDirectory() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [dialog, setDialog] = useState<{ open: boolean; person: Person | null }>({
+    open: false,
+    person: null,
+  });
+  const [showInactive, setShowInactive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{
     preview: ImportPreview;
@@ -70,11 +85,34 @@ export function AdminDirectory() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const people = useQuery({
-    queryKey: ["admin-people", search],
+    queryKey: ["admin-people", search, showInactive],
     queryFn: () =>
       api.get<{ people: Person[]; total: number }>(
-        `/api/admin/people?${new URLSearchParams(search ? { q: search } : {}).toString()}`,
+        `/api/admin/people?${new URLSearchParams({
+          ...(search ? { q: search } : {}),
+          ...(showInactive ? { includeInactive: "true" } : {}),
+        }).toString()}`,
       ),
+  });
+
+  const setActive = useMutation({
+    mutationFn: (args: { person: Person; isActive: boolean }) =>
+      api.patch(`/api/admin/people/${args.person.id}`, { isActive: args.isActive }),
+    onSuccess: (_data, args) => {
+      toast.success(
+        args.isActive
+          ? `${args.person.fullName} reactivated`
+          : `${args.person.fullName} deactivated`,
+        {
+          description: args.isActive
+            ? "Back on the register from today."
+            : "Off the register; their history is kept.",
+        },
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
+      void queryClient.invalidateQueries({ queryKey: ["register"] });
+      void queryClient.invalidateQueries({ queryKey: ["summary"] });
+    },
   });
 
   /** Uploads the file as a raw body, which the endpoint accepts. */
@@ -149,8 +187,20 @@ export function AdminDirectory() {
   return (
     <Section
       title="People"
-      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no."
+      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no — or add one person at a time."
+      actions={
+        <Button onClick={() => setDialog({ open: true, person: null })}>
+          <UserPlusIcon /> Add person
+        </Button>
+      }
     >
+      <PersonDialog
+        person={dialog.person}
+        open={dialog.open}
+        onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
+        onSaved={() => undefined}
+      />
+
       <Panel
         title="Import from a spreadsheet"
         description="Nothing is written until you have seen what would change."
@@ -278,6 +328,13 @@ export function AdminDirectory() {
               aria-label="Search people"
             />
           </div>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={showInactive}
+              onCheckedChange={(checked) => setShowInactive(checked === true)}
+            />
+            Show deactivated
+          </label>
           {people.isSuccess && (
             <span className="tabular ml-auto text-xs text-muted-foreground">
               {people.data.total.toLocaleString("en-GB")} people
@@ -335,14 +392,46 @@ export function AdminDirectory() {
                   {person.tutorInitials ?? "—"}
                 </Td>
                 <Td className="text-right">
-                  <Button
-                    asChild
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs"
-                  >
-                    <Link to={`/reports/person/${person.id}`}>Report</Link>
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Actions for ${person.fullName}`}
+                      >
+                        <MoreHorizontalIcon />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onSelect={() => setDialog({ open: true, person })}
+                      >
+                        <PencilLineIcon /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/reports/person/${person.id}`}>
+                          <BarChart3Icon /> Report
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant={person.isActive ? "destructive" : "default"}
+                        onSelect={() =>
+                          setActive.mutate({ person, isActive: !person.isActive })
+                        }
+                      >
+                        {person.isActive ? (
+                          <>
+                            <UserXIcon /> Deactivate
+                          </>
+                        ) : (
+                          <>
+                            <UserCheckIcon /> Reactivate
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </Td>
               </Tr>
             ))}

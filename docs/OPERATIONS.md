@@ -144,6 +144,12 @@ and survives recomputation.
 name or a number; Enter opens them on the register. The same palette jumps
 to any page and switches between light and dark.
 
+**A new pupil or member of staff joins.** Admin → People → _Add person_:
+the enrolment number exactly as ADMS has it, the name, the group. If they
+have already scanned, their scans attach the moment they are saved. For a
+whole intake, import the spreadsheet instead. Leavers: _Actions → Deactivate_
+on their row — off the register, history kept, reversible.
+
 **A parent asks for their child's record.** Reports → the child's name →
 Print, or Export CSV. The file is named by enrolment number, not by name.
 

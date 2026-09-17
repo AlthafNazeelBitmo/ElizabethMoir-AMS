@@ -159,6 +159,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         groupId: people.groupId,
         groupName: groups.name,
         branch: groups.branch,
+        tutorId: people.tutorId,
         tutorInitials: tutors.initials,
       })
       .from(people)
@@ -202,16 +203,30 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     }
 
     const [row] = await db.insert(people).values(parsed.data).returning();
+
+    // Scans that arrived under this number before anyone knew who it was
+    // belong to them now, exactly as when a name is given under Unknown
+    // IDs. Adding a person by hand must not leave their morning orphaned.
+    await db
+      .update(scans)
+      .set({ personId: row!.id })
+      .where(and(eq(scans.enrollNo, row!.enrollNo), isNull(scans.personId)));
+    await db
+      .update(unknownEnrollments)
+      .set({ resolvedPersonId: row!.id })
+      .where(eq(unknownEnrollments.enrollNo, row!.enrollNo));
+    const daysRecomputed = await processor.recomputeAllDaysFor(row!.enrollNo);
+
     await writeAudit(db, req.log, {
       action: "person_created",
       userId: req.auth!.userId,
       entity: "person",
       entityId: row!.id,
-      after: parsed.data,
+      after: { ...parsed.data, daysRecomputed },
       ip: req.ip || null,
       userAgent: req.headers["user-agent"] ?? null,
     });
-    return reply.code(201).send({ person: row });
+    return reply.code(201).send({ person: row, daysRecomputed });
   });
 
   app.patch<{ Params: { id: string } }>(
