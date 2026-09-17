@@ -1,16 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "pnpm run build && pnpm run db:migrate",
-  "outputDirectory": "public",
+  "buildCommand": "pnpm run build:vercel",
+  "outputDirectory": ".static",
   "rewrites": [
     {
-      "source": "/",
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/ingest/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/internal/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/healthz",
       "destination": "/api"
     },
     {
       "source": "/:path*",
-      "destination": "/api"
+      "destination": "/index.html"
     }
   ],
   "functions": {

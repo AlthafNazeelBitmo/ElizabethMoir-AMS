@@ -71,6 +71,15 @@ environment variables. Then check:
   longer, so nothing is dropped — but the latency shows in the logs.
   Supabase's free tier does not suspend.
 
+### 3b. The web app is served from the same deployment
+
+`vercel.json` points Vercel at `apps/api/.static`, which the build fills with
+the compiled web app plus `public/` (`pnpm run build:vercel`). The function
+answers `/api/*`, `/ingest/*`, `/internal/*` and `/healthz`; every other
+path falls back to `index.html`, so the register, reports and admin all
+load at the deployment's own address. One origin, deliberately: the
+session cookie is same-origin and would not survive a split.
+
 ### 4. Environment variables
 
 Two ways. Scripted, from a checkout:
@@ -109,6 +118,22 @@ anyone who found the URL could post fabricated attendance to.
 **Do not set `NODE_ENV`.** Vercel sets it for the runtime, and setting it
 to `production` yourself makes pnpm skip devDependencies at build time,
 which removes the TypeScript compiler the build needs.
+
+### 4b. The first account
+
+Nothing ships with a default login. Create the first administrator from a
+checkout, against the production database, with the environment pulled
+from Vercel — this works in PowerShell as well as Git Bash:
+
+```powershell
+npx vercel env pull .env.production.local --environment=production
+pnpm --filter @ams/api build
+node --env-file=.env.production.local apps/api/dist/cli/create-user.js head@school.lk full "A Head Teacher"
+```
+
+The command prints a temporary password once; the account must change it
+at first sign-in. `.env.production.local` is gitignored — delete it when
+done. Further accounts are created in Admin → Users.
 
 ### 5. Deploy and smoke test
 
