@@ -121,40 +121,49 @@ export interface StatusPresentation {
   label: string;
   /** Colour is never the only carrier; each status also has a distinct shape. */
   shape: "filled" | "hollow" | "half" | "cross" | "outline";
-  className: string;
-  dotClassName: string;
+  /** Text colour class. */
+  text: string;
+  /** Tinted background class. */
+  bg: string;
+  /** Solid colour class, for dots and bars. */
+  solid: string;
 }
 
 export const STATUS_PRESENTATION: Record<DayStatus, StatusPresentation> = {
   on_site: {
     label: "On site",
     shape: "filled",
-    className: "text-brand-700 bg-brand-50 border-brand-200",
-    dotClassName: "bg-brand-700",
+    text: "text-status-onsite",
+    bg: "bg-status-onsite-bg",
+    solid: "bg-status-onsite",
   },
   departed: {
     label: "Departed",
     shape: "half",
-    className: "text-neutral-600 bg-neutral-100 border-neutral-300",
-    dotClassName: "bg-neutral-500",
+    text: "text-status-departed",
+    bg: "bg-status-departed-bg",
+    solid: "bg-status-departed",
   },
   late: {
     label: "Late",
     shape: "hollow",
-    className: "text-status-late bg-status-lateBg border-amber-300",
-    dotClassName: "bg-status-late",
+    text: "text-status-late",
+    bg: "bg-status-late-bg",
+    solid: "bg-status-late",
   },
   absent: {
     label: "Absent",
     shape: "cross",
-    className: "text-status-absent bg-status-absentBg border-rose-200",
-    dotClassName: "bg-status-absent",
+    text: "text-status-absent",
+    bg: "bg-status-absent-bg",
+    solid: "bg-status-absent",
   },
   not_expected: {
     label: "Not expected",
     shape: "outline",
-    className: "text-neutral-500 bg-transparent border-neutral-300 border-dashed",
-    dotClassName: "border border-neutral-400 bg-transparent",
+    text: "text-muted-foreground",
+    bg: "bg-transparent",
+    solid: "bg-status-idle",
   },
 };
 

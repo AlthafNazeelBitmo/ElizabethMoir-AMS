@@ -110,6 +110,34 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
       .send(csv);
   });
 
+  app.get("/api/reports/daily", { preHandler }, async (req, reply) => {
+    const parsed = attendanceQuery.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: "invalid_query",
+        message: "Check the dates and filters.",
+        problems: parsed.error.issues.map(
+          (i) => `${i.path.join(".")}: ${i.message}`,
+        ),
+      });
+    }
+    const { from, to, branch, group, tutor } = parsed.data;
+    if (daysBetween(from, to) > MAX_RANGE_DAYS) {
+      return reply.code(400).send({
+        error: "range_too_long",
+        message: `Choose a range of ${MAX_RANGE_DAYS} days or fewer.`,
+      });
+    }
+    const days = await reports.daily(req.auth!.role, {
+      from,
+      to,
+      branch,
+      groupId: group,
+      tutorId: tutor,
+    });
+    return reply.send({ from, to, days });
+  });
+
   app.get<{ Params: { id: string } }>(
     "/api/reports/person/:id",
     { preHandler },

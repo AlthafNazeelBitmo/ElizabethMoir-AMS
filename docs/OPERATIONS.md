@@ -138,6 +138,10 @@ under ADMS → System → Webhook, and the `INGEST_ALLOWED_IPS` setting.
 _Correct_, and give a reason. The correction is recorded against your name
 and survives recomputation.
 
+**Finding anyone, fast.** Press Ctrl+K (⌘K on a Mac) anywhere and type a
+name or a number; Enter opens them on the register. The same palette jumps
+to any page and switches between light and dark.
+
 **A parent asks for their child's record.** Reports → the child's name →
 Print, or Export CSV. The file is named by enrolment number, not by name.
 

@@ -17,7 +17,7 @@ test("an administrator can add a group, and the change is audited", async ({
     .click();
   await page
     .getByRole("navigation", { name: "Admin sections" })
-    .getByRole("button", { name: "Groups", exact: true })
+    .getByRole("link", { name: "Groups", exact: true })
     .click();
 
   // Seeded groups are listed with how many people they hold.
@@ -43,7 +43,7 @@ test("an administrator can add a group, and the change is audited", async ({
   // Audited, with the actor.
   await page
     .getByRole("navigation", { name: "Admin sections" })
-    .getByRole("button", { name: "Audit log" })
+    .getByRole("link", { name: "Audit log" })
     .click();
   await page.getByLabel("Filter by action").selectOption("group_created");
   await expect(

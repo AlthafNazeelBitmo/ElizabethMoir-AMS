@@ -1,7 +1,17 @@
+import { AlertCircleIcon, CopyCheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { ApiError } from "../../lib/api.js";
+import { Button } from "@/components/ui/button.js";
+import {
+  Table as UiTable,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.js";
+import { ApiError } from "@/lib/api.js";
+import { cn } from "@/lib/utils.js";
 
-export { formatDateTime } from "../../lib/format.js";
+export { formatDateTime } from "@/lib/format.js";
 
 /** Chrome shared by the admin sections, so each one reads the same way. */
 export function Section({
@@ -9,30 +19,74 @@ export function Section({
   description,
   actions,
   children,
+  className,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="p-4">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-sm font-semibold text-brand-700">{title}</h1>
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
           {description && (
-            <p className="mt-0.5 max-w-2xl text-sm text-neutral-500">
+            <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
               {description}
             </p>
           )}
         </div>
-        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+        {actions && (
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        )}
       </div>
       {children}
     </div>
   );
 }
 
+/** A bordered surface for a table or a form. */
+export function Panel({
+  children,
+  className,
+  title,
+  description,
+  actions,
+}: {
+  children: ReactNode;
+  className?: string;
+  title?: string | undefined;
+  description?: string | undefined;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-xl border bg-card shadow-xs", className)}>
+      {(title || actions) && (
+        <div className="flex flex-wrap items-start justify-between gap-2 border-b px-4 py-3">
+          <div>
+            {title && <h2 className="text-sm font-semibold">{title}</h2>}
+            {description && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {description}
+              </p>
+            )}
+          </div>
+          {actions}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** A table inside a Panel: header cells are passed as children of `head`. */
 export function Table({
   head,
   children,
@@ -41,16 +95,19 @@ export function Table({
   children: ReactNode;
 }) {
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-600">
-          {head}
-        </tr>
-      </thead>
-      <tbody>{children}</tbody>
-    </table>
+    <div className="overflow-x-auto">
+      <UiTable>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">{head}</TableRow>
+        </TableHeader>
+        <TableBody>{children}</TableBody>
+      </UiTable>
+    </div>
   );
 }
+
+export { TableHead as Th, TableRow as Tr };
+export { TableCell as Td } from "@/components/ui/table.js";
 
 /**
  * An error the operator can act on. The API's message is shown verbatim
@@ -67,18 +124,26 @@ export function Problem({ error }: { error: unknown }) {
   return (
     <div
       role="alert"
-      className="my-2 rounded border border-rose-200 bg-status-absentBg p-2 text-sm"
+      className="flex gap-2.5 rounded-lg border border-status-absent/30 bg-status-absent-bg px-3 py-2.5 text-sm text-status-absent"
     >
-      <p className="text-status-absent">{message}</p>
-      {problems.length > 0 && (
-        <ul className="mt-1 list-inside list-disc text-status-absent">
-          {problems.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      )}
+      <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+      <div>
+        <p>{message}</p>
+        {problems.length > 0 && (
+          <ul className="mt-1 list-inside list-disc">
+            {problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
+}
+
+/** A note under a section: what the control does, and when not to use it. */
+export function Note({ children }: { children: ReactNode }) {
+  return <p className="max-w-2xl text-xs text-muted-foreground">{children}</p>;
 }
 
 /**
@@ -95,22 +160,21 @@ export function OneTimePassword({
   onDone: () => void;
 }) {
   return (
-    <div className="my-3 rounded border border-brand-200 bg-brand-50 p-3">
-      <p className="text-sm font-medium text-brand-700">Temporary password</p>
-      <p className="tabular my-2 select-all font-mono text-base text-neutral-900">
+    <div className="rounded-lg border border-primary/30 bg-accent/50 p-4">
+      <p className="text-sm font-medium text-accent-foreground">
+        Temporary password
+      </p>
+      <p className="tabular my-2 rounded-md border bg-card px-3 py-2 font-mono text-base select-all">
         {password}
       </p>
-      <p className="text-xs text-neutral-600">
+      <p className="text-xs text-muted-foreground">
         This is shown once and cannot be recovered. Give it to the account
         holder over a channel you trust — they must change it when they first
         sign in.
       </p>
-      <button
-        onClick={onDone}
-        className="mt-2 rounded border border-neutral-300 bg-white px-2 py-1 text-xs font-medium"
-      >
-        I have copied it
-      </button>
+      <Button variant="outline" size="sm" className="mt-3" onClick={onDone}>
+        <CopyCheckIcon /> I have copied it
+      </Button>
     </div>
   );
 }

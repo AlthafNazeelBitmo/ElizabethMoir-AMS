@@ -1,9 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
+import { RadioIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Field, inputClass } from "../components/primitives.js";
-import { api, ApiError, type CurrentUser } from "../lib/api.js";
+import { Button } from "@/components/ui/button.js";
+import { Input } from "@/components/ui/input.js";
+import { Field } from "@/components/ui/misc.js";
+import { api, ApiError, type CurrentUser } from "@/lib/api.js";
 
+/**
+ * Sign in. The school's name is not known until a session exists, so this
+ * screen is the one place that says "Attendance" and nothing more.
+ */
 export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -15,7 +22,9 @@ export function LoginPage() {
     onSuccess: (data) => {
       navigate(
         data.user.mustChangePassword ? "/change-password" : "/register",
-        { replace: true },
+        {
+          replace: true,
+        },
       );
     },
   });
@@ -28,42 +37,58 @@ export function LoginPage() {
         : null;
 
   return (
-    <div className="flex h-full items-center justify-center bg-neutral-50 p-4">
+    <div className="relative flex h-full items-center justify-center overflow-hidden p-4">
+      {/* A quiet field of the accent behind the card; never a photograph. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(60rem 30rem at 50% -10%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%)",
+        }}
+      />
       <form
-        className="w-full max-w-sm rounded border border-neutral-200 bg-white p-6"
+        className="w-full max-w-sm rounded-2xl border bg-card p-7 shadow-lg shadow-black/5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
         onSubmit={(e) => {
           e.preventDefault();
           mutation.mutate();
         }}
       >
-        <h1 className="mb-1 text-base font-semibold text-brand-700">
-          Attendance
-        </h1>
-        <p className="mb-5 text-sm text-neutral-500">
-          Sign in to see the register.
-        </p>
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
+            <RadioIcon className="size-5" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold tracking-tight">
+              Attendance
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Sign in to see the register.
+            </p>
+          </div>
+        </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Field label="Email">
-            <input
-              className={inputClass}
+            <Input
               type="email"
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              className="h-9"
             />
           </Field>
 
           <Field label="Password">
-            <input
-              className={inputClass}
+            <Input
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className="h-9"
             />
           </Field>
         </div>
@@ -76,8 +101,8 @@ export function LoginPage() {
 
         <Button
           type="submit"
-          variant="primary"
-          className="mt-5 w-full justify-center"
+          size="lg"
+          className="mt-6 w-full"
           disabled={mutation.isPending}
         >
           {mutation.isPending ? "Signing in…" : "Sign in"}

@@ -1,0 +1,258 @@
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type { DayStatus, RegisterRow, StatusCounts } from "@/lib/api.js";
+import { schoolTimezone } from "@/lib/format.js";
+import { cn } from "@/lib/utils.js";
+
+// The charting library is heavy and this is the first screen; it arrives
+// a moment after the numbers do.
+const ArrivalsSparkline = lazy(() => import("@/components/charts/ArrivalsSparkline.js"));
+
+/**
+ * The numbers above the table, and the shape of the morning.
+ *
+ * Clicking a count applies it as a status filter — the fastest way to
+ * answer "who is absent?" is to press the number next to the word. The
+ * counts pulse when they change so a shift is noticed peripherally by
+ * someone who is not looking directly at the screen, which is the usual
+ * case for a display on a wall.
+ */
+
+const TILES: Array<{
+  key: keyof StatusCounts;
+  label: string;
+  filter: DayStatus | null;
+  accent: string;
+  bar: string;
+}> = [
+  {
+    key: "total",
+    label: "Expected",
+    filter: null,
+    accent: "",
+    bar: "bg-foreground/70",
+  },
+  {
+    key: "on_site",
+    label: "On site",
+    filter: "on_site",
+    accent: "text-status-onsite",
+    bar: "bg-status-onsite",
+  },
+  {
+    key: "late",
+    label: "Late",
+    filter: null,
+    accent: "text-status-late",
+    bar: "bg-status-late",
+  },
+  {
+    key: "absent",
+    label: "Absent",
+    filter: "absent",
+    accent: "text-status-absent",
+    bar: "bg-status-absent",
+  },
+  {
+    key: "departed",
+    label: "Departed",
+    filter: "departed",
+    accent: "text-status-departed",
+    bar: "bg-status-departed",
+  },
+];
+
+export function StatCards({
+  counts,
+  rows,
+  activeStatus,
+  onSelectStatus,
+  isLoading,
+}: {
+  counts: StatusCounts | undefined;
+  rows: RegisterRow[];
+  activeStatus: DayStatus | null;
+  onSelectStatus: (status: DayStatus | null) => void;
+  isLoading: boolean;
+}) {
+  const total = counts?.total ?? 0;
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+      {TILES.map((tile) => {
+        const value = counts?.[tile.key] ?? 0;
+        const filterable = tile.filter !== null;
+        const active = filterable && activeStatus === tile.filter;
+        const share =
+          total > 0 && tile.key !== "total" ? (value / total) * 100 : 100;
+        return (
+          <button
+            key={tile.key}
+            type="button"
+            aria-pressed={filterable ? active : undefined}
+            onClick={() => {
+              if (tile.key === "total") return onSelectStatus(null);
+              if (!filterable) return;
+              onSelectStatus(active ? null : tile.filter);
+            }}
+            disabled={isLoading || (!filterable && tile.key !== "total")}
+            className={cn(
+              "group flex flex-col gap-1 rounded-xl border bg-card p-3.5 text-left shadow-xs transition-[border-color,box-shadow,background-color] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:cursor-default",
+              (filterable || tile.key === "total") &&
+                "hover:border-foreground/20 hover:shadow-sm",
+              active && "border-primary/60 bg-accent/60 ring-1 ring-primary/30",
+            )}
+          >
+            <span className="text-xs font-medium text-muted-foreground">
+              {tile.label}
+            </span>
+            <AnimatedCount
+              value={value}
+              className={cn(
+                "tabular text-2xl font-semibold tracking-tight",
+                tile.accent,
+              )}
+            />
+            <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+              <span
+                className={cn(
+                  "block h-full rounded-full transition-[width] duration-500",
+                  tile.bar,
+                )}
+                style={{ width: `${Math.max(0, Math.min(100, share))}%` }}
+              />
+            </span>
+          </button>
+        );
+      })}
+      <ArrivalsCard
+        rows={rows}
+        className="col-span-2 md:col-span-3 xl:col-span-2"
+      />
+    </div>
+  );
+}
+
+/** Pulses when the number changes, and not on first render. */
+function AnimatedCount({
+  value,
+  className,
+}: {
+  value: number;
+  className: string;
+}) {
+  const previous = useRef(value);
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    if (previous.current === value) return;
+    previous.current = value;
+    setPulse(true);
+    const timer = window.setTimeout(() => setPulse(false), 420);
+    return () => window.clearTimeout(timer);
+  }, [value]);
+  return (
+    <span
+      className={cn(
+        className,
+        "inline-block origin-left",
+        pulse && "animate-count-pulse",
+      )}
+    >
+      {value.toLocaleString("en-GB")}
+    </span>
+  );
+}
+
+/**
+ * Arrivals by ten-minute slot, from the rows on screen. Nothing is fetched
+ * for it; it is the register's own data seen from above. It answers the
+ * question a head asks at 08:30 — "how many are still to come?" — without
+ * a number having to be looked for.
+ */
+function ArrivalsCard({
+  rows,
+  className,
+}: {
+  rows: RegisterRow[];
+  className?: string;
+}) {
+  const series = useMemo(() => bucketArrivals(rows), [rows]);
+  const arrived = series.reduce((sum, b) => sum + b.count, 0);
+  const peak = series.reduce<(typeof series)[number] | null>(
+    (best, b) => (b.count > (best?.count ?? 0) ? b : best),
+    null,
+  );
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col rounded-xl border bg-card p-3.5 shadow-xs",
+        className,
+      )}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          Arrivals
+        </span>
+        {peak && peak.count > 0 && (
+          <span className="tabular text-xs text-muted-foreground">
+            peak {peak.label}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <span className="tabular text-2xl font-semibold tracking-tight">
+          {arrived}
+        </span>
+        <div className="h-9 w-full max-w-[60%]" aria-hidden>
+          {arrived > 0 ? (
+            <Suspense fallback={<div className="h-full w-full rounded bg-muted/40" />}>
+              <ArrivalsSparkline series={series} />
+            </Suspense>
+          ) : (
+            <div className="flex h-full items-end">
+              <div className="h-px w-full bg-border" />
+            </div>
+          )}
+        </div>
+      </div>
+      <span className="mt-1 text-xs text-muted-foreground">
+        {arrived === 0
+          ? "No arrivals yet"
+          : `${arrived} arrived, by ten-minute slot`}
+      </span>
+    </div>
+  );
+}
+
+function bucketArrivals(
+  rows: RegisterRow[],
+): Array<{ label: string; count: number }> {
+  const clock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: schoolTimezone(),
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const minutes: number[] = [];
+  for (const row of rows) {
+    if (!row.firstIn) continue;
+    const [h, m] = clock.format(new Date(row.firstIn)).split(":").map(Number);
+    if (h === undefined || m === undefined || Number.isNaN(h)) continue;
+    minutes.push(h * 60 + m);
+  }
+  if (minutes.length === 0) return [];
+  const start = Math.floor(Math.min(...minutes) / 10) * 10;
+  const end = Math.floor(Math.max(...minutes) / 10) * 10;
+  const buckets: Array<{ label: string; count: number }> = [];
+  for (let t = start; t <= end; t += 10) {
+    buckets.push({
+      label: `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`,
+      count: 0,
+    });
+  }
+  for (const minute of minutes) {
+    const index = Math.floor((minute - start) / 10);
+    const bucket = buckets[index];
+    if (bucket) bucket.count += 1;
+  }
+  return buckets;
+}

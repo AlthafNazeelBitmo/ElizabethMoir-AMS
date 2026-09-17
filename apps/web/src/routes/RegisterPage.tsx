@@ -1,38 +1,52 @@
 import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowDownIcon,
+  CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
-import { PersonPanel } from "../components/PersonPanel.js";
-import { RegisterCards, RegisterTable } from "../components/RegisterTable.js";
-import { SummaryCounters } from "../components/SummaryCounters.js";
+import { GroupsPanel } from "@/components/register/GroupsPanel.js";
+import { PersonSheet } from "@/components/register/PersonSheet.js";
 import {
-  Button,
+  RegisterCards,
+  RegisterTable,
+} from "@/components/register/RegisterTable.js";
+import { StatCards } from "@/components/register/StatCards.js";
+import {
   EmptyState,
   ErrorState,
+  PageHeader,
   TableSkeleton,
-  inputClass,
-} from "../components/primitives.js";
+} from "@/components/states.js";
+import { Button } from "@/components/ui/button.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Kbd } from "@/components/ui/misc.js";
 import {
   useRegisterStream,
   type ConnectionState,
   type ScanEventPayload,
-} from "../hooks/useRegisterStream.js";
+} from "@/hooks/useRegisterStream.js";
 import {
   fetchAllRegisterRows,
   api,
   type CurrentUser,
   type DayStatus,
-  type RegisterPage as RegisterPageData,
   type RegisterRow,
   type SummaryResponse,
-} from "../lib/api.js";
+} from "@/lib/api.js";
 import {
   filtersFromSearch,
   hasActiveFilters,
   queryFromFilters,
   searchFromFilters,
   type RegisterFilters,
-} from "../lib/filters.js";
-import { formatDate, schoolToday } from "../lib/format.js";
+} from "@/lib/filters.js";
+import { formatDate, schoolToday } from "@/lib/format.js";
+import { cn } from "@/lib/utils.js";
 
 /**
  * The live register.
@@ -48,11 +62,36 @@ export function RegisterPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = filtersFromSearch(searchParams, today);
 
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [scrollToPersonId, setScrollToPersonId] = useState<string | null>(null);
+  // The open person lives in the URL so the palette, a shared link and the
+  // back button all reach the same place.
+  // Every URL change is derived from the URL as it is at that moment,
+  // never from a render's snapshot: React Router hands its updater the
+  // params of the last render, so a debounced search firing a tick after a
+  // row click would otherwise rewrite the URL without the person just
+  // opened. `history.replaceState` is synchronous, so the location is the
+  // one source that is never stale.
+  const updateSearch = useCallback(
+    (mutate: (current: URLSearchParams) => URLSearchParams) => {
+      const current = new URLSearchParams(window.location.search);
+      setSearchParams(mutate(current), { replace: true });
+    },
+    [setSearchParams],
+  );
 
-  // Rows changed by the stream, held so the table can highlight them and
-  // then forget about them.
+  const selectedPersonId = searchParams.get("person");
+  const setSelectedPersonId = useCallback(
+    (personId: string | null) => {
+      updateSearch((current) => {
+        const next = new URLSearchParams(current);
+        if (personId) next.set("person", personId);
+        else next.delete("person");
+        return next;
+      });
+    },
+    [updateSearch],
+  );
+
+  const [scrollToPersonId, setScrollToPersonId] = useState<string | null>(null);
   const [recentlyChanged, setRecentlyChanged] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -63,10 +102,15 @@ export function RegisterPage() {
 
   const setFilters = useCallback(
     (next: Partial<RegisterFilters>) => {
-      const merged = { ...filters, ...next };
-      setSearchParams(searchFromFilters(merged, today), { replace: true });
+      updateSearch((current) => {
+        const merged = { ...filtersFromSearch(current, today), ...next };
+        const params = searchFromFilters(merged, today);
+        const person = current.get("person");
+        if (person) params.set("person", person);
+        return params;
+      });
     },
-    [filters, setSearchParams, today],
+    [updateSearch, today],
   );
 
   // Free-text search is debounced by 250ms and applied in the browser: the
@@ -78,8 +122,13 @@ export function RegisterPage() {
     }, 250);
     return () => window.clearTimeout(timer);
   }, [searchDraft, filters.q, setFilters]);
+  useEffect(() => {
+    setSearchDraft(filters.q);
+    // Only when the URL changes underneath us (palette, back button).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.q]);
 
-  // "/" focuses search; Escape closes the panel.
+  // "/" focuses search.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "/" && !isTypingTarget(e.target)) {
@@ -168,297 +217,248 @@ export function RegisterPage() {
 
   const showTutor = filters.branch !== "staff";
   const isNarrow = useIsNarrow();
+  const isToday = filters.date === today;
+
+  const shiftDate = (days: number) => {
+    const d = new Date(`${filters.date}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    const next = d.toISOString().slice(0, 10);
+    if (next <= today) setFilters({ date: next });
+  };
 
   return (
-    <div className="flex h-full min-h-0">
-      <GroupRail
-        groups={summary.data?.groups ?? []}
-        activeGroup={filters.group}
-        activeBranch={filters.branch}
-        canSeeStaff={user.role === "full"}
-        onSelect={(branch, group) => setFilters({ branch, group })}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
-          <input
-            type="date"
-            className={inputClass}
-            value={filters.date}
-            max={today}
-            onChange={(e) => setFilters({ date: e.target.value || today })}
-            aria-label="Date"
-          />
-
-          <input
-            ref={searchInputRef}
-            type="search"
-            className={`${inputClass} w-56`}
-            placeholder="Search name or ID    /"
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-            aria-label="Search by name or ID"
-          />
-
-          <select
-            className={inputClass}
-            value={filters.status ?? ""}
-            onChange={(e) =>
-              setFilters({
-                status: (e.target.value || null) as DayStatus | null,
-              })
-            }
-            aria-label="Status"
-          >
-            <option value="">Any status</option>
-            <option value="on_site">On site</option>
-            <option value="departed">Departed</option>
-            <option value="absent">Absent</option>
-            <option value="not_expected">Not expected</option>
-          </select>
-
-          {/* Only shown when something is actually set. */}
-          {hasActiveFilters(filters) && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSearchDraft("");
-                setSearchParams(
-                  searchFromFilters({ ...blankFilters(today) }, today),
-                  {
-                    replace: true,
-                  },
-                );
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
-
-          <div className="ml-auto">
+    <div className="flex h-full min-h-0 flex-col gap-4 p-4 lg:p-5">
+      <PageHeader
+        title="Live register"
+        description={
+          <span className="flex items-center gap-2">
+            {formatDate(filters.date)}
+            {isToday ? (
+              <span className="text-muted-foreground/70">· today</span>
+            ) : (
+              <span className="rounded-full bg-muted px-1.5 py-px text-[0.6875rem] font-medium text-muted-foreground">
+                settled day
+              </span>
+            )}
+          </span>
+        }
+        actions={
+          <>
             <ConnectionIndicator
               state={stream.state}
               lastContactAt={stream.lastContactAt}
             />
-          </div>
-        </div>
-
-        {stream.state === "reconnecting" && (
-          <div
-            role="status"
-            className="shrink-0 border-b border-amber-300 bg-status-lateBg px-3 py-1.5 text-sm text-status-late"
-          >
-            Reconnecting — showing data from{" "}
-            {stream.lastContactAt
-              ? stream.lastContactAt.toLocaleTimeString("en-GB", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "when the page loaded"}
-            .
-          </div>
-        )}
-
-        <SummaryCounters
-          counts={summary.data?.counts}
-          activeStatus={filters.status}
-          onSelectStatus={(status) => setFilters({ status })}
-        />
-
-        {offscreenUpdates.length > 2 && (
-          <button
-            onClick={() => {
-              setScrollToPersonId(offscreenUpdates.at(-1) ?? null);
-              setOffscreenUpdates([]);
-            }}
-            className="mx-3 mb-2 shrink-0 self-start rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700"
-          >
-            {offscreenUpdates.length} updates — jump to the latest
-          </button>
-        )}
-
-        <div className="min-h-0 flex-1">
-          {register.isPending && <TableSkeleton />}
-
-          {register.isError && (
-            <ErrorState
-              title="The register could not be loaded."
-              detail="The server did not answer. Your data is safe; this screen is not current."
-              onRetry={() => void register.refetch()}
-            />
-          )}
-
-          {register.isSuccess && visibleRows.length === 0 && (
-            <EmptyState
-              title={
-                hasActiveFilters(filters)
-                  ? "No one matches these filters."
-                  : "Nobody is in the register for this day."
-              }
-              detail={
-                hasActiveFilters(filters)
-                  ? "Clear the filters to see everyone."
-                  : "Import the school directory in Admin, then scans will appear here as they happen."
-              }
-            />
-          )}
-
-          {register.isSuccess &&
-            visibleRows.length > 0 &&
-            (isNarrow ? (
-              <RegisterCards
-                rows={visibleRows}
-                recentlyChanged={recentlyChanged}
-                onSelect={setSelectedPersonId}
-              />
-            ) : (
-              <RegisterTable
-                rows={visibleRows}
-                recentlyChanged={recentlyChanged}
-                showTutor={showTutor}
-                selectedPersonId={selectedPersonId}
-                onSelect={setSelectedPersonId}
-                scrollToPersonId={scrollToPersonId}
-                onScrolledTo={() => setScrollToPersonId(null)}
-              />
-            ))}
-        </div>
-      </div>
-
-      {selectedPersonId && (
-        <PersonPanel
-          personId={selectedPersonId}
-          date={filters.date}
-          onClose={() => setSelectedPersonId(null)}
-          onChanged={() => {
-            void register.refetch();
-            void summary.refetch();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function GroupRail({
-  groups,
-  activeGroup,
-  activeBranch,
-  canSeeStaff,
-  onSelect,
-}: {
-  groups: SummaryResponse["groups"];
-  activeGroup: number | null;
-  activeBranch: "student" | "staff" | null;
-  canSeeStaff: boolean;
-  onSelect: (branch: "student" | "staff" | null, group: number | null) => void;
-}) {
-  const students = groups.filter((g) => g.branch === "student");
-  const staff = groups.filter((g) => g.branch === "staff");
-
-  return (
-    <nav
-      aria-label="Groups"
-      className="hidden w-52 shrink-0 overflow-auto border-r border-neutral-200 bg-white py-2 md:block"
-    >
-      <RailSection
-        title="All students"
-        active={activeBranch === "student" && activeGroup === null}
-        onClick={() => onSelect("student", null)}
+            <div className="flex items-center rounded-md border bg-card shadow-xs dark:bg-input/20">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Previous day"
+                onClick={() => shiftDate(-1)}
+              >
+                <ChevronLeftIcon />
+              </Button>
+              <div className="relative">
+                <CalendarIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="date"
+                  aria-label="Date"
+                  className="tabular h-7 w-[9.5rem] border-0 bg-transparent pr-1 pl-7 text-sm outline-none"
+                  value={filters.date}
+                  max={today}
+                  onChange={(e) =>
+                    setFilters({ date: e.target.value || today })
+                  }
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Next day"
+                disabled={isToday}
+                onClick={() => shiftDate(1)}
+              >
+                <ChevronRightIcon />
+              </Button>
+            </div>
+            {!isToday && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters({ date: today })}
+              >
+                Today
+              </Button>
+            )}
+          </>
+        }
       />
-      {students.map((group) => (
-        <RailItem
-          key={group.groupId}
-          label={group.name}
-          onSite={group.onSite}
-          total={group.total}
-          active={activeGroup === group.groupId}
-          onClick={() => onSelect("student", group.groupId)}
-        />
-      ))}
 
-      {/* A student-only account gets no staff navigation whatsoever. */}
-      {canSeeStaff && (
-        <>
-          <RailSection
-            title="All staff"
-            active={activeBranch === "staff" && activeGroup === null}
-            onClick={() => onSelect("staff", null)}
-          />
-          {staff.map((group) => (
-            <RailItem
-              key={group.groupId}
-              label={group.name}
-              onSite={group.onSite}
-              total={group.total}
-              active={activeGroup === group.groupId}
-              onClick={() => onSelect("staff", group.groupId)}
-            />
-          ))}
-        </>
+      {stream.state === "reconnecting" && (
+        <div
+          role="status"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-status-late/40 bg-status-late-bg px-3 py-2 text-sm text-status-late"
+        >
+          <span className="size-2 rounded-full bg-status-late" />
+          Reconnecting — showing data from{" "}
+          {stream.lastContactAt
+            ? stream.lastContactAt.toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "when the page loaded"}
+          .
+        </div>
       )}
 
-      <div className="mt-3 border-t border-neutral-100 pt-2">
-        <RailSection
-          title="Everyone"
-          active={activeBranch === null && activeGroup === null}
-          onClick={() => onSelect(null, null)}
+      <StatCards
+        counts={summary.data?.counts}
+        rows={rows}
+        activeStatus={filters.status}
+        onSelectStatus={(status) => setFilters({ status })}
+        isLoading={summary.isPending}
+      />
+
+      <div className="flex min-h-0 flex-1 gap-4">
+        <GroupsPanel
+          groups={summary.data?.groups ?? []}
+          activeGroup={filters.group}
+          activeBranch={filters.branch}
+          canSeeStaff={user.role === "full"}
+          onSelect={(branch, group) => setFilters({ branch, group })}
+          className="hidden w-56 shrink-0 md:flex"
         />
+
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card shadow-xs">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                type="search"
+                className="w-64 pl-8 pr-9"
+                placeholder="Search name or ID"
+                value={searchDraft}
+                onChange={(e) => setSearchDraft(e.target.value)}
+                aria-label="Search by name or ID"
+              />
+              <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>
+            </div>
+
+            <NativeSelect
+              aria-label="Status"
+              value={filters.status ?? ""}
+              onChange={(e) =>
+                setFilters({
+                  status: (e.target.value || null) as DayStatus | null,
+                })
+              }
+            >
+              <option value="">Any status</option>
+              <option value="on_site">On site</option>
+              <option value="departed">Departed</option>
+              <option value="absent">Absent</option>
+              <option value="not_expected">Not expected</option>
+            </NativeSelect>
+
+            {hasActiveFilters(filters) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchDraft("");
+                  updateSearch(() => searchFromFilters(blankFilters(today), today));
+                }}
+              >
+                <XIcon /> Clear filters
+              </Button>
+            )}
+
+            <span className="tabular ml-auto text-xs text-muted-foreground">
+              {register.isSuccess && (
+                <>
+                  {visibleRows.length.toLocaleString("en-GB")}
+                  {visibleRows.length !== rows.length &&
+                    ` of ${rows.length.toLocaleString("en-GB")}`}{" "}
+                  {visibleRows.length === 1 ? "person" : "people"}
+                </>
+              )}
+            </span>
+          </div>
+
+          {offscreenUpdates.length > 2 && (
+            <button
+              type="button"
+              onClick={() => {
+                setScrollToPersonId(offscreenUpdates.at(-1) ?? null);
+                setOffscreenUpdates([]);
+              }}
+              className="mx-3 mt-2 flex shrink-0 items-center gap-1.5 self-start rounded-full border border-primary/30 bg-accent px-3 py-1 text-xs font-medium text-accent-foreground shadow-xs transition-colors hover:bg-accent/70"
+            >
+              <ArrowDownIcon className="size-3" />
+              {offscreenUpdates.length} updates — jump to the latest
+            </button>
+          )}
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            {register.isPending && <TableSkeleton />}
+
+            {register.isError && (
+              <ErrorState
+                title="The register could not be loaded."
+                detail="The server did not answer. Your data is safe; this screen is not current."
+                onRetry={() => void register.refetch()}
+              />
+            )}
+
+            {register.isSuccess && visibleRows.length === 0 && (
+              <EmptyState
+                icon={SearchIcon}
+                title={
+                  hasActiveFilters(filters)
+                    ? "No one matches these filters."
+                    : "Nobody is in the register for this day."
+                }
+                detail={
+                  hasActiveFilters(filters)
+                    ? "Clear the filters to see everyone."
+                    : "Import the school directory in Admin, then scans will appear here as they happen."
+                }
+              />
+            )}
+
+            {register.isSuccess &&
+              visibleRows.length > 0 &&
+              (isNarrow ? (
+                <RegisterCards
+                  rows={visibleRows}
+                  recentlyChanged={recentlyChanged}
+                  onSelect={setSelectedPersonId}
+                />
+              ) : (
+                <RegisterTable
+                  rows={visibleRows}
+                  recentlyChanged={recentlyChanged}
+                  showTutor={showTutor}
+                  selectedPersonId={selectedPersonId}
+                  onSelect={setSelectedPersonId}
+                  scrollToPersonId={scrollToPersonId}
+                  onScrolledTo={() => setScrollToPersonId(null)}
+                />
+              ))}
+          </div>
+        </div>
       </div>
-    </nav>
-  );
-}
 
-function RailSection({
-  title,
-  active,
-  onClick,
-}: {
-  title: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-current={active ? "true" : undefined}
-      className={`block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide ${
-        active ? "text-brand-700" : "text-neutral-500 hover:text-neutral-700"
-      }`}
-    >
-      {title}
-    </button>
-  );
-}
-
-function RailItem({
-  label,
-  onSite,
-  total,
-  active,
-  onClick,
-}: {
-  label: string;
-  onSite: number;
-  total: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-current={active ? "true" : undefined}
-      className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
-        active
-          ? "bg-brand-50 font-medium text-brand-700"
-          : "text-neutral-700 hover:bg-neutral-50"
-      }`}
-    >
-      <span className="truncate">{label}</span>
-      <span className="tabular shrink-0 text-xs text-neutral-500">
-        {onSite}/{total}
-      </span>
-    </button>
+      <PersonSheet
+        personId={selectedPersonId}
+        date={filters.date}
+        onClose={() => setSelectedPersonId(null)}
+        onChanged={() => {
+          void register.refetch();
+          void summary.refetch();
+        }}
+      />
+    </div>
   );
 }
 
@@ -470,15 +470,23 @@ function ConnectionIndicator({
   lastContactAt: Date | null;
 }) {
   const presentation = {
-    idle: { dot: "bg-neutral-300", label: "Not live" },
-    live: { dot: "bg-brand-600", label: "Live" },
-    connecting: { dot: "bg-neutral-400", label: "Connecting" },
-    reconnecting: { dot: "bg-status-late", label: "Reconnecting" },
+    idle: { dot: "bg-status-idle", label: "Not live", pulse: false },
+    live: { dot: "bg-primary", label: "Live", pulse: true },
+    connecting: {
+      dot: "bg-muted-foreground",
+      label: "Connecting",
+      pulse: false,
+    },
+    reconnecting: {
+      dot: "bg-status-late",
+      label: "Reconnecting",
+      pulse: false,
+    },
   }[state];
 
   return (
     <span
-      className="flex items-center gap-1.5 text-xs text-neutral-500"
+      className="inline-flex h-7 items-center gap-2 rounded-full border bg-card px-2.5 text-xs font-medium text-muted-foreground shadow-xs dark:bg-input/20"
       title={
         lastContactAt
           ? `Last update ${lastContactAt.toLocaleTimeString("en-GB")}`
@@ -486,7 +494,11 @@ function ConnectionIndicator({
       }
     >
       <span
-        className={`inline-block h-2 w-2 rounded-full ${presentation.dot}`}
+        className={cn(
+          "inline-block size-2 rounded-full",
+          presentation.dot,
+          presentation.pulse && "animate-live-dot",
+        )}
         aria-hidden
       />
       {presentation.label}
@@ -536,5 +548,3 @@ function useIsNarrow(): boolean {
   }, []);
   return narrow;
 }
-
-export type { RegisterPageData };

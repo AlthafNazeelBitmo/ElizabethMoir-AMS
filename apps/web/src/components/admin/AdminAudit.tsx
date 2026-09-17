@@ -1,8 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  ScrollTextIcon,
+} from "lucide-react";
 import { useState } from "react";
-import { inputClass } from "../primitives.js";
-import { api } from "../../lib/api.js";
-import { Section, Table, formatDateTime } from "./shared.js";
+import { EmptyState, TableSkeleton } from "@/components/states.js";
+import { Badge } from "@/components/ui/badge.js";
+import { Button } from "@/components/ui/button.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Avatar } from "@/components/ui/misc.js";
+import { api } from "@/lib/api.js";
+import { cn } from "@/lib/utils.js";
+import { formatDateTime, Panel, Section, Table, Td, Th, Tr } from "./shared.js";
 
 interface AuditEntry {
   id: number;
@@ -17,6 +28,16 @@ interface AuditEntry {
 }
 
 const PAGE_SIZE = 50;
+
+/** A tint per family of action, so a wall of entries can be skimmed. */
+function actionTone(action: string): string {
+  if (action.startsWith("login") || action === "logout" || action === "lockout")
+    return "bg-muted text-muted-foreground";
+  if (action.includes("export")) return "bg-status-late-bg text-status-late";
+  if (action.includes("deactivated") || action.includes("dead_letter"))
+    return "bg-status-absent-bg text-status-absent";
+  return "bg-accent text-accent-foreground";
+}
 
 /**
  * The audit log.
@@ -62,143 +83,168 @@ export function AdminAudit() {
       title="Audit log"
       description="Who did what, and when. Entries cannot be edited or removed by anyone, including administrators — the database refuses it."
       actions={
-        <a
-          href={exportUrl}
-          className="inline-flex items-center rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-        >
-          Export CSV
-        </a>
+        <Button asChild variant="outline">
+          <a href={exportUrl}>
+            <DownloadIcon /> Export CSV
+          </a>
+        </Button>
       }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select
-          className={inputClass}
-          aria-label="Filter by action"
-          value={action}
-          onChange={(e) => {
-            setAction(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Every action</option>
-          {(log.data?.actions ?? []).map((a) => (
-            <option key={a} value={a}>
-              {a.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
-        <input
-          type="date"
-          className={inputClass}
-          aria-label="From date"
-          value={from}
-          max={to || undefined}
-          onChange={(e) => {
-            setFrom(e.target.value);
-            setPage(1);
-          }}
-        />
-        <input
-          type="date"
-          className={inputClass}
-          aria-label="To date"
-          value={to}
-          min={from || undefined}
-          onChange={(e) => {
-            setTo(e.target.value);
-            setPage(1);
-          }}
-        />
-        {log.data && (
-          <span className="tabular text-xs text-neutral-500">
-            {log.data.total} entries
-          </span>
-        )}
-      </div>
-
-      {log.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
-
-      {log.isSuccess && log.data.entries.length === 0 && (
-        <p className="text-sm text-neutral-500">
-          Nothing recorded for this filter yet.
-        </p>
-      )}
-
-      {log.isSuccess && log.data.entries.length > 0 && (
-        <>
-          <Table
-            head={
-              <>
-                <th className="py-2">When</th>
-                <th className="py-2">Who</th>
-                <th className="py-2">Action</th>
-                <th className="py-2">Subject</th>
-                <th className="py-2" />
-              </>
-            }
+      <Panel>
+        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+          <NativeSelect
+            aria-label="Filter by action"
+            value={action}
+            onChange={(e) => {
+              setAction(e.target.value);
+              setPage(1);
+            }}
           >
-            {log.data.entries.map((entry) => (
-              <tr
-                key={entry.id}
-                className="border-b border-neutral-100 align-top"
-              >
-                <td className="py-1.5 whitespace-nowrap text-neutral-600">
-                  {formatDateTime(entry.createdAt)}
-                </td>
-                <td className="py-1.5 text-neutral-600">
-                  {entry.userName ?? entry.userEmail ?? "—"}
-                </td>
-                <td className="py-1.5">{entry.action.replace(/_/g, " ")}</td>
-                <td className="py-1.5 text-neutral-500">
-                  {entry.entity ?? "—"}
-                  {entry.entityId ? ` ${entry.entityId.slice(0, 8)}` : ""}
-                </td>
-                <td className="py-1.5 text-right">
-                  {(entry.before !== null || entry.after !== null) && (
-                    <button
-                      className="text-xs text-brand-700 hover:underline"
-                      onClick={() =>
-                        setExpanded(expanded === entry.id ? null : entry.id)
-                      }
-                    >
-                      {expanded === entry.id ? "Hide" : "Detail"}
-                    </button>
-                  )}
-                  {expanded === entry.id && (
-                    <pre className="mt-1 max-w-md overflow-auto rounded bg-neutral-50 p-2 text-left text-xs text-neutral-700">
-                      {JSON.stringify(
-                        { before: entry.before, after: entry.after },
-                        null,
-                        2,
-                      )}
-                    </pre>
-                  )}
-                </td>
-              </tr>
+            <option value="">Every action</option>
+            {(log.data?.actions ?? []).map((a) => (
+              <option key={a} value={a}>
+                {a.replace(/_/g, " ")}
+              </option>
             ))}
-          </Table>
-
-          <div className="mt-3 flex items-center gap-2 text-sm">
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="rounded border border-neutral-300 px-2 py-1 disabled:text-neutral-400"
-            >
-              Previous
-            </button>
-            <span className="tabular text-neutral-600">
-              Page {page} of {pages}
+          </NativeSelect>
+          <Input
+            type="date"
+            className="tabular w-[10.5rem]"
+            aria-label="From date"
+            value={from}
+            max={to || undefined}
+            onChange={(e) => {
+              setFrom(e.target.value);
+              setPage(1);
+            }}
+          />
+          <Input
+            type="date"
+            className="tabular w-[10.5rem]"
+            aria-label="To date"
+            value={to}
+            min={from || undefined}
+            onChange={(e) => {
+              setTo(e.target.value);
+              setPage(1);
+            }}
+          />
+          {log.data && (
+            <span className="tabular ml-auto text-xs text-muted-foreground">
+              {log.data.total.toLocaleString("en-GB")} entries
             </span>
-            <button
-              disabled={page >= pages}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded border border-neutral-300 px-2 py-1 disabled:text-neutral-400"
+          )}
+        </div>
+
+        {log.isPending && <TableSkeleton rows={8} />}
+
+        {log.isSuccess && log.data.entries.length === 0 && (
+          <EmptyState
+            icon={ScrollTextIcon}
+            title="Nothing recorded for this filter yet."
+          />
+        )}
+
+        {log.isSuccess && log.data.entries.length > 0 && (
+          <>
+            <Table
+              head={
+                <>
+                  <Th>When</Th>
+                  <Th>Who</Th>
+                  <Th>Action</Th>
+                  <Th>Subject</Th>
+                  <Th className="text-right" />
+                </>
+              }
             >
-              Next
-            </button>
-          </div>
-        </>
-      )}
+              {log.data.entries.map((entry) => (
+                <Tr key={entry.id} className="align-top">
+                  <Td className="tabular text-muted-foreground">
+                    {formatDateTime(entry.createdAt)}
+                  </Td>
+                  <Td>
+                    <span className="flex items-center gap-2">
+                      {(entry.userName ?? entry.userEmail) && (
+                        <Avatar
+                          name={entry.userName ?? entry.userEmail ?? ""}
+                          size="sm"
+                        />
+                      )}
+                      {entry.userName ?? entry.userEmail ?? "—"}
+                    </span>
+                  </Td>
+                  <Td>
+                    <Badge
+                      className={cn(
+                        "border-transparent",
+                        actionTone(entry.action),
+                      )}
+                    >
+                      {entry.action.replace(/_/g, " ")}
+                    </Badge>
+                  </Td>
+                  <Td className="text-muted-foreground">
+                    {entry.entity ?? "—"}
+                    {entry.entityId && (
+                      <span className="tabular ml-1 text-xs opacity-70">
+                        {entry.entityId.slice(0, 8)}
+                      </span>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    {(entry.before !== null || entry.after !== null) && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() =>
+                          setExpanded(expanded === entry.id ? null : entry.id)
+                        }
+                      >
+                        {expanded === entry.id ? "Hide" : "Detail"}
+                      </Button>
+                    )}
+                    {expanded === entry.id && (
+                      <pre className="mt-2 max-h-72 max-w-md overflow-auto rounded-md border bg-muted/50 p-2 text-left font-mono text-[0.6875rem] leading-relaxed whitespace-pre-wrap">
+                        {JSON.stringify(
+                          { before: entry.before, after: entry.after },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    )}
+                  </Td>
+                </Tr>
+              ))}
+            </Table>
+
+            <div className="flex items-center justify-between gap-2 border-t px-3 py-2 text-sm">
+              <span className="tabular text-muted-foreground">
+                Page {page} of {pages}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  <ChevronLeftIcon /> Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= pages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next <ChevronRightIcon />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </Panel>
     </Section>
   );
 }

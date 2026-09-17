@@ -1,27 +1,53 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
-  Button,
+  ArrowLeftIcon,
+  DownloadIcon,
+  PencilLineIcon,
+  PrinterIcon,
+} from "lucide-react";
+import { lazy, Suspense } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { StatusBadge } from "@/components/status.js";
+import {
   EmptyState,
   ErrorState,
-  StatusBadge,
+  PageHeader,
   TableSkeleton,
-  inputClass,
-} from "../components/primitives.js";
-import { api, ApiError, type Branch, type PersonDay } from "../lib/api.js";
+} from "@/components/states.js";
+import { Button } from "@/components/ui/button.js";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card.js";
+import { Input } from "@/components/ui/input.js";
+import { Avatar, Field, Skeleton } from "@/components/ui/misc.js";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.js";
+import { api, ApiError, type Branch, type PersonDay } from "@/lib/api.js";
 import {
   formatDate,
   formatTime,
   NO_TIME,
   schoolName,
   schoolToday,
-} from "../lib/format.js";
+} from "@/lib/format.js";
+import { cn } from "@/lib/utils.js";
+
+const ArrivalChart = lazy(() => import("@/components/charts/ArrivalChart.js"));
 
 /**
  * One person over a range: the figures the school-wide report gives them,
- * and the day-by-day record those figures were computed from. This is the
- * page a head of year prints before a conversation with a parent, so it
- * has to explain itself on paper.
+ * a picture of when they arrive, and the day-by-day record those figures
+ * were computed from. This is the page a head of year prints before a
+ * conversation with a parent, so it has to explain itself on paper.
  */
 
 interface PersonReport {
@@ -70,18 +96,18 @@ export function PersonReportPage() {
 
   const exportUrl = `/api/reports/person/${id}?from=${from}&to=${to}&format=csv`;
   const backTo = `/reports?${new URLSearchParams({ from, to }).toString()}`;
+  const person = report.data?.person;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="hidden print:block print:mb-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:overflow-visible">
+      <div className="hidden print:block">
         <h1 className="text-lg font-semibold">
           {schoolName()} — attendance report
         </h1>
-        {report.data && (
+        {person && (
           <p className="text-sm">
-            {report.data.person.fullName} · {report.data.person.enrollNo}
-            {report.data.person.groupName &&
-              ` · ${report.data.person.groupName}`}
+            {person.fullName} · {person.enrollNo}
+            {person.groupName && ` · ${person.groupName}`}
           </p>
         )}
         <p className="text-sm">
@@ -90,151 +116,210 @@ export function PersonReportPage() {
         </p>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-neutral-200 bg-white px-3 py-2 print:hidden">
-        <Link
-          to={backTo}
-          className="self-center text-sm text-brand-700 hover:underline"
+      <div className="print:hidden">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="-ml-2 text-muted-foreground"
         >
-          ← All people
-        </Link>
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-neutral-600">From</span>
-          <input
-            type="date"
-            className={inputClass}
-            value={from}
-            max={to}
-            onChange={(e) => e.target.value && setParam("from", e.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-neutral-600">To</span>
-          <input
-            type="date"
-            className={inputClass}
-            value={to}
-            max={today}
-            onChange={(e) => e.target.value && setParam("to", e.target.value)}
-          />
-        </label>
-
-        <div className="ml-auto flex gap-2">
-          <Button onClick={() => window.print()}>Print</Button>
-          <a
-            href={exportUrl}
-            className="inline-flex items-center rounded bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-800"
-          >
-            Export CSV
-          </a>
-        </div>
+          <Link to={backTo}>
+            <ArrowLeftIcon /> All people
+          </Link>
+        </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
-        {report.isPending && <TableSkeleton />}
-
-        {report.isError && (
-          <ErrorState
-            title={
-              report.error instanceof ApiError && report.error.status === 404
-                ? "There is nobody here by that reference."
-                : "The report could not be produced."
-            }
-            detail={
-              report.error instanceof ApiError && report.error.status === 404
-                ? "They may have been removed, or the link may be wrong."
-                : "The date range may be too long, or the server did not answer."
-            }
-            onRetry={() => void report.refetch()}
-          />
-        )}
-
-        {report.isSuccess && (
-          <div className="mx-auto max-w-4xl p-4">
-            <header className="mb-4 print:hidden">
-              <h1 className="text-lg font-semibold text-neutral-900">
-                {report.data.person.fullName}
-              </h1>
-              <p className="tabular text-sm text-neutral-500">
-                {report.data.person.enrollNo}
-                {report.data.person.groupName &&
-                  ` · ${report.data.person.groupName}`}
-                {report.data.person.tutorInitials &&
-                  ` · Tutor ${report.data.person.tutorInitials}`}
-              </p>
-            </header>
-
-            <Summary report={report.data} />
-
-            <h2 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Day by day
-            </h2>
-
-            {report.data.days.length === 0 ? (
-              <EmptyState
-                title="Nothing recorded in this range."
-                detail="Days appear here once a scan arrives or an absence is decided."
-              />
+      <PageHeader
+        className="print:hidden"
+        title={
+          <span className="flex items-center gap-3">
+            {person ? (
+              <Avatar name={person.fullName} size="lg" />
             ) : (
-              <table className="w-full border-collapse text-sm">
-                <thead className="bg-neutral-50">
-                  <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-600">
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">First in</th>
-                    <th className="px-3 py-2 text-right">Last out</th>
-                    <th className="px-3 py-2 text-right">Scans</th>
-                    <th className="px-3 py-2">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.data.days.map((day) => (
-                    <tr key={day.id} className="border-b border-neutral-100">
-                      <td className="px-3 py-1.5 text-neutral-800">
-                        {formatDate(day.date)}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <StatusBadge status={day.status} isLate={day.isLate} />
-                      </td>
-                      <td
-                        className={`tabular px-3 py-1.5 text-right ${day.firstIn ? "" : "text-neutral-400"}`}
-                      >
-                        {formatTime(day.firstIn)}
-                      </td>
-                      <td
-                        className={`tabular px-3 py-1.5 text-right ${day.lastOut ? "" : "text-neutral-400"}`}
-                      >
-                        {day.lastOut ? formatTime(day.lastOut) : NO_TIME}
-                      </td>
-                      <td className="tabular px-3 py-1.5 text-right text-neutral-600">
-                        {day.scanCount}
-                      </td>
-                      <td className="px-3 py-1.5 text-xs text-neutral-500">
-                        {day.hasManualEdit ? "Corrected by hand" : ""}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <Skeleton className="size-12 rounded-full" />
             )}
+            <span>
+              <span className="block">{person?.fullName ?? "Loading…"}</span>
+              {person && (
+                <span className="tabular block text-sm font-normal text-muted-foreground">
+                  {person.enrollNo}
+                  {person.groupName && ` · ${person.groupName}`}
+                  {person.tutorInitials && ` · Tutor ${person.tutorInitials}`}
+                </span>
+              )}
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            <Field label="From">
+              <Input
+                type="date"
+                className="tabular w-[10.5rem]"
+                value={from}
+                max={to}
+                onChange={(e) =>
+                  e.target.value && setParam("from", e.target.value)
+                }
+              />
+            </Field>
+            <Field label="To">
+              <Input
+                type="date"
+                className="tabular w-[10.5rem]"
+                value={to}
+                max={today}
+                onChange={(e) =>
+                  e.target.value && setParam("to", e.target.value)
+                }
+              />
+            </Field>
+            <Button variant="outline" onClick={() => window.print()}>
+              <PrinterIcon /> Print
+            </Button>
+            <Button asChild>
+              <a href={exportUrl}>
+                <DownloadIcon /> Export CSV
+              </a>
+            </Button>
+          </>
+        }
+      />
+
+      {report.isError && (
+        <ErrorState
+          title={
+            report.error instanceof ApiError && report.error.status === 404
+              ? "There is nobody here by that reference."
+              : "The report could not be produced."
+          }
+          detail={
+            report.error instanceof ApiError && report.error.status === 404
+              ? "They may have been removed, or the link may be wrong."
+              : "The date range may be too long, or the server did not answer."
+          }
+          onRetry={() => void report.refetch()}
+        />
+      )}
+
+      {report.isPending && <TableSkeleton rows={6} />}
+
+      {report.isSuccess && (
+        <>
+          <Summary report={report.data} />
+
+          <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle>Arrival times</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {report.data.days.some((d) => d.firstIn) ? (
+                  <Suspense fallback={<Skeleton className="h-44 w-full" />}>
+                    <ArrivalChart days={report.data.days} />
+                  </Suspense>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No arrivals in this range.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Day by day</CardTitle>
+              </CardHeader>
+              {report.data.days.length === 0 ? (
+                <EmptyState
+                  title="Nothing recorded in this range."
+                  detail="Days appear here once a scan arrives or an absence is decided."
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">First in</TableHead>
+                      <TableHead className="text-right">Last out</TableHead>
+                      <TableHead className="text-right">Scans</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.data.days.map((day) => (
+                      <TableRow key={day.id}>
+                        <TableCell>{formatDate(day.date)}</TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            status={day.status}
+                            isLate={day.isLate}
+                          />
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "tabular text-right",
+                            !day.firstIn && "text-muted-foreground/60",
+                          )}
+                        >
+                          {formatTime(day.firstIn)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "tabular text-right",
+                            !day.lastOut && "text-muted-foreground/60",
+                          )}
+                        >
+                          {day.lastOut ? formatTime(day.lastOut) : NO_TIME}
+                        </TableCell>
+                        <TableCell className="tabular text-right text-muted-foreground">
+                          {day.scanCount}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {day.hasManualEdit && (
+                            <span className="inline-flex items-center gap-1">
+                              <PencilLineIcon className="size-3.5" /> Corrected
+                              by hand
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
 
 function Summary({ report }: { report: PersonReport }) {
   const s = report.summary;
-  const tiles: Array<{ label: string; value: string }> = [
+  const tiles: Array<{ label: string; value: string; accent?: string }> = [
     { label: "School days", value: String(report.schoolDaysInRange) },
-    { label: "Present", value: s ? String(s.daysPresent) : NO_TIME },
-    { label: "Absent", value: s ? String(s.daysAbsent) : NO_TIME },
-    { label: "Late", value: s ? String(s.lateCount) : NO_TIME },
+    {
+      label: "Present",
+      value: s ? String(s.daysPresent) : NO_TIME,
+      accent: "text-status-onsite",
+    },
+    {
+      label: "Absent",
+      value: s ? String(s.daysAbsent) : NO_TIME,
+      accent: "text-status-absent",
+    },
+    {
+      label: "Late",
+      value: s ? String(s.lateCount) : NO_TIME,
+      accent: "text-status-late",
+    },
     {
       label: "Attendance",
       value:
-        s?.attendancePercentage === null || s === null
+        s === null || s.attendancePercentage === null
           ? NO_TIME
           : `${s.attendancePercentage.toFixed(1)}%`,
     },
@@ -244,18 +329,25 @@ function Summary({ report }: { report: PersonReport }) {
     },
   ];
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
       {tiles.map((tile) => (
         <div
           key={tile.label}
           role="group"
           aria-label={tile.label}
-          className="min-w-[6.5rem] rounded border border-neutral-200 bg-white px-3 py-2"
+          className="flex flex-col gap-1 rounded-xl border bg-card p-3.5 shadow-xs"
         >
-          <span className="tabular block text-xl font-semibold text-neutral-800">
+          <span className="text-xs font-medium text-muted-foreground">
+            {tile.label}
+          </span>
+          <span
+            className={cn(
+              "tabular text-2xl font-semibold tracking-tight",
+              tile.accent,
+            )}
+          >
             {tile.value}
           </span>
-          <span className="block text-xs text-neutral-500">{tile.label}</span>
         </div>
       ))}
     </div>

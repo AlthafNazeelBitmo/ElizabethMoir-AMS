@@ -11,13 +11,14 @@ All seven phases are built; `docs/PHASE-0.md` through `docs/PHASE-7.md`
 record what each did, what it chose where the specification left room, and
 what it could not verify. What remains needs the school: a discovery day of
 real scans, the real directory spreadsheet, and a restore rehearsal on the
-real server. `docs/OPERATIONS.md` is the runbook.
+real server. `docs/OPERATIONS.md` is the runbook; `docs/DESIGN.md` is the
+visual system the front end is built on.
 
 ## Layout
 
 ```
 apps/api           Fastify API: ingest, processing, register, reports, admin
-apps/web           React front end: live register, reports, admin; e2e/ tests
+apps/web           React 19 + Tailwind v4 + Radix: register, reports, admin
 packages/shared    Types and Zod schemas shared by api and web
 deploy/            Caddyfile, Postgres init scripts
 docs/              Phase notes, decisions, runbooks

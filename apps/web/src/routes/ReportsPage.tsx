@@ -1,27 +1,56 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  PrinterIcon,
+} from "lucide-react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import {
-  Button,
+  CardSkeleton,
   EmptyState,
   ErrorState,
+  PageHeader,
   TableSkeleton,
-  inputClass,
-} from "../components/primitives.js";
+} from "@/components/states.js";
+import { Button } from "@/components/ui/button.js";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Avatar, Field, Skeleton } from "@/components/ui/misc.js";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.js";
 import {
   api,
   type Branch,
   type CurrentUser,
   type GroupCount,
   type SummaryResponse,
-} from "../lib/api.js";
-import { formatDate, schoolName, schoolToday } from "../lib/format.js";
+} from "@/lib/api.js";
+import { formatDate, schoolName, schoolToday } from "@/lib/format.js";
+import { cn } from "@/lib/utils.js";
+
+const DailyChart = lazy(() => import("@/components/charts/DailyChart.js"));
 
 /**
  * Attendance over a range.
  *
- * Sortable on every column, with the aggregate pinned above the rows so the
- * school-wide figure is read first and each person is read against it.
+ * The trend first, then the figures, then the people: a head reads the
+ * shape of the month before asking who pulled it down. Sortable on every
+ * column, with the aggregate pinned above the rows so each person is read
+ * against the school.
  */
 
 interface PersonReportRow {
@@ -55,6 +84,16 @@ interface AttendanceReport {
   };
 }
 
+interface DailyReport {
+  days: Array<{
+    date: string;
+    present: number;
+    absent: number;
+    late: number;
+    expected: number;
+  }>;
+}
+
 type SortKey =
   | "fullName"
   | "enrollNo"
@@ -82,10 +121,12 @@ export function ReportsPage() {
     },
   );
 
-  const setParam = (key: string, value: string | null) => {
+  const setParams = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
-    if (value === null || value === "") next.delete(key);
-    else next.set(key, value);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null || value === "") next.delete(key);
+      else next.set(key, value);
+    }
     setSearchParams(next, { replace: true });
   };
 
@@ -100,6 +141,11 @@ export function ReportsPage() {
     queryKey: ["report", query],
     queryFn: () =>
       api.get<AttendanceReport>(`/api/reports/attendance?${query}`),
+  });
+
+  const daily = useQuery({
+    queryKey: ["report-daily", query],
+    queryFn: () => api.get<DailyReport>(`/api/reports/daily?${query}`),
   });
 
   const summary = useQuery({
@@ -144,12 +190,15 @@ export function ReportsPage() {
   const groups = (summary.data?.groups ?? []).filter(
     (g) => user.role === "full" || g.branch === "student",
   );
+  const totals = report.data?.totals;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:overflow-visible">
       {/* Printed instead of the controls: the sheet must explain itself. */}
-      <div className="hidden print:block print:mb-4">
-        <h1 className="text-lg font-semibold">{schoolName()} — attendance report</h1>
+      <div className="hidden print:block">
+        <h1 className="text-lg font-semibold">
+          {schoolName()} — attendance report
+        </h1>
         <p className="text-sm">
           {formatDate(from)} to {formatDate(to)}
           {report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""}
@@ -157,100 +206,167 @@ export function ReportsPage() {
         <p className="text-sm">{describeFilters(branch, group, groups)}</p>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-neutral-200 bg-white px-3 py-2 print:hidden">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-neutral-600">From</span>
-          <input
-            type="date"
-            className={inputClass}
-            value={from}
-            max={to}
-            onChange={(e) => setParam("from", e.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-neutral-600">To</span>
-          <input
-            type="date"
-            className={inputClass}
-            value={to}
-            max={today}
-            onChange={(e) => setParam("to", e.target.value)}
-          />
-        </label>
+      <PageHeader
+        className="print:hidden"
+        title="Reports"
+        description={`${formatDate(from)} to ${formatDate(to)}${
+          report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""
+        }`}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => window.print()}>
+              <PrinterIcon /> Print
+            </Button>
+            {/* A plain link, so the browser downloads it with the filename the
+                server chose rather than a blob with a generated name. */}
+            <Button asChild>
+              <a href={exportUrl}>
+                <DownloadIcon /> Export CSV
+              </a>
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex gap-1">
-          <Button
-            onClick={() => {
-              setParam("from", today);
-              setParam("to", today);
-            }}
-          >
-            Today
-          </Button>
-          <Button
-            onClick={() => {
-              setParam("from", startOfWeek(today));
-              setParam("to", today);
-            }}
-          >
-            This week
-          </Button>
-          <Button
-            onClick={() => {
-              setParam("from", startOfMonth(today));
-              setParam("to", today);
-            }}
-          >
-            This month
-          </Button>
-        </div>
+      <Card className="print:hidden">
+        <CardContent className="flex flex-wrap items-end gap-3 p-3">
+          <Field label="From">
+            <Input
+              type="date"
+              className="tabular w-[10.5rem]"
+              value={from}
+              max={to}
+              onChange={(e) =>
+                e.target.value && setParams({ from: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="To">
+            <Input
+              type="date"
+              className="tabular w-[10.5rem]"
+              value={to}
+              max={today}
+              onChange={(e) =>
+                e.target.value && setParams({ to: e.target.value })
+              }
+            />
+          </Field>
 
-        {user.role === "full" && (
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-neutral-600">Branch</span>
-            <select
-              className={inputClass}
-              value={branch ?? ""}
-              onChange={(e) => setParam("branch", e.target.value || null)}
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setParams({ from: today, to: today })}
             >
-              <option value="">Everyone</option>
-              <option value="student">Students</option>
-              <option value="staff">Staff</option>
-            </select>
-          </label>
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setParams({ from: startOfWeek(today), to: today })}
+            >
+              This week
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setParams({ from: startOfMonth(today), to: today })
+              }
+            >
+              This month
+            </Button>
+          </div>
+
+          {user.role === "full" && (
+            <Field label="Branch">
+              <NativeSelect
+                value={branch ?? ""}
+                onChange={(e) => setParams({ branch: e.target.value || null })}
+              >
+                <option value="">Everyone</option>
+                <option value="student">Students</option>
+                <option value="staff">Staff</option>
+              </NativeSelect>
+            </Field>
+          )}
+
+          <Field label="Group">
+            <NativeSelect
+              value={group ?? ""}
+              onChange={(e) => setParams({ group: e.target.value || null })}
+            >
+              <option value="">All groups</option>
+              {groups.map((g) => (
+                <option key={g.groupId} value={g.groupId}>
+                  {g.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {report.isPending ? (
+          <>
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </>
+        ) : (
+          <>
+            <Stat label="People" value={String(totals?.people ?? 0)} />
+            <Stat
+              label="Attendance"
+              value={formatPercent(totals?.attendancePercentage ?? null)}
+              accent="text-status-onsite"
+              bar={totals?.attendancePercentage ?? 0}
+              barClass="bg-status-onsite"
+            />
+            <Stat
+              label="Late arrivals"
+              value={String(totals?.lateCount ?? 0)}
+              accent="text-status-late"
+              hint={
+                totals && totals.daysPresent > 0
+                  ? `${((totals.lateCount / totals.daysPresent) * 100).toFixed(1)}% of present days`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Average arrival"
+              value={formatArrival(totals?.averageArrivalSeconds ?? null)}
+              hint={
+                totals ? `${totals.daysAbsent} absent days in range` : undefined
+              }
+            />
+          </>
         )}
-
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-neutral-600">Group</span>
-          <select
-            className={inputClass}
-            value={group ?? ""}
-            onChange={(e) => setParam("group", e.target.value || null)}
-          >
-            <option value="">All groups</option>
-            {groups.map((g) => (
-              <option key={g.groupId} value={g.groupId}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="ml-auto flex gap-2">
-          <Button onClick={() => window.print()}>Print</Button>
-          {/* A plain link, so the browser downloads it with the filename the
-              server chose rather than a blob with a generated name. */}
-          <a
-            href={exportUrl}
-            className="inline-flex items-center rounded bg-brand-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-800"
-          >
-            Export CSV
-          </a>
-        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance by day</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {daily.isPending && <Skeleton className="h-40 w-full" />}
+          {daily.isSuccess && daily.data.days.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nothing recorded in this range yet.
+            </p>
+          )}
+          {daily.isSuccess && daily.data.days.length > 0 && (
+            <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+              <DailyChart days={daily.data.days} />
+            </Suspense>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="min-h-0 shrink-0 overflow-hidden">
         {report.isPending && <TableSkeleton />}
 
         {report.isError && (
@@ -269,132 +385,206 @@ export function ReportsPage() {
         )}
 
         {report.isSuccess && report.data.rows.length > 0 && (
-          <table className="w-full border-collapse text-sm">
-            <thead className="sticky top-0 bg-neutral-50 print:static">
-              <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-600">
-                <SortableHeader
-                  label="Name"
-                  sortKey="fullName"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHeader
-                  label="ID"
-                  sortKey="enrollNo"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHeader
-                  label="Group"
-                  sortKey="groupName"
-                  sort={sort}
-                  onSort={toggleSort}
-                />
-                <SortableHeader
-                  label="Present"
-                  sortKey="daysPresent"
-                  sort={sort}
-                  onSort={toggleSort}
-                  numeric
-                />
-                <SortableHeader
-                  label="Absent"
-                  sortKey="daysAbsent"
-                  sort={sort}
-                  onSort={toggleSort}
-                  numeric
-                />
-                <SortableHeader
-                  label="Late"
-                  sortKey="lateCount"
-                  sort={sort}
-                  onSort={toggleSort}
-                  numeric
-                />
-                <SortableHeader
-                  label="Attendance"
-                  sortKey="attendancePercentage"
-                  sort={sort}
-                  onSort={toggleSort}
-                  numeric
-                />
-                <SortableHeader
-                  label="Avg arrival"
-                  sortKey="averageArrivalSeconds"
-                  sort={sort}
-                  onSort={toggleSort}
-                  numeric
-                />
-              </tr>
-            </thead>
-            <tbody>
-              {/* The aggregate, pinned above the rows. */}
-              <tr className="border-b-2 border-neutral-300 bg-neutral-50 font-medium">
-                <td className="px-3 py-2">
-                  All {report.data.totals.people} people
-                </td>
-                <td />
-                <td />
-                <td className="tabular px-3 py-2 text-right">
-                  {report.data.totals.daysPresent}
-                </td>
-                <td className="tabular px-3 py-2 text-right">
-                  {report.data.totals.daysAbsent}
-                </td>
-                <td className="tabular px-3 py-2 text-right">
-                  {report.data.totals.lateCount}
-                </td>
-                <td className="tabular px-3 py-2 text-right">
-                  {formatPercent(report.data.totals.attendancePercentage)}
-                </td>
-                <td className="tabular px-3 py-2 text-right">
-                  {formatArrival(report.data.totals.averageArrivalSeconds)}
-                </td>
-              </tr>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="sticky top-0 bg-card">
+                <TableRow className="hover:bg-transparent">
+                  <SortableHead
+                    label="Name"
+                    sortKey="fullName"
+                    sort={sort}
+                    onSort={toggleSort}
+                  />
+                  <SortableHead
+                    label="ID"
+                    sortKey="enrollNo"
+                    sort={sort}
+                    onSort={toggleSort}
+                  />
+                  <SortableHead
+                    label="Group"
+                    sortKey="groupName"
+                    sort={sort}
+                    onSort={toggleSort}
+                  />
+                  <SortableHead
+                    label="Present"
+                    sortKey="daysPresent"
+                    sort={sort}
+                    onSort={toggleSort}
+                    numeric
+                  />
+                  <SortableHead
+                    label="Absent"
+                    sortKey="daysAbsent"
+                    sort={sort}
+                    onSort={toggleSort}
+                    numeric
+                  />
+                  <SortableHead
+                    label="Late"
+                    sortKey="lateCount"
+                    sort={sort}
+                    onSort={toggleSort}
+                    numeric
+                  />
+                  <SortableHead
+                    label="Attendance"
+                    sortKey="attendancePercentage"
+                    sort={sort}
+                    onSort={toggleSort}
+                    numeric
+                  />
+                  <SortableHead
+                    label="Avg arrival"
+                    sortKey="averageArrivalSeconds"
+                    sort={sort}
+                    onSort={toggleSort}
+                    numeric
+                  />
+                  <TableHead className="w-8 print:hidden" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* The aggregate, pinned above the rows. */}
+                <TableRow className="bg-muted/40 font-medium hover:bg-muted/40">
+                  <TableCell>All {report.data.totals.people} people</TableCell>
+                  <TableCell />
+                  <TableCell />
+                  <TableCell className="tabular text-right">
+                    {report.data.totals.daysPresent}
+                  </TableCell>
+                  <TableCell className="tabular text-right">
+                    {report.data.totals.daysAbsent}
+                  </TableCell>
+                  <TableCell className="tabular text-right">
+                    {report.data.totals.lateCount}
+                  </TableCell>
+                  <TableCell className="tabular text-right">
+                    {formatPercent(report.data.totals.attendancePercentage)}
+                  </TableCell>
+                  <TableCell className="tabular text-right">
+                    {formatArrival(report.data.totals.averageArrivalSeconds)}
+                  </TableCell>
+                  <TableCell className="print:hidden" />
+                </TableRow>
 
-              {sorted.map((row) => (
-                <tr key={row.personId} className="border-b border-neutral-100">
-                  <td className="px-3 py-1.5 text-neutral-800">
-                    {/* The same range carries through to the person's page. */}
-                    <Link
-                      to={`/reports/person/${row.personId}?from=${from}&to=${to}`}
-                      className="hover:text-brand-700 hover:underline print:no-underline"
+                {sorted.map((row) => (
+                  <TableRow key={row.personId}>
+                    <TableCell>
+                      <Link
+                        to={`/reports/person/${row.personId}?from=${from}&to=${to}`}
+                        className="flex items-center gap-2.5 hover:text-primary print:no-underline"
+                      >
+                        <Avatar
+                          name={row.fullName}
+                          size="sm"
+                          className="print:hidden"
+                        />
+                        <span className="font-medium">{row.fullName}</span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="tabular text-muted-foreground">
+                      {row.enrollNo}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {row.groupName ?? "—"}
+                    </TableCell>
+                    <TableCell className="tabular text-right">
+                      {row.daysPresent}
+                    </TableCell>
+                    <TableCell className="tabular text-right">
+                      {row.daysAbsent}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        "tabular text-right",
+                        row.lateCount > 0 && "text-status-late",
+                      )}
                     >
-                      {row.fullName}
-                    </Link>
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-neutral-500">
-                    {row.enrollNo}
-                  </td>
-                  <td className="px-3 py-1.5 text-neutral-600">
-                    {row.groupName ?? "—"}
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-right">
-                    {row.daysPresent}
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-right">
-                    {row.daysAbsent}
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-right">
-                    {row.lateCount}
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-right">
-                    {formatPercent(row.attendancePercentage)}
-                  </td>
-                  <td className="tabular px-3 py-1.5 text-right">
-                    {formatArrival(row.averageArrivalSeconds)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      {row.lateCount}
+                    </TableCell>
+                    <TableCell className="tabular text-right">
+                      <AttendanceCell value={row.attendancePercentage} />
+                    </TableCell>
+                    <TableCell className="tabular text-right">
+                      {formatArrival(row.averageArrivalSeconds)}
+                    </TableCell>
+                    <TableCell className="print:hidden">
+                      <ChevronRightIcon className="size-4 text-muted-foreground/50" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
 
-function SortableHeader({
+function Stat({
+  label,
+  value,
+  accent,
+  hint,
+  bar,
+  barClass,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  hint?: string | undefined;
+  bar?: number;
+  barClass?: string;
+}) {
+  return (
+    <Card className="gap-1 p-4">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span
+        className={cn("tabular text-2xl font-semibold tracking-tight", accent)}
+      >
+        {value}
+      </span>
+      {bar !== undefined && (
+        <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
+          <span
+            className={cn("block h-full rounded-full", barClass)}
+            style={{ width: `${bar}%` }}
+          />
+        </span>
+      )}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </Card>
+  );
+}
+
+function AttendanceCell({ value }: { value: number | null }) {
+  if (value === null) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="inline-flex items-center justify-end gap-2">
+      <span className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-muted sm:block">
+        <span
+          className={cn(
+            "block h-full rounded-full",
+            value >= 95
+              ? "bg-status-onsite"
+              : value >= 85
+                ? "bg-status-late"
+                : "bg-status-absent",
+          )}
+          style={{ width: `${value}%` }}
+        />
+      </span>
+      <span className={cn(value < 85 && "text-status-absent font-medium")}>
+        {value.toFixed(1)}%
+      </span>
+    </span>
+  );
+}
+
+function SortableHead({
   label,
   sortKey,
   sort,
@@ -409,8 +599,8 @@ function SortableHeader({
 }) {
   const active = sort.key === sortKey;
   return (
-    <th
-      className={`px-3 py-2 ${numeric ? "text-right" : ""}`}
+    <TableHead
+      className={cn(numeric && "text-right")}
       aria-sort={
         active
           ? sort.direction === "asc"
@@ -420,15 +610,25 @@ function SortableHeader({
       }
     >
       <button
+        type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 hover:text-neutral-800 ${active ? "text-brand-700" : ""}`}
+        className={cn(
+          "inline-flex items-center gap-1 rounded hover:text-foreground",
+          active && "text-foreground",
+        )}
       >
         {label}
-        <span aria-hidden className="text-[0.6rem]">
-          {active ? (sort.direction === "asc" ? "▲" : "▼") : " "}
-        </span>
+        {active ? (
+          sort.direction === "asc" ? (
+            <ArrowUpIcon className="size-3" />
+          ) : (
+            <ArrowDownIcon className="size-3" />
+          )
+        ) : (
+          <span className="size-3" />
+        )}
       </button>
-    </th>
+    </TableHead>
   );
 }
 

@@ -192,6 +192,64 @@ export class ReportService {
     };
   }
 
+  /**
+   * Attendance by day across the range: how many were present, absent and
+   * late on each school day, for the trend above the table. Same role and
+   * filter rules as the table, so the chart and the rows agree.
+   */
+  async daily(
+    role: UserRole,
+    filters: ReportFilters,
+  ): Promise<
+    Array<{
+      date: string;
+      present: number;
+      absent: number;
+      late: number;
+      expected: number;
+    }>
+  > {
+    const conditions: Array<SQL | undefined> = [
+      branchFilter(role),
+      eq(people.isActive, true),
+      filters.branch ? eq(groups.branch, filters.branch) : undefined,
+      filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
+      filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
+      filters.personId ? eq(people.id, filters.personId) : undefined,
+      gte(dayRecords.date, filters.from),
+      lte(dayRecords.date, filters.to),
+    ];
+    const present = conditions.filter((c): c is SQL => c !== undefined);
+
+    const rows = await this.db
+      .select({
+        date: dayRecords.date,
+        present: sql<number>`count(*) filter (
+          where ${dayRecords.status} in ('on_site', 'departed')
+        )::int`,
+        absent: sql<number>`count(*) filter (where ${dayRecords.status} = 'absent')::int`,
+        late: sql<number>`count(*) filter (where ${dayRecords.isLate})::int`,
+      })
+      .from(dayRecords)
+      .innerJoin(people, eq(people.id, dayRecords.personId))
+      .leftJoin(groups, eq(groups.id, people.groupId))
+      .where(and(...present))
+      .groupBy(dayRecords.date)
+      .orderBy(asc(dayRecords.date));
+
+    return rows.map((row) => {
+      const p = Number(row.present ?? 0);
+      const a = Number(row.absent ?? 0);
+      return {
+        date: row.date,
+        present: p,
+        absent: a,
+        late: Number(row.late ?? 0),
+        expected: p + a,
+      };
+    });
+  }
+
   /** One person's day-by-day record, for the per-person report. */
   async person(role: UserRole, personId: string, from: string, to: string) {
     const [subject] = await this.db

@@ -1,8 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
+import { KeyRoundIcon } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Field, inputClass } from "../components/primitives.js";
-import { api, ApiError } from "../lib/api.js";
+import { Button } from "@/components/ui/button.js";
+import { Input } from "@/components/ui/input.js";
+import { Field } from "@/components/ui/misc.js";
+import { api, ApiError } from "@/lib/api.js";
 
 /**
  * A new account must change its password before doing anything else.
@@ -28,41 +31,46 @@ export function ChangePasswordPage() {
   return (
     <div className="flex h-full items-center justify-center p-4">
       <form
-        className="w-full max-w-sm rounded border border-neutral-200 bg-white p-6"
+        className="w-full max-w-sm rounded-2xl border bg-card p-7 shadow-lg shadow-black/5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
         onSubmit={(e) => {
           e.preventDefault();
           mutation.mutate();
         }}
       >
-        <h1 className="mb-1 text-base font-semibold text-brand-700">
-          Choose a new password
-        </h1>
-        <p className="mb-5 text-sm text-neutral-500">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+            <KeyRoundIcon className="size-5" />
+          </div>
+          <h1 className="text-base font-semibold tracking-tight">
+            Choose a new password
+          </h1>
+        </div>
+        <p className="mb-5 text-sm text-muted-foreground">
           At least 12 characters. Length matters more than symbols — a few
           unrelated words makes a better password than one word with
           substitutions.
         </p>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <Field label="Current password">
-            <input
-              className={inputClass}
+            <Input
               type="password"
               autoComplete="current-password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
+              className="h-9"
             />
           </Field>
           <Field label="New password">
-            <input
-              className={inputClass}
+            <Input
               type="password"
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={12}
+              className="h-9"
             />
           </Field>
         </div>
@@ -82,8 +90,8 @@ export function ChangePasswordPage() {
 
         <Button
           type="submit"
-          variant="primary"
-          className="mt-5 w-full justify-center"
+          size="lg"
+          className="mt-6 w-full"
           disabled={mutation.isPending}
         >
           {mutation.isPending ? "Saving…" : "Change password"}

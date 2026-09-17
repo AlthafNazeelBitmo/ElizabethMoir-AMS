@@ -54,7 +54,7 @@ test("correcting a day writes an audit entry that the admin screen shows", async
     .click();
   await page
     .getByRole("navigation", { name: "Admin sections" })
-    .getByRole("button", { name: "Audit log" })
+    .getByRole("link", { name: "Audit log" })
     .click();
   await page.getByLabel("Filter by action").selectOption("manual_adjustment");
 

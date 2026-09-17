@@ -1,8 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2Icon, RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
-import { Button } from "../primitives.js";
-import { api } from "../../lib/api.js";
-import { Problem, Section, Table, formatDateTime } from "./shared.js";
+import { toast } from "sonner";
+import { EmptyState, TableSkeleton } from "@/components/states.js";
+import { Button } from "@/components/ui/button.js";
+import { api } from "@/lib/api.js";
+import {
+  formatDateTime,
+  Panel,
+  Problem,
+  Section,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from "./shared.js";
 
 interface Failure {
   id: number;
@@ -25,7 +37,6 @@ interface Failure {
 export function AdminFailures() {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [lastResult, setLastResult] = useState<string | null>(null);
 
   const failures = useQuery({
     queryKey: ["admin-dead-letter"],
@@ -39,11 +50,15 @@ export function AdminFailures() {
         `/api/admin/dead-letter/${id}/replay`,
       ),
     onSuccess: (data) => {
-      setLastResult(
-        data.resolved
-          ? "Replayed successfully. The delivery has been processed."
-          : `Still failing: ${data.processError ?? "unknown reason"}`,
-      );
+      if (data.resolved) {
+        toast.success("Replayed", {
+          description: "The delivery has been processed.",
+        });
+      } else {
+        toast.error("Still failing", {
+          description: data.processError ?? "Unknown reason.",
+        });
+      }
       void queryClient.invalidateQueries({ queryKey: ["admin-dead-letter"] });
     },
   });
@@ -54,70 +69,72 @@ export function AdminFailures() {
       description="Deliveries from the readers that could not be interpreted. The original is always kept, so nothing is lost — fix the cause, then replay."
     >
       <Problem error={replay.error} />
-      {lastResult && (
-        <p className="my-2 rounded border border-neutral-200 bg-neutral-50 p-2 text-sm text-neutral-700">
-          {lastResult}
-        </p>
-      )}
 
-      {failures.isPending && (
-        <p className="text-sm text-neutral-500">Loading…</p>
-      )}
+      <Panel>
+        {failures.isPending && <TableSkeleton rows={4} />}
 
-      {failures.isSuccess && failures.data.failures.length === 0 && (
-        <p className="text-sm text-neutral-500">
-          Every delivery has been processed. Nothing needs attention.
-        </p>
-      )}
+        {failures.isSuccess && failures.data.failures.length === 0 && (
+          <EmptyState
+            icon={CheckCircle2Icon}
+            title="Every delivery has been processed."
+            detail="Nothing needs attention."
+          />
+        )}
 
-      {failures.isSuccess && failures.data.failures.length > 0 && (
-        <Table
-          head={
-            <>
-              <th className="py-2">Received</th>
-              <th className="py-2">Events</th>
-              <th className="py-2">Problem</th>
-              <th className="py-2" />
-            </>
-          }
-        >
-          {failures.data.failures.map((failure) => (
-            <tr
-              key={failure.id}
-              className="border-b border-neutral-100 align-top"
-            >
-              <td className="py-1.5 whitespace-nowrap text-neutral-600">
-                {formatDateTime(failure.receivedAt)}
-              </td>
-              <td className="tabular py-1.5">{failure.batchSize ?? "—"}</td>
-              <td className="py-1.5 text-neutral-700">
-                {failure.processError ?? failure.parseError ?? "—"}
-                <button
-                  className="ml-2 text-xs text-brand-700 hover:underline"
-                  onClick={() =>
-                    setExpanded(expanded === failure.id ? null : failure.id)
-                  }
-                >
-                  {expanded === failure.id ? "Hide body" : "Show body"}
-                </button>
-                {expanded === failure.id && (
-                  <pre className="mt-1 max-w-xl overflow-auto rounded bg-neutral-50 p-2 text-xs text-neutral-700">
-                    {failure.bodyPreview || "(empty)"}
-                  </pre>
-                )}
-              </td>
-              <td className="py-1.5 text-right">
-                <Button
-                  onClick={() => replay.mutate(failure.id)}
-                  disabled={replay.isPending}
-                >
-                  Replay
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </Table>
-      )}
+        {failures.isSuccess && failures.data.failures.length > 0 && (
+          <Table
+            head={
+              <>
+                <Th>Received</Th>
+                <Th className="text-right">Events</Th>
+                <Th>Problem</Th>
+                <Th />
+              </>
+            }
+          >
+            {failures.data.failures.map((failure) => (
+              <Tr key={failure.id} className="align-top">
+                <Td className="tabular text-muted-foreground">
+                  {formatDateTime(failure.receivedAt)}
+                </Td>
+                <Td className="tabular text-right">
+                  {failure.batchSize ?? "—"}
+                </Td>
+                <Td className="whitespace-normal">
+                  <span className="text-status-absent">
+                    {failure.processError ?? failure.parseError ?? "—"}
+                  </span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="ml-2 h-auto p-0 text-xs"
+                    onClick={() =>
+                      setExpanded(expanded === failure.id ? null : failure.id)
+                    }
+                  >
+                    {expanded === failure.id ? "Hide body" : "Show body"}
+                  </Button>
+                  {expanded === failure.id && (
+                    <pre className="mt-2 max-h-72 max-w-xl overflow-auto rounded-md border bg-muted/50 p-2 font-mono text-[0.6875rem] leading-relaxed whitespace-pre-wrap">
+                      {failure.bodyPreview || "(empty)"}
+                    </pre>
+                  )}
+                </Td>
+                <Td className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => replay.mutate(failure.id)}
+                    disabled={replay.isPending}
+                  >
+                    <RotateCcwIcon /> Replay
+                  </Button>
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        )}
+      </Panel>
     </Section>
   );
 }

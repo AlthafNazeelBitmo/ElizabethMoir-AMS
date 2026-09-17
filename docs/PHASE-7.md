@@ -164,6 +164,37 @@ something the handover notes had listed as missing:
 
 Seventeen API tests and two end-to-end tests cover them.
 
+## The interface, rebuilt
+
+With the functionality complete, the front end was rebuilt from the tokens
+up — the first version was correct and plain, and a screen watched all day
+deserves better than plain. `docs/DESIGN.md` records the system: Tailwind
+v4 with OKLCH tokens and a first-class dark theme, Radix primitives in the
+shadcn/ui idiom, Lucide icons, Inter self-hosted, Recharts loaded lazily,
+Sonner for confirmations and cmdk for a ⌘K palette that jumps to any
+person or page.
+
+What changed for the person at the desk: a collapsible sidebar instead of
+a top bar; stat cards with share bars that filter on click; an arrivals
+curve for the morning computed from the rows already on screen; a groups
+rail with an on-site bar under each form; avatars and status chips down the
+table; the person panel as a slide-over that leaves the register readable
+beside it; a real month grid for the calendar; a daily attendance chart on
+the reports page (one new endpoint, `GET /api/reports/daily`); arrival
+times plotted on the per-person page; toasts instead of inline "Saved."
+lines; every admin list on the same table and panel grammar.
+
+Two things it surfaced. Inter had been named in the config but never
+loaded, so the whole app had been rendering in Segoe UI. And a debounced
+search firing a tick after a row click could rewrite the URL from a stale
+snapshot and close the person just opened — React Router's functional
+updater does not protect against this, so every URL update on the register
+now reads the live location. The end-to-end suite caught it as a one-in-
+five flake and passes six runs clean after the fix.
+
+Every existing end-to-end test passes against the new interface with only
+locator changes (admin sections are links now, not buttons).
+
 ## What remains before the school can rely on this
 
 1. **Run the discovery day.** The timezone is a guess, `CheckingStatus` is

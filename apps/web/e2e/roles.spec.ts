@@ -46,7 +46,7 @@ test("a full account sees students, staff and admin", async ({ page }) => {
     "Audit log",
     "Failed events",
   ]) {
-    await expect(sections.getByRole("button", { name: label, exact: true })).toBeVisible();
+    await expect(sections.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
 });
 
@@ -67,7 +67,7 @@ test("a student-only account sees no staff and no admin, anywhere", async ({
   await expect(rail.getByRole("button", { name: "All staff" })).toHaveCount(0);
   await expect(rail.getByRole("button", { name: /Staff/ })).toHaveCount(0);
 
-  await expect(page.getByText(/students only/)).toBeVisible();
+  await expect(page.getByText(/students only/i)).toBeVisible();
 
   // Now the part that matters: the API, asked directly with this session's
   // cookies. The page hiding a link proves nothing on its own.

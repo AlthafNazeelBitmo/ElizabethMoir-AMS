@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PlusIcon } from "lucide-react";
 import { useState } from "react";
-import { Button, Field, inputClass } from "../primitives.js";
-import { api, type Branch } from "../../lib/api.js";
-import { Problem, Section, Table } from "./shared.js";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button.js";
+import { Input } from "@/components/ui/input.js";
+import { Checkbox, Field, Skeleton } from "@/components/ui/misc.js";
+import { NativeSelect } from "@/components/ui/input.js";
+import { api, type Branch } from "@/lib/api.js";
+import { cn } from "@/lib/utils.js";
+import { Note, Panel, Problem, Section, Table, Td, Th, Tr } from "./shared.js";
 
 interface Group {
   id: number;
@@ -45,7 +51,10 @@ export function AdminGroups() {
   const update = useMutation({
     mutationFn: (args: { id: number; body: Record<string, unknown> }) =>
       api.patch(`/api/admin/groups/${args.id}`, args.body),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success("Group updated");
+    },
   });
 
   const rows = groups.data?.groups ?? [];
@@ -58,8 +67,8 @@ export function AdminGroups() {
       description="Forms, years and staff categories. Whether a group is students or staff decides who may see its members; whether it expects attendance decides whether its members can be absent."
       actions={
         !adding && (
-          <Button variant="primary" onClick={() => setAdding(true)}>
-            Add group
+          <Button onClick={() => setAdding(true)}>
+            <PlusIcon /> Add group
           </Button>
         )
       }
@@ -80,17 +89,17 @@ export function AdminGroups() {
         />
       )}
 
-      {groups.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+      {groups.isPending && <Skeleton className="h-48 w-full" />}
 
       {groups.isSuccess && rows.length === 0 && (
-        <p className="text-sm text-neutral-500">
+        <Note>
           No groups yet. Add one, or import the directory — groups named in the
           file are created as it loads.
-        </p>
+        </Note>
       )}
 
       {groups.isSuccess && rows.length > 0 && (
-        <div className="space-y-6">
+        <>
           <GroupTable
             title="Students"
             groups={students}
@@ -101,15 +110,15 @@ export function AdminGroups() {
             groups={staff}
             onChange={(id, body) => update.mutate({ id, body })}
           />
-        </div>
+        </>
       )}
 
-      <p className="mt-4 max-w-2xl text-xs text-neutral-500">
+      <Note>
         A group that does not expect attendance never appears in an absence list
         — use it for contractors and visitors who hold a card. Deactivating a
         group hides it from the rail and the filters but changes nothing about
         the people in it; move them first if they are still here.
-      </p>
+      </Note>
     </Section>
   );
 }
@@ -124,33 +133,33 @@ function GroupTable({
   onChange: (id: number, body: Record<string, unknown>) => void;
 }) {
   return (
-    <div>
-      <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-        {title}
-      </h2>
+    <Panel
+      title={title}
+      description={`${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
+    >
       {groups.length === 0 ? (
-        <p className="text-sm text-neutral-500">None.</p>
+        <p className="p-4 text-sm text-muted-foreground">None.</p>
       ) : (
         <Table
           head={
             <>
-              <th className="py-2">Name</th>
-              <th className="py-2">People</th>
-              <th className="py-2">Order</th>
-              <th className="py-2">Late after</th>
-              <th className="py-2">Expects attendance</th>
-              <th className="py-2">Active</th>
+              <Th>Name</Th>
+              <Th className="text-right">People</Th>
+              <Th>Order</Th>
+              <Th>Late after</Th>
+              <Th>Expects attendance</Th>
+              <Th>Active</Th>
             </>
           }
         >
           {groups.map((group) => (
-            <tr
+            <Tr
               key={group.id}
-              className={`border-b border-neutral-100 ${group.isActive ? "" : "text-neutral-400"}`}
+              className={cn(!group.isActive && "text-muted-foreground")}
             >
-              <td className="py-2">
-                <input
-                  className="w-44 rounded border border-neutral-300 px-1.5 py-1 text-sm"
+              <Td>
+                <Input
+                  className="w-48"
                   defaultValue={group.name}
                   aria-label={`Name of ${group.name}`}
                   onBlur={(e) => {
@@ -160,15 +169,15 @@ function GroupTable({
                     else e.target.value = group.name;
                   }}
                 />
-              </td>
-              <td className="tabular py-2 text-neutral-600">
+              </Td>
+              <Td className="tabular text-right text-muted-foreground">
                 {group.peopleCount}
-              </td>
-              <td className="py-2">
-                <input
+              </Td>
+              <Td>
+                <Input
                   type="number"
                   min={0}
-                  className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-sm"
+                  className="tabular w-16"
                   defaultValue={group.displayOrder}
                   aria-label={`Display order of ${group.name}`}
                   onBlur={(e) => {
@@ -181,11 +190,11 @@ function GroupTable({
                       onChange(group.id, { displayOrder: order });
                   }}
                 />
-              </td>
-              <td className="py-2">
-                <input
+              </Td>
+              <Td>
+                <Input
                   type="time"
-                  className="rounded border border-neutral-300 px-1.5 py-1 text-sm"
+                  className="tabular w-32"
                   defaultValue={group.lateThreshold?.slice(0, 5) ?? ""}
                   aria-label={`Late threshold for ${group.name}`}
                   title="Blank uses the school's late threshold"
@@ -195,38 +204,36 @@ function GroupTable({
                       onChange(group.id, { lateThreshold: value });
                   }}
                 />
-              </td>
-              <td className="py-2">
-                <label className="flex items-center gap-1.5 text-sm text-neutral-600">
-                  <input
-                    type="checkbox"
+              </Td>
+              <Td>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
                     checked={group.expectsAttendance}
-                    onChange={(e) =>
+                    onCheckedChange={(checked) =>
                       onChange(group.id, {
-                        expectsAttendance: e.target.checked,
+                        expectsAttendance: checked === true,
                       })
                     }
                   />
                   {group.expectsAttendance ? "Yes" : "No"}
                 </label>
-              </td>
-              <td className="py-2">
-                <label className="flex items-center gap-1.5 text-sm text-neutral-600">
-                  <input
-                    type="checkbox"
+              </Td>
+              <Td>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
                     checked={group.isActive}
-                    onChange={(e) =>
-                      onChange(group.id, { isActive: e.target.checked })
+                    onCheckedChange={(checked) =>
+                      onChange(group.id, { isActive: checked === true })
                     }
                   />
                   {group.isActive ? "Active" : "Inactive"}
                 </label>
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           ))}
         </Table>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -251,66 +258,69 @@ function NewGroupForm({
         displayOrder: nextOrder[branch],
         expectsAttendance,
       }),
-    onSuccess: onDone,
+    onSuccess: () => {
+      toast.success(`${name.trim()} added`);
+      onDone();
+    },
   });
 
   return (
-    <form
-      className="mb-4 max-w-md space-y-3 rounded border border-neutral-200 p-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        create.mutate();
-      }}
-    >
-      <Problem error={create.error} />
-
-      <Field label="Name">
-        <input
-          className={inputClass}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={100}
-          autoFocus
-          placeholder="Form 3"
-        />
-      </Field>
-
-      <Field
-        label="Branch"
-        hint="Fixed once the group has people in it: it decides who may see them."
+    <Panel title="New group" className="max-w-lg">
+      <form
+        className="space-y-4 p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
       >
-        <select
-          className={inputClass}
-          value={branch}
-          onChange={(e) => setBranch(e.target.value as Branch)}
-        >
-          <option value="student">Students</option>
-          <option value="staff">Staff</option>
-        </select>
-      </Field>
+        <Problem error={create.error} />
 
-      <label className="flex items-center gap-2 text-sm text-neutral-700">
-        <input
-          type="checkbox"
-          checked={expectsAttendance}
-          onChange={(e) => setExpectsAttendance(e.target.checked)}
-        />
-        Members are expected on school days
-      </label>
+        <Field label="Name">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={100}
+            autoFocus
+            placeholder="Form 3"
+          />
+        </Field>
 
-      <div className="flex gap-2">
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={create.isPending || name.trim().length === 0}
+        <Field
+          label="Branch"
+          hint="Fixed once the group has people in it: it decides who may see them."
         >
-          {create.isPending ? "Adding…" : "Add group"}
-        </Button>
-        <Button variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+          <NativeSelect
+            value={branch}
+            onChange={(e) => setBranch(e.target.value as Branch)}
+          >
+            <option value="student">Students</option>
+            <option value="staff">Staff</option>
+          </NativeSelect>
+        </Field>
+
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={expectsAttendance}
+            onCheckedChange={(checked) =>
+              setExpectsAttendance(checked === true)
+            }
+          />
+          Members are expected on school days
+        </label>
+
+        <div className="flex gap-2">
+          <Button
+            type="submit"
+            disabled={create.isPending || name.trim().length === 0}
+          >
+            {create.isPending ? "Adding…" : "Add group"}
+          </Button>
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Panel>
   );
 }

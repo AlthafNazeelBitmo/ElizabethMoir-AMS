@@ -1,8 +1,16 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { PencilLineIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { RegisterRow } from "../lib/api.js";
-import { formatTime, NO_TIME } from "../lib/format.js";
-import { StatusBadge } from "./primitives.js";
+import { StatusBadge } from "@/components/status.js";
+import { Avatar } from "@/components/ui/misc.js";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.js";
+import type { RegisterRow } from "@/lib/api.js";
+import { formatTime, NO_TIME } from "@/lib/format.js";
+import { cn } from "@/lib/utils.js";
 
 /**
  * The register table.
@@ -26,7 +34,7 @@ export interface RegisterTableProps {
   onScrolledTo: () => void;
 }
 
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 44;
 
 export function RegisterTable({
   rows,
@@ -54,29 +62,37 @@ export function RegisterTable({
   }, [scrollToPersonId, rows, virtualiser, onScrolledTo]);
 
   const gridTemplate = showTutor
-    ? "minmax(12rem,2fr) 6rem minmax(7rem,1fr) 4.5rem 5rem 5rem minmax(9rem,auto)"
-    : "minmax(12rem,2fr) 6rem minmax(7rem,1fr) 5rem 5rem minmax(9rem,auto)";
+    ? "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 4rem 5rem 5rem minmax(9.5rem,auto)"
+    : "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 5rem 5rem minmax(9.5rem,auto)";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      role="table"
+      aria-label="Register"
+    >
       {/* Header, outside the scroll area so it stays put. */}
       <div
         role="row"
-        className="grid shrink-0 items-center gap-3 border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-semibold text-neutral-600"
-        style={{ gridTemplateColumns: gridTemplate }}
+        className="grid shrink-0 items-center gap-3 border-b bg-muted/40 px-3 text-xs font-medium text-muted-foreground"
+        style={{ gridTemplateColumns: gridTemplate, height: 36 }}
       >
-        <span>Name</span>
-        <span>ID</span>
-        <span>Group</span>
-        {showTutor && <span>Tutor</span>}
-        <span className="text-right">First in</span>
-        <span className="text-right">Last out</span>
-        <span>Status</span>
+        <span role="columnheader">Name</span>
+        <span role="columnheader">ID</span>
+        <span role="columnheader">Group</span>
+        {showTutor && <span role="columnheader">Tutor</span>}
+        <span role="columnheader" className="text-right">
+          First in
+        </span>
+        <span role="columnheader" className="text-right">
+          Last out
+        </span>
+        <span role="columnheader">Status</span>
       </div>
 
       <div
         ref={parentRef}
-        className="min-h-0 flex-1 overflow-auto"
+        className="min-h-0 flex-1 overflow-auto outline-none"
         tabIndex={0}
       >
         <div
@@ -99,47 +115,67 @@ export function RegisterTable({
                     onSelect(row.personId);
                   }
                 }}
-                className={`absolute left-0 grid w-full cursor-pointer items-center gap-3 border-b border-neutral-100 px-3 text-sm hover:bg-neutral-50 ${
-                  selected ? "bg-brand-50" : ""
-                } ${changed ? "animate-rowFlash reduced-flash" : ""}`}
+                className={cn(
+                  "absolute left-0 grid w-full cursor-pointer items-center gap-3 border-b px-3 text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/60",
+                  selected && "bg-accent hover:bg-accent",
+                  changed && "animate-row-flash",
+                )}
                 style={{
                   height: virtualRow.size,
                   transform: `translateY(${virtualRow.start}px)`,
                   gridTemplateColumns: gridTemplate,
                 }}
               >
-                <span className="flex items-center gap-1.5 truncate font-medium text-neutral-800">
-                  {row.fullName}
+                <span role="cell" className="flex min-w-0 items-center gap-2.5">
+                  <Avatar name={row.fullName} src={null} />
+                  <span className="truncate font-medium">{row.fullName}</span>
                   {row.hasManualEdit && (
-                    <span
-                      title="This day was corrected by hand"
-                      aria-label="Corrected by hand"
-                      className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400"
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          aria-label="Corrected by hand"
+                          className="inline-flex shrink-0 text-primary/70"
+                        >
+                          <PencilLineIcon className="size-3.5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Corrected by hand</TooltipContent>
+                    </Tooltip>
                   )}
                 </span>
-                <span className="tabular truncate text-neutral-500">
+                <span
+                  role="cell"
+                  className="tabular truncate text-muted-foreground"
+                >
                   {row.enrollNo}
                 </span>
-                <span className="truncate text-neutral-600">
+                <span role="cell" className="truncate text-muted-foreground">
                   {row.groupName ?? "—"}
                 </span>
                 {showTutor && (
-                  <span className="truncate text-neutral-500">
+                  <span role="cell" className="truncate text-muted-foreground">
                     {row.tutorInitials ?? "—"}
                   </span>
                 )}
                 <span
-                  className={`tabular text-right ${row.firstIn ? "text-neutral-800" : "text-neutral-400"}`}
+                  role="cell"
+                  className={cn(
+                    "tabular text-right",
+                    !row.firstIn && "text-muted-foreground/60",
+                  )}
                 >
                   {formatTime(row.firstIn)}
                 </span>
                 <span
-                  className={`tabular text-right ${row.lastOut ? "text-neutral-800" : "text-neutral-400"}`}
+                  role="cell"
+                  className={cn(
+                    "tabular text-right",
+                    !row.lastOut && "text-muted-foreground/60",
+                  )}
                 >
                   {row.lastOut ? formatTime(row.lastOut) : NO_TIME}
                 </span>
-                <span>
+                <span role="cell">
                   <StatusBadge status={row.status} isLate={row.isLate} />
                 </span>
               </div>
@@ -158,29 +194,30 @@ export function RegisterCards({
   onSelect,
 }: Pick<RegisterTableProps, "rows" | "recentlyChanged" | "onSelect">) {
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-2">
+    <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
       {rows.map((row) => (
         <button
           key={row.personId}
+          type="button"
           onClick={() => onSelect(row.personId)}
-          className={`mb-2 w-full rounded border border-neutral-200 bg-white p-3 text-left ${
-            recentlyChanged.has(row.personId)
-              ? "animate-rowFlash reduced-flash"
-              : ""
-          }`}
+          className={cn(
+            "w-full rounded-lg border bg-card p-3 text-left shadow-xs transition-colors hover:bg-muted/40",
+            recentlyChanged.has(row.personId) && "animate-row-flash",
+          )}
         >
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-neutral-800">
-                {row.fullName}
-              </p>
-              <p className="tabular text-xs text-neutral-500">
-                {row.enrollNo} · {row.groupName ?? "No group"}
-              </p>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Avatar name={row.fullName} />
+              <div className="min-w-0">
+                <p className="truncate font-medium">{row.fullName}</p>
+                <p className="tabular text-xs text-muted-foreground">
+                  {row.enrollNo} · {row.groupName ?? "No group"}
+                </p>
+              </div>
             </div>
-            <StatusBadge status={row.status} isLate={row.isLate} />
+            <StatusBadge status={row.status} isLate={row.isLate} size="sm" />
           </div>
-          <div className="tabular mt-2 flex gap-4 text-xs text-neutral-600">
+          <div className="tabular mt-2 flex gap-4 text-xs text-muted-foreground">
             <span>In {formatTime(row.firstIn)}</span>
             <span>Out {row.lastOut ? formatTime(row.lastOut) : NO_TIME}</span>
           </div>

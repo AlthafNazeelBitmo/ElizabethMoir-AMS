@@ -20,8 +20,9 @@ test("a person's report is reached from the table and agrees with it", async ({
     .getByRole("row")
     .filter({ has: page.getByText(DEMO.reportStudent, { exact: true }) });
   await expect(tableRow).toBeVisible();
+  // Name, ID, Group, Present, Absent, Late, Attendance, Avg arrival, link.
+  await expect(tableRow.getByRole("cell")).toHaveCount(9);
   const cells = await tableRow.getByRole("cell").allTextContents();
-  // Name, ID, Group, Present, Absent, Late, Attendance, Avg arrival.
   const [name, , , present, absent, late, attendance] = cells;
 
   const from = await page.getByLabel("From").inputValue();

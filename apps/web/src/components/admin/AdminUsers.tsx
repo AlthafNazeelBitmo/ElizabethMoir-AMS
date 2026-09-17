@@ -1,13 +1,37 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Button, Field, inputClass } from "../primitives.js";
-import { api, type UserRole } from "../../lib/api.js";
 import {
+  KeyRoundIcon,
+  MoreHorizontalIcon,
+  UserPlusIcon,
+  UserXIcon,
+  UserCheckIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { TableSkeleton } from "@/components/states.js";
+import { Badge } from "@/components/ui/badge.js";
+import { Button } from "@/components/ui/button.js";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Avatar, Field } from "@/components/ui/misc.js";
+import { api, type UserRole } from "@/lib/api.js";
+import { cn } from "@/lib/utils.js";
+import {
+  formatDateTime,
+  Note,
   OneTimePassword,
+  Panel,
   Problem,
   Section,
   Table,
-  formatDateTime,
+  Td,
+  Th,
+  Tr,
 } from "./shared.js";
 
 interface AdminUser {
@@ -65,6 +89,8 @@ export function AdminUsers() {
     onSuccess: (data, variables) => {
       if (data.temporaryPassword) {
         setIssued({ email: variables.email, password: data.temporaryPassword });
+      } else {
+        toast.success("Account updated");
       }
       refresh();
     },
@@ -76,8 +102,8 @@ export function AdminUsers() {
       description="Who can sign in, and what they can see. A student-only account never sees staff, anywhere."
       actions={
         !creating && (
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            Add user
+          <Button onClick={() => setCreating(true)}>
+            <UserPlusIcon /> Add user
           </Button>
         )
       }
@@ -90,134 +116,179 @@ export function AdminUsers() {
       )}
 
       {creating && (
-        <form
-          className="mb-4 flex flex-wrap items-end gap-2 rounded border border-neutral-200 p-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const data = new FormData(e.currentTarget);
-            create.mutate({
-              email: String(data.get("email")),
-              fullName: String(data.get("fullName")),
-              role: String(data.get("role")) as UserRole,
-            });
-          }}
-        >
-          <Field label="Email">
-            <input name="email" type="email" required className={inputClass} />
-          </Field>
-          <Field label="Full name">
-            <input name="fullName" required className={inputClass} />
-          </Field>
-          <Field label="Role">
-            <select
-              name="role"
-              className={inputClass}
-              defaultValue="student_only"
-            >
-              <option value="student_only">Students only</option>
-              <option value="full">Students and staff (admin)</option>
-            </select>
-          </Field>
-          <Button type="submit" variant="primary" disabled={create.isPending}>
-            {create.isPending ? "Creating…" : "Create"}
-          </Button>
-          <Button variant="ghost" onClick={() => setCreating(false)}>
-            Cancel
-          </Button>
-        </form>
+        <Panel title="New account" className="max-w-2xl">
+          <form
+            className="flex flex-wrap items-end gap-3 p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const data = new FormData(e.currentTarget);
+              create.mutate({
+                email: String(data.get("email")),
+                fullName: String(data.get("fullName")),
+                role: String(data.get("role")) as UserRole,
+              });
+            }}
+          >
+            <Field label="Email">
+              <Input
+                name="email"
+                type="email"
+                required
+                className="w-56"
+                autoFocus
+              />
+            </Field>
+            <Field label="Full name">
+              <Input name="fullName" required className="w-48" />
+            </Field>
+            <Field label="Role">
+              <NativeSelect name="role" defaultValue="student_only">
+                <option value="student_only">Students only</option>
+                <option value="full">Students and staff (admin)</option>
+              </NativeSelect>
+            </Field>
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending ? "Creating…" : "Create"}
+            </Button>
+            <Button variant="ghost" onClick={() => setCreating(false)}>
+              Cancel
+            </Button>
+          </form>
+        </Panel>
       )}
 
       <Problem error={create.error ?? update.error} />
 
-      {users.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+      <Panel>
+        {users.isPending && <TableSkeleton rows={4} />}
 
-      {users.isSuccess && (
-        <Table
-          head={
-            <>
-              <th className="py-2">Email</th>
-              <th className="py-2">Name</th>
-              <th className="py-2">Role</th>
-              <th className="py-2">Last signed in</th>
-              <th className="py-2">Status</th>
-              <th className="py-2" />
-            </>
-          }
-        >
-          {users.data.users.map((user) => (
-            <tr key={user.id} className="border-b border-neutral-100">
-              <td className="py-2">{user.email}</td>
-              <td className="py-2 text-neutral-600">{user.fullName}</td>
-              <td className="py-2">
-                <select
-                  className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs"
-                  value={user.role}
-                  onChange={(e) =>
-                    update.mutate({
-                      id: user.id,
-                      email: user.email,
-                      body: { role: e.target.value },
-                    })
-                  }
+        {users.isSuccess && (
+          <Table
+            head={
+              <>
+                <Th>Account</Th>
+                <Th>Role</Th>
+                <Th>Last signed in</Th>
+                <Th>Status</Th>
+                <Th />
+              </>
+            }
+          >
+            {users.data.users.map((user) => {
+              const locked =
+                user.lockedUntil && new Date(user.lockedUntil) > new Date();
+              return (
+                <Tr
+                  key={user.id}
+                  className={cn(!user.isActive && "text-muted-foreground")}
                 >
-                  <option value="student_only">Students only</option>
-                  <option value="full">Students and staff</option>
-                </select>
-              </td>
-              <td className="py-2 text-neutral-500">
-                {formatDateTime(user.lastLoginAt)}
-              </td>
-              <td className="py-2">
-                {!user.isActive ? (
-                  <span className="text-neutral-500">Deactivated</span>
-                ) : user.lockedUntil &&
-                  new Date(user.lockedUntil) > new Date() ? (
-                  <span className="text-status-late">
-                    Locked until {formatDateTime(user.lockedUntil)}
-                  </span>
-                ) : user.mustChangePassword ? (
-                  <span className="text-neutral-500">Must change password</span>
-                ) : (
-                  <span className="text-neutral-600">Active</span>
-                )}
-              </td>
-              <td className="py-2">
-                <div className="flex justify-end gap-1">
-                  <Button
-                    onClick={() =>
-                      update.mutate({
-                        id: user.id,
-                        email: user.email,
-                        body: { resetPassword: true },
-                      })
-                    }
-                  >
-                    Reset password
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      update.mutate({
-                        id: user.id,
-                        email: user.email,
-                        body: { isActive: !user.isActive },
-                      })
-                    }
-                  >
-                    {user.isActive ? "Deactivate" : "Reactivate"}
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </Table>
-      )}
+                  <Td>
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={user.fullName} />
+                      <span className="min-w-0 leading-tight">
+                        <span className="block font-medium">
+                          {user.fullName}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </span>
+                      </span>
+                    </span>
+                  </Td>
+                  <Td>
+                    <NativeSelect
+                      className="h-7 text-xs"
+                      value={user.role}
+                      aria-label={`Role of ${user.fullName}`}
+                      onChange={(e) =>
+                        update.mutate({
+                          id: user.id,
+                          email: user.email,
+                          body: { role: e.target.value },
+                        })
+                      }
+                    >
+                      <option value="student_only">Students only</option>
+                      <option value="full">Students and staff</option>
+                    </NativeSelect>
+                  </Td>
+                  <Td className="tabular text-muted-foreground">
+                    {formatDateTime(user.lastLoginAt)}
+                  </Td>
+                  <Td>
+                    {!user.isActive ? (
+                      <Badge variant="muted">Deactivated</Badge>
+                    ) : locked ? (
+                      <Badge className="border-transparent bg-status-late-bg text-status-late">
+                        Locked until {formatDateTime(user.lockedUntil)}
+                      </Badge>
+                    ) : user.mustChangePassword ? (
+                      <Badge variant="outline">Must change password</Badge>
+                    ) : (
+                      <Badge className="border-transparent bg-status-onsite-bg text-status-onsite">
+                        Active
+                      </Badge>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Actions for ${user.fullName}`}
+                        >
+                          <MoreHorizontalIcon />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            update.mutate({
+                              id: user.id,
+                              email: user.email,
+                              body: { resetPassword: true },
+                            })
+                          }
+                        >
+                          <KeyRoundIcon /> Reset password
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant={user.isActive ? "destructive" : "default"}
+                          onSelect={() =>
+                            update.mutate({
+                              id: user.id,
+                              email: user.email,
+                              body: { isActive: !user.isActive },
+                            })
+                          }
+                        >
+                          {user.isActive ? (
+                            <>
+                              <UserXIcon /> Deactivate
+                            </>
+                          ) : (
+                            <>
+                              <UserCheckIcon /> Reactivate
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </Table>
+        )}
+      </Panel>
 
-      <p className="mt-4 max-w-2xl text-xs text-neutral-500">
+      <Note>
         Resetting a password or deactivating an account ends that person's open
         sessions immediately. You cannot deactivate or demote your own account —
         ask another administrator, so nobody can lock themselves out by
         accident.
-      </p>
+      </Note>
     </Section>
   );
 }

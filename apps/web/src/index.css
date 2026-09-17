@@ -1,8 +1,221 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+
+/*
+ * The visual system.
+ *
+ * One accent — the school's indigo — used with discipline: primary actions,
+ * the active navigation state, the "on site" status, the live indicator.
+ * Everything else is a cool neutral scale, so the indigo reads as a signal
+ * and not as decoration.
+ *
+ * Status colours avoid the red/green pairing entirely: someone with
+ * deuteranopia cannot separate those, and this is a screen read at a glance
+ * from across a room. On site is the indigo, departed a mid neutral, late
+ * amber, absent a desaturated rose, not-expected an outline with no fill.
+ * Colour is never the only carrier — every status also has a label and a
+ * distinct shape.
+ *
+ * Colours are OKLCH so light and dark are tuned by lightness alone and a
+ * status keeps its identity in both.
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(0.985 0.002 260);
+  --foreground: oklch(0.22 0.015 270);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.015 270);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.015 270);
+  --primary: oklch(0.42 0.2 288);
+  --primary-foreground: oklch(0.985 0.005 288);
+  --secondary: oklch(0.955 0.006 265);
+  --secondary-foreground: oklch(0.3 0.02 270);
+  --muted: oklch(0.955 0.006 265);
+  --muted-foreground: oklch(0.52 0.02 265);
+  --accent: oklch(0.945 0.012 285);
+  --accent-foreground: oklch(0.3 0.06 288);
+  --destructive: oklch(0.52 0.16 15);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.905 0.008 265);
+  --input: oklch(0.885 0.01 265);
+  --ring: oklch(0.55 0.18 288);
+
+  --sidebar: oklch(0.975 0.004 265);
+  --sidebar-foreground: oklch(0.3 0.02 270);
+  --sidebar-primary: oklch(0.42 0.2 288);
+  --sidebar-primary-foreground: oklch(0.985 0.005 288);
+  --sidebar-accent: oklch(0.93 0.012 280);
+  --sidebar-accent-foreground: oklch(0.25 0.05 288);
+  --sidebar-border: oklch(0.9 0.008 265);
+  --sidebar-ring: oklch(0.55 0.18 288);
+
+  /* Status: the on-site indigo, departed neutral, late amber, absent rose. */
+  --status-onsite: oklch(0.42 0.2 288);
+  --status-onsite-bg: oklch(0.95 0.03 288);
+  --status-departed: oklch(0.5 0.02 265);
+  --status-departed-bg: oklch(0.94 0.006 265);
+  --status-late: oklch(0.55 0.13 65);
+  --status-late-bg: oklch(0.96 0.045 80);
+  --status-absent: oklch(0.5 0.14 355);
+  --status-absent-bg: oklch(0.96 0.025 355);
+  --status-idle: oklch(0.6 0.015 265);
+
+  --chart-1: oklch(0.42 0.2 288);
+  --chart-2: oklch(0.7 0.13 65);
+  --chart-3: oklch(0.6 0.14 355);
+  --chart-4: oklch(0.72 0.02 265);
+  --chart-5: oklch(0.62 0.15 220);
+}
+
+.dark {
+  --background: oklch(0.16 0.012 270);
+  --foreground: oklch(0.93 0.008 265);
+  --card: oklch(0.2 0.013 270);
+  --card-foreground: oklch(0.93 0.008 265);
+  --popover: oklch(0.21 0.013 270);
+  --popover-foreground: oklch(0.93 0.008 265);
+  --primary: oklch(0.74 0.15 288);
+  --primary-foreground: oklch(0.16 0.04 288);
+  --secondary: oklch(0.26 0.014 270);
+  --secondary-foreground: oklch(0.9 0.01 265);
+  --muted: oklch(0.26 0.014 270);
+  --muted-foreground: oklch(0.66 0.015 265);
+  --accent: oklch(0.29 0.03 285);
+  --accent-foreground: oklch(0.92 0.02 288);
+  --destructive: oklch(0.68 0.16 20);
+  --destructive-foreground: oklch(0.16 0 0);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.7 0.15 288);
+
+  --sidebar: oklch(0.185 0.013 270);
+  --sidebar-foreground: oklch(0.9 0.01 265);
+  --sidebar-primary: oklch(0.74 0.15 288);
+  --sidebar-primary-foreground: oklch(0.16 0.04 288);
+  --sidebar-accent: oklch(0.26 0.02 280);
+  --sidebar-accent-foreground: oklch(0.94 0.015 288);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.7 0.15 288);
+
+  --status-onsite: oklch(0.78 0.14 288);
+  --status-onsite-bg: oklch(0.32 0.07 288);
+  --status-departed: oklch(0.72 0.015 265);
+  --status-departed-bg: oklch(0.3 0.01 265);
+  --status-late: oklch(0.82 0.13 80);
+  --status-late-bg: oklch(0.32 0.06 70);
+  --status-absent: oklch(0.8 0.11 355);
+  --status-absent-bg: oklch(0.33 0.06 355);
+  --status-idle: oklch(0.55 0.015 265);
+
+  --chart-1: oklch(0.74 0.15 288);
+  --chart-2: oklch(0.8 0.13 80);
+  --chart-3: oklch(0.75 0.13 355);
+  --chart-4: oklch(0.6 0.02 265);
+  --chart-5: oklch(0.72 0.13 220);
+}
+
+@theme inline {
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-status-onsite: var(--status-onsite);
+  --color-status-onsite-bg: var(--status-onsite-bg);
+  --color-status-departed: var(--status-departed);
+  --color-status-departed-bg: var(--status-departed-bg);
+  --color-status-late: var(--status-late);
+  --color-status-late-bg: var(--status-late-bg);
+  --color-status-absent: var(--status-absent);
+  --color-status-absent-bg: var(--status-absent-bg);
+  --color-status-idle: var(--status-idle);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* The only motion the application starts on its own. */
+  --animate-row-flash: row-flash 1600ms ease-out;
+  --animate-count-pulse: count-pulse 420ms ease-out;
+  --animate-live-dot: live-dot 2.2s ease-in-out infinite;
+
+  @keyframes row-flash {
+    0% {
+      background-color: color-mix(in oklch, var(--primary) 22%, transparent);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @keyframes count-pulse {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes live-dot {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 45%, transparent);
+    }
+    60% {
+      box-shadow: 0 0 0 6px transparent;
+    }
+  }
+}
 
 @layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
   html,
   body,
   #root {
@@ -10,9 +223,10 @@
   }
 
   body {
-    @apply bg-neutral-50 text-neutral-800 font-sans text-base antialiased;
-    /* The page itself never scrolls; the table has its own scroll. */
+    @apply bg-background text-foreground font-sans text-[0.875rem] leading-5 antialiased;
+    /* The page itself never scrolls; each surface has its own scroll. */
     overflow: hidden;
+    font-feature-settings: "cv11", "ss01";
   }
 
   /*
@@ -22,12 +236,18 @@
    */
   .tabular {
     font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
+    font-feature-settings: "tnum", "cv11";
   }
 
-  /* A visible focus ring on everything reachable by keyboard. */
-  :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-1 ring-offset-neutral-50;
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+
+  /* Quiet, theme-aware scrollbars on the surfaces that scroll. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 18%, transparent)
+      transparent;
   }
 }
 
@@ -37,66 +257,18 @@
    * rather than a fade, and no pulse at all.
    */
   @media (prefers-reduced-motion: reduce) {
-    .animate-rowFlash,
-    .animate-countPulse {
-      animation: none !important;
-    }
-    .reduced-flash {
-      background-color: #e4e0f7;
+    .animate-row-flash,
+    .animate-count-pulse,
+    .animate-live-dot {
+      animation: none;
     }
   }
 }
 
-/*
- * The print sheet.
- *
- * A report someone hands to a governor should not carry the application's
- * navigation, its filter controls, or a scrollbar. What it must carry is
- * the school's name, the date range, and the filters that produced it —
- * otherwise a printout found on a desk in March says nothing about what it
- * covers. Those are in the page itself, revealed only when printing.
- */
 @media print {
-  html,
-  body,
-  #root {
-    height: auto;
-    overflow: visible;
-    background: #fff;
-  }
-
   body {
-    font-size: 10pt;
-    color: #000;
-  }
-
-  /* The application chrome has no place on paper. */
-  header nav,
-  .print\:hidden {
-    display: none !important;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  /* A row must not be split across a page break, and the header repeats. */
-  thead {
-    display: table-header-group;
-  }
-
-  tr {
-    break-inside: avoid;
-  }
-
-  /* Backgrounds do not print by default; status text must still read. */
-  * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  @page {
-    margin: 15mm;
+    overflow: visible;
+    background: white;
+    color: black;
   }
 }

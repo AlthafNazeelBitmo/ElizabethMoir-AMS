@@ -1,8 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Button, inputClass } from "../primitives.js";
-import { api, ApiError, type Branch } from "../../lib/api.js";
-import { Problem, Section, Table } from "./shared.js";
+import {
+  FileSpreadsheetIcon,
+  SearchIcon,
+  UploadIcon,
+  UsersIcon,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { EmptyState, TableSkeleton } from "@/components/states.js";
+import { Badge } from "@/components/ui/badge.js";
+import { Button } from "@/components/ui/button.js";
+import { Input } from "@/components/ui/input.js";
+import { Avatar, Checkbox } from "@/components/ui/misc.js";
+import { api, ApiError, type Branch } from "@/lib/api.js";
+import { cn } from "@/lib/utils.js";
+import { Panel, Problem, Section, Table, Td, Th, Tr } from "./shared.js";
 
 interface Person {
   id: string;
@@ -54,7 +67,7 @@ export function AdminDirectory() {
     planHash: string;
   } | null>(null);
   const [confirmDeactivations, setConfirmDeactivations] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const people = useQuery({
     queryKey: ["admin-people", search],
@@ -106,10 +119,8 @@ export function AdminDirectory() {
 
   const doPreview = useMutation({
     mutationFn: () => upload("/api/admin/people/import"),
-    onSuccess: (data) => {
-      setPreview(data as { preview: ImportPreview; planHash: string });
-      setDone(null);
-    },
+    onSuccess: (data) =>
+      setPreview(data as { preview: ImportPreview; planHash: string }),
   });
 
   const doConfirm = useMutation({
@@ -124,12 +135,13 @@ export function AdminDirectory() {
           result: { created: number; updated: number; deactivated: number };
         }
       ).result;
-      setDone(
-        `Imported: ${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated.`,
-      );
+      toast.success("Directory imported", {
+        description: `${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated.`,
+      });
       setPreview(null);
       setFile(null);
       setConfirmDeactivations(false);
+      if (fileInput.current) fileInput.current.value = "";
       void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
     },
   });
@@ -139,135 +151,204 @@ export function AdminDirectory() {
       title="People"
       description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no."
     >
-      <div className="mb-4 rounded border border-neutral-200 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            className="text-sm"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
-              setPreview(null);
-              setDone(null);
-            }}
-          />
-          <Button
-            variant="primary"
-            disabled={!file || doPreview.isPending}
-            onClick={() => doPreview.mutate()}
-          >
-            {doPreview.isPending ? "Checking…" : "Check file"}
-          </Button>
+      <Panel
+        title="Import from a spreadsheet"
+        description="Nothing is written until you have seen what would change."
+      >
+        <div className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              className={cn(
+                "flex h-8 cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 text-sm transition-colors hover:bg-muted/50",
+                file
+                  ? "border-primary/50 text-foreground"
+                  : "text-muted-foreground",
+              )}
+            >
+              <FileSpreadsheetIcon className="size-4" />
+              {file ? file.name : "Choose a CSV file"}
+              <input
+                ref={fileInput}
+                type="file"
+                accept=".csv,text/csv"
+                className="sr-only"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null);
+                  setPreview(null);
+                }}
+              />
+            </label>
+            <Button
+              disabled={!file || doPreview.isPending}
+              onClick={() => doPreview.mutate()}
+            >
+              <UploadIcon /> {doPreview.isPending ? "Checking…" : "Check file"}
+            </Button>
+          </div>
+
+          <Problem error={doPreview.error ?? doConfirm.error} />
+
+          {preview && (
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Badge className="border-transparent bg-status-onsite-bg text-status-onsite">
+                  {preview.preview.counts.create} to create
+                </Badge>
+                <Badge variant="secondary">
+                  {preview.preview.counts.update} to update
+                </Badge>
+                <Badge
+                  className={cn(
+                    "border-transparent",
+                    preview.preview.counts.deactivate > 0
+                      ? "bg-status-absent-bg text-status-absent"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {preview.preview.counts.deactivate} to deactivate
+                </Badge>
+                <Badge variant="muted">
+                  {preview.preview.counts.unchanged} unchanged
+                </Badge>
+                {preview.preview.counts.newTutors > 0 && (
+                  <Badge variant="outline">
+                    {preview.preview.counts.newTutors} new tutor(s):{" "}
+                    {preview.preview.newTutorInitials.join(", ")}
+                  </Badge>
+                )}
+              </div>
+
+              {preview.preview.deactivates.length > 0 && (
+                <div className="rounded-md border border-status-absent/30 bg-status-absent-bg p-3">
+                  <p className="text-sm font-medium text-status-absent">
+                    These {preview.preview.deactivates.length} people are not in
+                    the file and would be deactivated:
+                  </p>
+                  <ul className="mt-1 max-h-40 overflow-auto text-sm text-status-absent">
+                    {preview.preview.deactivates.map((d) => (
+                      <li key={d.enrollNo}>
+                        {d.fullName}{" "}
+                        <span className="tabular opacity-70">
+                          ({d.enrollNo})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <label className="mt-2 flex items-center gap-2 text-sm text-status-absent">
+                    <Checkbox
+                      checked={confirmDeactivations}
+                      onCheckedChange={(checked) =>
+                        setConfirmDeactivations(checked === true)
+                      }
+                    />
+                    Yes, deactivate these people
+                  </label>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  disabled={
+                    doConfirm.isPending ||
+                    (preview.preview.deactivates.length > 0 &&
+                      !confirmDeactivations)
+                  }
+                  onClick={() => doConfirm.mutate()}
+                >
+                  {doConfirm.isPending ? "Importing…" : "Import"}
+                </Button>
+                <Button variant="ghost" onClick={() => setPreview(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="w-64 pl-8"
+              placeholder="Search name or ID"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search people"
+            />
+          </div>
+          {people.isSuccess && (
+            <span className="tabular ml-auto text-xs text-muted-foreground">
+              {people.data.total.toLocaleString("en-GB")} people
+              {people.data.people.length !== people.data.total &&
+                `; showing ${people.data.people.length}`}
+            </span>
+          )}
         </div>
 
-        <Problem error={doPreview.error ?? doConfirm.error} />
-        {done && <p className="mt-2 text-sm text-brand-700">{done}</p>}
+        {people.isPending && <TableSkeleton rows={8} />}
 
-        {preview && (
-          <div className="mt-3">
-            <p className="text-sm text-neutral-700">
-              <strong>{preview.preview.counts.create}</strong> to create,{" "}
-              <strong>{preview.preview.counts.update}</strong> to update,{" "}
-              <strong>{preview.preview.counts.deactivate}</strong> to
-              deactivate, {preview.preview.counts.unchanged} unchanged.
-              {preview.preview.counts.newTutors > 0 &&
-                ` ${preview.preview.counts.newTutors} new tutor(s): ${preview.preview.newTutorInitials.join(", ")}.`}
-            </p>
-
-            {preview.preview.deactivates.length > 0 && (
-              <div className="mt-2 rounded border border-rose-200 bg-status-absentBg p-2">
-                <p className="text-sm font-medium text-status-absent">
-                  These {preview.preview.deactivates.length} people are not in
-                  the file and would be deactivated:
-                </p>
-                <ul className="mt-1 max-h-40 overflow-auto text-sm text-status-absent">
-                  {preview.preview.deactivates.map((d) => (
-                    <li key={d.enrollNo}>
-                      {d.fullName} ({d.enrollNo})
-                    </li>
-                  ))}
-                </ul>
-                <label className="mt-2 flex items-center gap-1.5 text-sm text-status-absent">
-                  <input
-                    type="checkbox"
-                    checked={confirmDeactivations}
-                    onChange={(e) => setConfirmDeactivations(e.target.checked)}
-                  />
-                  Yes, deactivate these people
-                </label>
-              </div>
-            )}
-
-            <div className="mt-3 flex gap-2">
-              <Button
-                variant="primary"
-                disabled={
-                  doConfirm.isPending ||
-                  (preview.preview.deactivates.length > 0 &&
-                    !confirmDeactivations)
-                }
-                onClick={() => doConfirm.mutate()}
-              >
-                {doConfirm.isPending ? "Importing…" : "Import"}
-              </Button>
-              <Button variant="ghost" onClick={() => setPreview(null)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
+        {people.isSuccess && people.data.people.length === 0 && (
+          <EmptyState
+            icon={UsersIcon}
+            title={
+              search ? "Nobody matches that search." : "The directory is empty."
+            }
+            detail={search ? undefined : "Import a spreadsheet above."}
+          />
         )}
-      </div>
 
-      <input
-        className={`${inputClass} mb-3 w-64`}
-        placeholder="Search name or ID"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        aria-label="Search people"
-      />
-
-      {people.isPending && <p className="text-sm text-neutral-500">Loading…</p>}
-
-      {people.isSuccess && people.data.people.length === 0 && (
-        <p className="text-sm text-neutral-500">
-          {search
-            ? "Nobody matches that search."
-            : "The directory is empty. Import a spreadsheet above."}
-        </p>
-      )}
-
-      {people.isSuccess && people.data.people.length > 0 && (
-        <>
-          <p className="mb-1 text-xs text-neutral-500">
-            {people.data.total} people; showing {people.data.people.length}.
-          </p>
+        {people.isSuccess && people.data.people.length > 0 && (
           <Table
             head={
               <>
-                <th className="py-2">Name</th>
-                <th className="py-2">ID</th>
-                <th className="py-2">Group</th>
-                <th className="py-2">Tutor</th>
+                <Th>Name</Th>
+                <Th>ID</Th>
+                <Th>Group</Th>
+                <Th>Tutor</Th>
+                <Th />
               </>
             }
           >
             {people.data.people.map((person) => (
-              <tr key={person.id} className="border-b border-neutral-100">
-                <td className="py-1.5">{person.fullName}</td>
-                <td className="tabular py-1.5 text-neutral-500">
+              <Tr
+                key={person.id}
+                className={cn(!person.isActive && "text-muted-foreground")}
+              >
+                <Td>
+                  <span className="flex items-center gap-2.5">
+                    <Avatar name={person.fullName} size="sm" />
+                    <span className="font-medium">{person.fullName}</span>
+                    {!person.isActive && (
+                      <Badge variant="muted">Inactive</Badge>
+                    )}
+                  </span>
+                </Td>
+                <Td className="tabular text-muted-foreground">
                   {person.enrollNo}
-                </td>
-                <td className="py-1.5 text-neutral-600">
+                </Td>
+                <Td className="text-muted-foreground">
                   {person.groupName ?? "—"}
-                </td>
-                <td className="py-1.5 text-neutral-500">
+                </Td>
+                <Td className="text-muted-foreground">
                   {person.tutorInitials ?? "—"}
-                </td>
-              </tr>
+                </Td>
+                <Td className="text-right">
+                  <Button
+                    asChild
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                  >
+                    <Link to={`/reports/person/${person.id}`}>Report</Link>
+                  </Button>
+                </Td>
+              </Tr>
             ))}
           </Table>
-        </>
-      )}
+        )}
+      </Panel>
     </Section>
   );
 }

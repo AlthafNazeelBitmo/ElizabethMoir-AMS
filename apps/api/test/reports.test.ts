@@ -363,6 +363,34 @@ describe("role isolation on reports", () => {
   });
 });
 
+describe("GET /api/reports/daily", () => {
+  it("counts present, absent and late per school day, in date order", async () => {
+    await seedAWeek();
+    const body = (await get(`/api/reports/daily?from=${FROM}&to=${TO}`)).json();
+    expect(body.days.map((d: { date: string }) => d.date)).toEqual(WEEK);
+    // Monday: Ann and Ben both present; Cal (staff) absent.
+    expect(body.days[0]).toMatchObject({
+      date: "2026-09-14",
+      present: 2,
+      absent: 1,
+      late: 0,
+      expected: 3,
+    });
+    // Wednesday: Ann was late.
+    expect(body.days[2]).toMatchObject({ date: "2026-09-16", late: 1 });
+    // Thursday: Ann absent, Ben present.
+    expect(body.days[3]).toMatchObject({ present: 1, absent: 2 });
+  });
+
+  it("keeps staff out of a student-only account's trend", async () => {
+    await seedAWeek();
+    const body = (
+      await get(`/api/reports/daily?from=${FROM}&to=${TO}`, studentOnly)
+    ).json();
+    expect(body.days[0]).toMatchObject({ present: 2, absent: 0, expected: 2 });
+  });
+});
+
 describe("GET /api/reports/person/:id", () => {
   async function annId(): Promise<string> {
     const [ann] = await h.db.db

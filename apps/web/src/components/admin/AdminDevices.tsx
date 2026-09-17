@@ -1,7 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "../primitives.js";
-import { api } from "../../lib/api.js";
-import { Problem, Section, Table, formatDateTime } from "./shared.js";
+import { ScanLineIcon } from "lucide-react";
+import { toast } from "sonner";
+import { EmptyState } from "@/components/states.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Checkbox, Skeleton } from "@/components/ui/misc.js";
+import { api } from "@/lib/api.js";
+import {
+  formatDateTime,
+  Note,
+  Panel,
+  Problem,
+  Section,
+  Table,
+  Td,
+  Th,
+  Tr,
+} from "./shared.js";
 
 interface Device {
   id: number;
@@ -33,8 +47,10 @@ export function AdminDevices() {
   const update = useMutation({
     mutationFn: (args: { id: number; body: Record<string, unknown> }) =>
       api.patch(`/api/admin/devices/${args.id}`, args.body),
-    onSuccess: () =>
-      void queryClient.invalidateQueries({ queryKey: ["admin-devices"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin-devices"] });
+      toast.success("Reader updated");
+    },
   });
 
   return (
@@ -44,93 +60,96 @@ export function AdminDevices() {
     >
       <Problem error={update.error} />
 
-      {devices.isPending && (
-        <p className="text-sm text-neutral-500">Loading…</p>
-      )}
+      {devices.isPending && <Skeleton className="h-32 w-full" />}
 
       {devices.isSuccess && devices.data.devices.length === 0 && (
-        <p className="text-sm text-neutral-500">
-          No readers have sent anything yet. One will appear here the first time
-          it does.
-        </p>
+        <Panel>
+          <EmptyState
+            icon={ScanLineIcon}
+            title="No readers have sent anything yet."
+            detail="One will appear here the first time it does."
+          />
+        </Panel>
       )}
 
       {devices.isSuccess && devices.data.devices.length > 0 && (
-        <Table
-          head={
-            <>
-              <th className="py-2">Serial</th>
-              <th className="py-2">Label</th>
-              <th className="py-2">Direction</th>
-              <th className="py-2">Trust its status flag</th>
-              <th className="py-2">Last seen</th>
-            </>
-          }
-        >
-          {devices.data.devices.map((device) => (
-            <tr key={device.id} className="border-b border-neutral-100">
-              <td className="tabular py-2">{device.serial}</td>
-              <td className="py-2">
-                <input
-                  className="w-40 rounded border border-neutral-300 px-1.5 py-1 text-sm"
-                  defaultValue={device.label ?? ""}
-                  placeholder="Front gate"
-                  onBlur={(e) => {
-                    if (e.target.value !== (device.label ?? "")) {
-                      update.mutate({
-                        id: device.id,
-                        body: { label: e.target.value || null },
-                      });
-                    }
-                  }}
-                />
-              </td>
-              <td className="py-2">
-                <select
-                  className="rounded border border-neutral-300 bg-white px-1.5 py-1 text-sm"
-                  value={device.direction}
-                  onChange={(e) =>
-                    update.mutate({
-                      id: device.id,
-                      body: { direction: e.target.value },
-                    })
-                  }
-                >
-                  <option value="both">Both ways (infer from order)</option>
-                  <option value="entry">Entry only</option>
-                  <option value="exit">Exit only</option>
-                </select>
-              </td>
-              <td className="py-2">
-                <label className="flex items-center gap-1.5 text-sm text-neutral-600">
-                  <input
-                    type="checkbox"
-                    checked={device.trustCheckingStatus}
+        <Panel>
+          <Table
+            head={
+              <>
+                <Th>Serial</Th>
+                <Th>Label</Th>
+                <Th>Direction</Th>
+                <Th>Trust its status flag</Th>
+                <Th>Last seen</Th>
+              </>
+            }
+          >
+            {devices.data.devices.map((device) => (
+              <Tr key={device.id}>
+                <Td className="tabular font-medium">{device.serial}</Td>
+                <Td>
+                  <Input
+                    className="w-44"
+                    defaultValue={device.label ?? ""}
+                    placeholder="Front gate"
+                    aria-label={`Label for ${device.serial}`}
+                    onBlur={(e) => {
+                      if (e.target.value !== (device.label ?? "")) {
+                        update.mutate({
+                          id: device.id,
+                          body: { label: e.target.value || null },
+                        });
+                      }
+                    }}
+                  />
+                </Td>
+                <Td>
+                  <NativeSelect
+                    value={device.direction}
+                    aria-label={`Direction of ${device.serial}`}
                     onChange={(e) =>
                       update.mutate({
                         id: device.id,
-                        body: { trustCheckingStatus: e.target.checked },
+                        body: { direction: e.target.value },
                       })
                     }
-                  />
-                  {device.trustCheckingStatus ? "Trusted" : "Not trusted"}
-                </label>
-              </td>
-              <td className="py-2 text-neutral-500">
-                {formatDateTime(device.lastSeenAt)}
-              </td>
-            </tr>
-          ))}
-        </Table>
+                  >
+                    <option value="both">Both ways (infer from order)</option>
+                    <option value="entry">Entry only</option>
+                    <option value="exit">Exit only</option>
+                  </NativeSelect>
+                </Td>
+                <Td>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Checkbox
+                      checked={device.trustCheckingStatus}
+                      onCheckedChange={(checked) =>
+                        update.mutate({
+                          id: device.id,
+                          body: { trustCheckingStatus: checked === true },
+                        })
+                      }
+                    />
+                    {device.trustCheckingStatus ? "Trusted" : "Not trusted"}
+                  </label>
+                </Td>
+                <Td className="tabular text-muted-foreground">
+                  {formatDateTime(device.lastSeenAt)}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+        </Panel>
       )}
 
-      <p className="mt-4 max-w-2xl text-xs text-neutral-500">
+      <Note>
         Only turn on "trust its status flag" once the discovery report shows
         that reader's CheckingStatus actually distinguishes arrivals from
         departures, and set the meaning of each value under Rules. Until then
         the system infers direction from the order of each person's scans, which
         is safer than believing a flag that might mean nothing.
-      </p>
+      </Note>
     </Section>
   );
 }
