@@ -32,6 +32,8 @@ test("a new account signs in with its temporary password and replaces it", async
   await page.getByRole("button", { name: "Account menu" }).click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
+  // Signed out on the server too, not just sent to the sign-in page.
+  expect((await page.request.get("/api/auth/me")).status()).toBe(401);
 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(temporary);

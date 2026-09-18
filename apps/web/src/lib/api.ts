@@ -27,7 +27,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
   if (method !== "GET" && method !== "HEAD") {
-    headers.set("content-type", "application/json");
+    // The JSON content type only when there is JSON: the server refuses an
+    // empty body under that header before the route runs, which is how
+    // sign-out and replay — both bodiless — were failing without a trace.
+    if (init.body !== undefined) headers.set("content-type", "application/json");
     const token = csrfToken();
     if (token) headers.set("x-csrf-token", token);
   }
