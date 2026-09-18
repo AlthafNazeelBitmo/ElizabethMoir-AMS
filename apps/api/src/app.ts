@@ -31,6 +31,15 @@ export interface AppDeps {
   db: Db;
   /** Injectable for tests that need to control session and lockout timing. */
   now?: () => Date;
+  /**
+   * Present on a host that may freeze the process the moment a response is
+   * sent and replace it between any two requests. `keepAlive` asks the host
+   * to let a piece of background work finish; the live stream tells its
+   * clients that nothing missed between connections can be replayed.
+   */
+  serverless?: {
+    keepAlive: (work: Promise<unknown>) => void;
+  };
 }
 
 export interface App {
@@ -49,7 +58,12 @@ export interface App {
   whenIdle: () => Promise<void>;
 }
 
-export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
+export async function buildApp({
+  config,
+  db,
+  now,
+  serverless,
+}: AppDeps): Promise<App> {
   const server = Fastify({
     logger: loggerOptions(config),
     trustProxy: config.TRUST_PROXY,
@@ -145,11 +159,22 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
             "post-ingest processing failed; the scheduled drain will retry",
           );
         });
+      // A serverless host freezes the instance as soon as the 200 is sent,
+      // with this chain half way through a query. Asking it to wait is
+      // what turns "eventually, on the next request" into "now".
+      serverless?.keepAlive(backgroundWork);
     },
   });
   await server.register(discoveryRoutes, { config, db });
   await server.register(processingRoutes, { config, processor });
-  await server.register(registerRoutes, { db, auth, cookies, register, broadcaster });
+  await server.register(registerRoutes, {
+    db,
+    auth,
+    cookies,
+    register,
+    broadcaster,
+    streamContinuity: serverless ? "none" : "buffer",
+  });
   await server.register(schoolRoutes, { auth, cookies, settings });
   await server.register(reportRoutes, { db, auth, cookies, reports, settings });
   await server.register(adminRoutes, {

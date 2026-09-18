@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { Branch, DayStatus, UserRole } from "../db/schema/index.js";
 import { canSeeStaff } from "../auth/scope.js";
 
@@ -14,6 +15,12 @@ import { canSeeStaff } from "../auth/scope.js";
  * `Last-Event-ID` and gets whatever it missed from the buffer; if its id is
  * older than the buffer reaches, it is told to refetch instead of being
  * quietly given a partial history.
+ *
+ * The ids only mean anything within one process. Each broadcaster carries
+ * a random identity, sent with every greeting, so a client that reconnects
+ * to a different process — after a restart, or on a host that runs several
+ * — can see that its `Last-Event-ID` was never going to be understood and
+ * refetch, rather than trusting an empty replay.
  */
 
 export interface ScanEvent {
@@ -54,6 +61,8 @@ export type Subscriber = (published: Published) => void;
 const BUFFER_SIZE = 500;
 
 export class RegisterBroadcaster {
+  /** This process's identity: ids are only comparable under the same one. */
+  readonly instanceId = randomBytes(6).toString("hex");
   private nextId = 1;
   private readonly buffer: Published[] = [];
   private readonly subscribers = new Set<{

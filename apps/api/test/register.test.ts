@@ -638,6 +638,16 @@ describe("cursors", () => {
   });
 });
 
+describe("the broadcaster's identity", () => {
+  it("differs between processes and is stable within one", () => {
+    const a = new RegisterBroadcaster();
+    const b = new RegisterBroadcaster();
+    expect(a.instanceId).toMatch(/^[0-9a-f]{12}$/);
+    expect(a.instanceId).not.toBe(b.instanceId);
+    expect(a.instanceId).toBe(a.instanceId);
+  });
+});
+
 describe("the live stream publishes a scan", () => {
   it("announces the person's new day state", async () => {
     const seen: Array<{ personId: string; status: string }> = [];

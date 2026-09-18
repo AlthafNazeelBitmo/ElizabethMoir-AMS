@@ -17,6 +17,15 @@ export interface ScanEventPayload extends RegisterRow {
   date: string;
 }
 
+interface HelloPayload {
+  lastEventId: number;
+  role: string;
+  /** The server process. A different one cannot replay what this one saw. */
+  instance?: string;
+  /** Whether a reconnect can rely on replay at all. */
+  continuity?: "buffer" | "none";
+}
+
 export interface UseRegisterStreamOptions {
   /** Called for each scan event that survives the server's role filter. */
   onScan: (event: ScanEventPayload) => void;
@@ -60,6 +69,10 @@ export function useRegisterStream({
     let retryTimer: number | undefined;
     let attempt = 0;
     let closed = false;
+    // The process that greeted us last. The first greeting after the page
+    // fetched its data is trusted; a later one from somewhere else means
+    // the events in between went to a buffer this connection never saw.
+    let knownInstance: string | null = null;
 
     const connect = () => {
       if (closed) return;
@@ -74,9 +87,25 @@ export function useRegisterStream({
         setLastContactAt(new Date());
       });
 
-      source.addEventListener("hello", () => {
+      source.addEventListener("hello", (event) => {
         setState("live");
         setLastContactAt(new Date());
+        let hello: HelloPayload | null = null;
+        try {
+          hello = JSON.parse((event as MessageEvent<string>).data) as HelloPayload;
+        } catch {
+          // An unreadable greeting is treated as a stranger's.
+        }
+        const instance = hello?.instance ?? null;
+        const reconnected = knownInstance !== null;
+        const continuityLost =
+          reconnected &&
+          (instance !== knownInstance || hello?.continuity === "none");
+        knownInstance = instance;
+        // Replay is only offered within one process, and only where the
+        // host keeps one. Anywhere else the honest move on reconnecting is
+        // to fetch the screen again rather than assume nothing happened.
+        if (continuityLost) onResyncRef.current();
       });
 
       source.addEventListener("heartbeat", () => {

@@ -26,6 +26,13 @@ export interface RegisterRoutesOptions {
   cookies: CookieContext;
   register: RegisterService;
   broadcaster: RegisterBroadcaster;
+  /**
+   * What a reconnecting client may rely on. `buffer`: events it missed are
+   * replayed from this process's buffer. `none`: the process may have been
+   * replaced since it was last connected, so it should refetch on every
+   * reconnect. A serverless host is the second kind.
+   */
+  streamContinuity?: "buffer" | "none";
 }
 
 const MAX_LIMIT = 200;
@@ -67,7 +74,7 @@ const HEARTBEAT_MS = 20_000;
 
 export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
   app,
-  { db, auth, cookies, register, broadcaster },
+  { db, auth, cookies, register, broadcaster, streamContinuity = "buffer" },
 ) => {
   const guard = requireSession({ auth, cookies });
   const preHandler = [guard];
@@ -167,6 +174,8 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
     send(null, "hello", {
       lastEventId: broadcaster.lastEventId,
       role: session.role,
+      instance: broadcaster.instanceId,
+      continuity: streamContinuity,
     });
 
     const unsubscribe = broadcaster.subscribe(session.role, (published) => {

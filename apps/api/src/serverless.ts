@@ -22,6 +22,12 @@ import { createDb } from "./db/client.js";
  * platform rather than frozen with it. Any traffic at all — a register
  * open on a desk, a reader posting a scan — keeps the register current;
  * the daily cron is the floor for a day nobody looked.
+ *
+ * The same freeze would catch the processing a delivery triggers, half way
+ * through, until the next request thawed it. The app is told it is on such
+ * a host, so that work is kept alive too, and so the live stream tells its
+ * clients to refetch on every reconnect: the process that answers the next
+ * connection may not be the one that saw the scan.
  */
 let appPromise: Promise<App> | undefined;
 
@@ -41,7 +47,11 @@ function getApp(): Promise<App> {
         statementTimeoutMs: config.DB_STATEMENT_TIMEOUT_MS,
         max: 1,
       });
-      const app = await buildApp({ config, db });
+      const app = await buildApp({
+        config,
+        db,
+        serverless: { keepAlive: (work) => waitUntil(work) },
+      });
       await app.server.ready();
       return app;
     })();
