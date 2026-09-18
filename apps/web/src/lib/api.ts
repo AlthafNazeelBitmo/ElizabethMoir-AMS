@@ -38,18 +38,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: "same-origin",
   });
 
-  if (res.status === 401) {
-    // The session ended. Anything the page is showing is now stale, and the
-    // honest thing is to say so rather than render a half-empty screen.
-    throw new ApiError(
-      401,
-      "unauthorized",
-      "Your session has ended. Sign in again.",
-    );
-  }
-
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const body: unknown = isJson ? await res.json() : null;
+
+  if (res.status === 401) {
+    // Usually the session ended: anything the page is showing is now stale,
+    // and the honest thing is to say so rather than render a half-empty
+    // screen. A refused sign-in is also a 401, and it says why in words
+    // written to be read — those words win over the generic line.
+    const shaped = (body ?? {}) as { error?: string; message?: string };
+    const refusedSignIn = shaped.error === "invalid_credentials" && shaped.message;
+    throw new ApiError(
+      401,
+      shaped.error ?? "unauthorized",
+      refusedSignIn ? shaped.message! : "Your session has ended. Sign in again.",
+    );
+  }
 
   if (!res.ok) {
     const shaped = (body ?? {}) as {

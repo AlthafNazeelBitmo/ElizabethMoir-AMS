@@ -17,6 +17,17 @@ test("an unauthenticated visitor is sent to the sign-in page", async ({
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
+test("a wrong password is told so, not that a session ended", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(DEMO.full.email);
+  await page.getByLabel("Password").fill("not the password at all");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("alert")).toContainText("was not recognised");
+  await expect(page.getByRole("alert")).not.toContainText("session has ended");
+});
+
 test("a full account sees students, staff and admin", async ({ page }) => {
   await signIn(page, "full");
 
