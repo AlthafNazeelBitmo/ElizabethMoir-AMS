@@ -356,6 +356,13 @@ export class ScanProcessor {
    * An unrecognised enrollment number never causes a scan to be discarded
    * (specification §6). The scan is stored with no person, and the number is
    * surfaced for the office to attach.
+   *
+   * A number belongs to an active person or to nobody. A deactivated
+   * person's card still opens the reader, and a scan from it must not be
+   * quietly filed under someone the register no longer shows: it is stored
+   * unattached and the number goes back on the unknown list, where the
+   * office sees whose it was and can reactivate them, which claims the
+   * scans.
    */
   private async resolvePerson(
     enrollNo: string,
@@ -364,7 +371,7 @@ export class ScanProcessor {
     const [person] = await this.db
       .select({ id: people.id })
       .from(people)
-      .where(eq(people.enrollNo, enrollNo))
+      .where(and(eq(people.enrollNo, enrollNo), eq(people.isActive, true)))
       .limit(1);
     if (person) return person.id;
 
@@ -386,6 +393,8 @@ export class ScanProcessor {
           // values elsewhere are mapped; a raw fragment must do it itself.
           lastSeenAt: sql`greatest(${unknownEnrollments.lastSeenAt}, ${seenAt.toISOString()}::timestamptz)`,
           scanCount: sql`${unknownEnrollments.scanCount} + 1`,
+          // Whoever this number was attached to no longer holds it.
+          resolvedPersonId: null,
         },
       });
     return null;

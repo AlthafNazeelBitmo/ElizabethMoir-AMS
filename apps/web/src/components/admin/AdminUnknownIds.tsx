@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2Icon, UserPlusIcon } from "lucide-react";
+import { CheckCircle2Icon, UserPlusIcon, UserRoundCheckIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, TableSkeleton } from "@/components/states.js";
@@ -23,6 +23,9 @@ interface UnknownEnrollment {
   firstSeenAt: string;
   lastSeenAt: string;
   scanCount: number;
+  /** Set when the number is a deactivated person's: their card still works. */
+  formerPersonId: string | null;
+  formerName: string | null;
 }
 
 interface Group {
@@ -42,6 +45,11 @@ interface Group {
  *
  * The scans recorded before anyone knew who they were are not lost — they
  * are attached to the person and their days recomputed straight away.
+ *
+ * A number can also land here because its owner was deactivated and the
+ * card kept opening the reader. The row says whose it was and offers to
+ * bring them back, which claims the scans; it does not offer to create a
+ * second person with the same number.
  */
 export function AdminUnknownIds() {
   const queryClient = useQueryClient();
@@ -80,12 +88,27 @@ export function AdminUnknownIds() {
     },
   });
 
+  const reactivate = useMutation({
+    mutationFn: (args: { personId: string; fullName: string }) =>
+      api.patch<{ daysRecomputed: number }>(
+        `/api/admin/people/${encodeURIComponent(args.personId)}`,
+        { isActive: true },
+      ),
+    onSuccess: (data, variables) => {
+      toast.success(`${variables.fullName} is back on the register`, {
+        description: `${data.daysRecomputed} day(s) of scans were claimed for them.`,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["unknown-enrollments"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
+    },
+  });
+
   return (
     <Section
       title="Unknown IDs"
       description="Cards and fingerprints that scanned but match nobody in the directory. Their scans are stored, not discarded — give the number a name and the history comes with it."
     >
-      <Problem error={attach.error} />
+      <Problem error={attach.error ?? reactivate.error} />
 
       <Panel>
         {unknown.isPending && <TableSkeleton rows={4} />}
@@ -111,7 +134,14 @@ export function AdminUnknownIds() {
           >
             {unknown.data.unknownEnrollments.map((row) => (
               <Tr key={row.enrollNo} className="align-top">
-                <Td className="tabular font-medium">{row.enrollNo}</Td>
+                <Td className="font-medium">
+                  <span className="tabular">{row.enrollNo}</span>
+                  {row.formerName && (
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                      Was {row.formerName}, deactivated
+                    </span>
+                  )}
+                </Td>
                 <Td className="tabular text-right">{row.scanCount}</Td>
                 <Td className="tabular text-muted-foreground">
                   {formatDateTime(row.firstSeenAt)}
@@ -120,7 +150,23 @@ export function AdminUnknownIds() {
                   {formatDateTime(row.lastSeenAt)}
                 </Td>
                 <Td>
-                  {attaching === row.enrollNo ? (
+                  {row.formerPersonId && row.formerName ? (
+                    <div className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={reactivate.isPending}
+                        onClick={() =>
+                          reactivate.mutate({
+                            personId: row.formerPersonId!,
+                            fullName: row.formerName!,
+                          })
+                        }
+                      >
+                        <UserRoundCheckIcon /> Reactivate {row.formerName}
+                      </Button>
+                    </div>
+                  ) : attaching === row.enrollNo ? (
                     <form
                       className="flex flex-wrap items-end justify-end gap-2"
                       onSubmit={(e) => {

@@ -207,15 +207,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     // Scans that arrived under this number before anyone knew who it was
     // belong to them now, exactly as when a name is given under Unknown
     // IDs. Adding a person by hand must not leave their morning orphaned.
-    await db
-      .update(scans)
-      .set({ personId: row!.id })
-      .where(and(eq(scans.enrollNo, row!.enrollNo), isNull(scans.personId)));
-    await db
-      .update(unknownEnrollments)
-      .set({ resolvedPersonId: row!.id })
-      .where(eq(unknownEnrollments.enrollNo, row!.enrollNo));
-    const daysRecomputed = await processor.recomputeAllDaysFor(row!.enrollNo);
+    const daysRecomputed = await claimScans(db, processor, row!.id, row!.enrollNo);
 
     await writeAudit(db, req.log, {
       action: "person_created",
@@ -255,6 +247,14 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         .where(eq(people.id, req.params.id))
         .returning();
 
+      // While they were deactivated their number belonged to nobody, so
+      // anything it scanned in the meantime was stored unattached. Coming
+      // back claims it, the same as being added would.
+      const reactivated = !before.isActive && after!.isActive;
+      const daysRecomputed = reactivated
+        ? await claimScans(db, processor, after!.id, after!.enrollNo)
+        : 0;
+
       await writeAudit(db, req.log, {
         action:
           parsed.data.isActive === false
@@ -264,11 +264,11 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         entity: "person",
         entityId: req.params.id,
         before,
-        after,
+        after: reactivated ? { ...after, daysRecomputed } : after,
         ip: req.ip || null,
         userAgent: req.headers["user-agent"] ?? null,
       });
-      return reply.send({ person: after });
+      return reply.send({ person: after, daysRecomputed });
     },
   );
 
@@ -368,9 +368,26 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
           .send({ error: "invalid_query", message: "Check the page values." });
       }
       const { page, limit } = parsed.data;
+      // A number on this list may still be a deactivated person's: their
+      // card kept working after they were removed. The row says whose it
+      // was, so the office can reactivate them rather than invent a twin.
       const rows = await db
-        .select()
+        .select({
+          enrollNo: unknownEnrollments.enrollNo,
+          firstSeenAt: unknownEnrollments.firstSeenAt,
+          lastSeenAt: unknownEnrollments.lastSeenAt,
+          scanCount: unknownEnrollments.scanCount,
+          formerPersonId: people.id,
+          formerName: people.fullName,
+        })
         .from(unknownEnrollments)
+        .leftJoin(
+          people,
+          and(
+            eq(people.enrollNo, unknownEnrollments.enrollNo),
+            eq(people.isActive, false),
+          ),
+        )
         .where(isNull(unknownEnrollments.resolvedPersonId))
         .orderBy(desc(unknownEnrollments.lastSeenAt))
         .limit(limit)
@@ -433,8 +450,42 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
             message: `That person already has enrolment number ${person.enrollNo}. Create a new person instead, or correct theirs first.`,
           });
         }
+        if (!person.isActive) {
+          // Their own number, scanned after they were deactivated. Attaching
+          // it to them is reactivating them; anything less would leave the
+          // register hiding the scans it has just been given.
+          await db
+            .update(people)
+            .set({ isActive: true, updatedAt: new Date() })
+            .where(eq(people.id, person.id));
+          await writeAudit(db, req.log, {
+            action: "person_modified",
+            userId: req.auth!.userId,
+            entity: "person",
+            entityId: person.id,
+            before: person,
+            after: { ...person, isActive: true },
+            ip: req.ip || null,
+            userAgent: req.headers["user-agent"] ?? null,
+          });
+        }
         personId = person.id;
       } else {
+        const [holder] = await db
+          .select({ id: people.id, fullName: people.fullName })
+          .from(people)
+          .where(eq(people.enrollNo, enrollNo))
+          .limit(1);
+        if (holder) {
+          // The number is a deactivated person's (an active one would have
+          // matched at the reader). A second person with the same number
+          // is not possible, and would be the wrong answer if it were.
+          return reply.code(409).send({
+            error: "number_held_by_deactivated",
+            message: `Enrolment number ${enrollNo} belongs to ${holder.fullName}, who is deactivated. Reactivate them under People instead of creating someone new.`,
+            personId: holder.id,
+          });
+        }
         const [created] = await db
           .insert(people)
           .values({ enrollNo, ...parsed.data.create! })
@@ -453,17 +504,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
 
       // Claim the scans already recorded against this number, then redo the
       // days they fall in so the register reflects them immediately.
-      await db
-        .update(scans)
-        .set({ personId })
-        .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
-
-      await db
-        .update(unknownEnrollments)
-        .set({ resolvedPersonId: personId })
-        .where(eq(unknownEnrollments.enrollNo, enrollNo));
-
-      const daysRecomputed = await processor.recomputeAllDaysFor(enrollNo);
+      const daysRecomputed = await claimScans(db, processor, personId, enrollNo);
 
       return reply.send({ personId, daysRecomputed });
     },
@@ -734,4 +775,28 @@ function summarise(plan: ImportPlan) {
       updates: Math.max(0, plan.updates.length - SAMPLE),
     },
   };
+}
+
+/**
+ * Gives a person every scan stored under their number that nobody holds,
+ * takes the number off the unknown list, and recomputes the days involved
+ * so the register shows them at once. One path for the three ways a number
+ * comes to belong to someone: added by hand, named under Unknown IDs, or
+ * reactivated.
+ */
+async function claimScans(
+  db: Db,
+  processor: ScanProcessor,
+  personId: string,
+  enrollNo: string,
+): Promise<number> {
+  await db
+    .update(scans)
+    .set({ personId })
+    .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
+  await db
+    .update(unknownEnrollments)
+    .set({ resolvedPersonId: personId })
+    .where(eq(unknownEnrollments.enrollNo, enrollNo));
+  return processor.recomputeAllDaysFor(enrollNo);
 }

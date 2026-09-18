@@ -129,6 +129,19 @@ check Admin → Calendar for that date.
 directory does not know still records its scans; give the number a name and
 the history comes with it.
 
+**A deactivated person keeps scanning.** Their card still opens the reader.
+The scans are not filed under a record the register no longer shows: the
+number goes back to Admin → Unknown IDs, marked _Was <name>, deactivated_,
+with a _Reactivate_ button that brings them back and claims those scans. A
+number is never given to a second person while a deactivated one holds it.
+
+**Somebody tapped in and out and nothing changed.** Two taps on the same
+reader within the repeat-tap window (Admin → Rules; 60 seconds by default)
+are one movement — people tap twice. The window runs from the tap that
+counted, so a real in-and-out needs more than a minute between them. When
+testing a reader, wait the minute; the scan count on the person's sheet
+still goes up for every tap, so nothing is lost.
+
 **Scans have stopped arriving.** Check Admin → Failed events first. Then
 check ADMS itself (_Device → Data → Transaction_) — if scans are not
 arriving there either, the problem is the reader or its network, not this
@@ -168,7 +181,9 @@ and replaying re-derives every instant correctly.
 
 **The stream says "Reconnecting".** The figures on screen are from the time
 shown in the amber bar. They are not live until it goes away. The register
-reconnects on its own.
+reconnects on its own, and if it comes back to a different server process
+— after a restart, say — it fetches the screen again rather than trusting
+that nothing happened in between.
 
 ## Logs
 

@@ -234,6 +234,34 @@ describe("unknown enrollment numbers", () => {
     await h.app.processor.processPending();
     expect(await h.db.db.select().from(dayRecords)).toHaveLength(0);
   });
+
+  it("treats a deactivated person's number as nobody's", async () => {
+    const person = await addPerson("11007", "Left The School");
+    await h.db.db
+      .update(people)
+      .set({ isActive: false })
+      .where(eq(people.id, person.id));
+    // Earlier, while they were active, the number was attached to them.
+    await h.db.db.insert(unknownEnrollments).values({
+      enrollNo: "11007",
+      firstSeenAt: new Date("2026-09-01T02:00:00.000Z"),
+      lastSeenAt: new Date("2026-09-01T02:00:00.000Z"),
+      scanCount: 1,
+      resolvedPersonId: person.id,
+    });
+
+    await deliver([event("11007", "2026-09-16 07:30:00")]);
+    await h.app.whenIdle();
+    await h.app.processor.processPending();
+
+    const [scan] = await h.db.db.select().from(scans);
+    expect(scan?.personId).toBeNull();
+    // Back on the unknown list: whoever it was attached to no longer holds it.
+    const [unknown] = await h.db.db.select().from(unknownEnrollments);
+    expect(unknown?.resolvedPersonId).toBeNull();
+    expect(unknown?.scanCount).toBe(2);
+    expect(unknown?.lastSeenAt?.toISOString()).toBe("2026-09-16T02:00:00.000Z");
+  });
 });
 
 describe("the derived day record", () => {

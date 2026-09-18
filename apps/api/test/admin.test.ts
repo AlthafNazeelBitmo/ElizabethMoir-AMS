@@ -539,6 +539,111 @@ describe("unknown enrolment numbers", () => {
     });
     expect(res.statusCode).toBe(404);
   });
+
+  describe("a deactivated person's card", () => {
+    async function addAndDeactivate(enrollNo: string, fullName: string) {
+      const [group] = await h.db.db
+        .select()
+        .from(groups)
+        .where(eq(groups.branch, "student"));
+      const created = (
+        await post("/api/admin/people", {
+          enrollNo,
+          fullName,
+          groupId: group!.id,
+        })
+      ).json().person as { id: string };
+      const res = await h.app.server.inject({
+        method: "PATCH",
+        url: `/api/admin/people/${created.id}`,
+        payload: { isActive: false },
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      expect(res.statusCode).toBe(200);
+      return created.id;
+    }
+
+    it("goes back on the unknown list, naming whose it was", async () => {
+      const id = await addAndDeactivate("22222", "Left Last Term");
+      await scanFromUnknown("22222", "2026-09-16 07:30:00");
+
+      // Not filed under someone the register does not show.
+      const [scan] = await h.db.db
+        .select()
+        .from(scans)
+        .where(eq(scans.enrollNo, "22222"));
+      expect(scan?.personId).toBeNull();
+
+      const body = (await get("/api/admin/unknown-enrollments")).json();
+      expect(body.total).toBe(1);
+      expect(body.unknownEnrollments[0]).toMatchObject({
+        enrollNo: "22222",
+        formerPersonId: id,
+        formerName: "Left Last Term",
+      });
+    });
+
+    it("is claimed again when they are reactivated", async () => {
+      const id = await addAndDeactivate("22222", "Back Again");
+      await scanFromUnknown("22222", "2026-09-16 07:30:00");
+
+      const res = await h.app.server.inject({
+        method: "PATCH",
+        url: `/api/admin/people/${id}`,
+        payload: { isActive: true },
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().daysRecomputed).toBe(1);
+
+      const [scan] = await h.db.db
+        .select()
+        .from(scans)
+        .where(eq(scans.enrollNo, "22222"));
+      expect(scan?.personId).toBe(id);
+      expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
+      const live = (await get("/api/register/live?date=2026-09-16")).json();
+      const row = live.rows.find(
+        (r: { enrollNo: string }) => r.enrollNo === "22222",
+      );
+      expect(row?.firstIn).toBeTruthy();
+    });
+
+    it("is claimed by attaching the number to them, which reactivates them", async () => {
+      const id = await addAndDeactivate("22222", "Back Again");
+      await scanFromUnknown("22222", "2026-09-16 07:30:00");
+
+      const res = await post("/api/admin/unknown-enrollments/22222/attach", {
+        personId: id,
+      });
+      expect(res.statusCode).toBe(200);
+      const [person] = await h.db.db
+        .select()
+        .from(people)
+        .where(eq(people.id, id));
+      expect(person?.isActive).toBe(true);
+      expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
+    });
+
+    it("cannot be given to a new person while they still hold the number", async () => {
+      const id = await addAndDeactivate("22222", "Still Holds It");
+      await scanFromUnknown("22222", "2026-09-16 07:30:00");
+      const [group] = await h.db.db
+        .select()
+        .from(groups)
+        .where(eq(groups.branch, "student"));
+
+      const res = await post("/api/admin/unknown-enrollments/22222/attach", {
+        create: { fullName: "A Twin", groupId: group!.id },
+      });
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({
+        error: "number_held_by_deactivated",
+        personId: id,
+      });
+      expect(res.json().message).toMatch(/Still Holds It/);
+    });
+  });
 });
 
 describe("devices", () => {
