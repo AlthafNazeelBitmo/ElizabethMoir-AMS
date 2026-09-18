@@ -163,6 +163,40 @@ describe("duplicate suppression", () => {
     expect(r[1]).toMatchObject({ direction: "out", isDuplicate: false });
   });
 
+  it("measures the window from the movement, not from the last repeat", () => {
+    // Tap, fumble a second tap fifty seconds on, then walk out fifty
+    // seconds after that. The third tap is a hundred seconds after the
+    // arrival: a movement, not a third copy of it.
+    const r = resolveDayDirections(
+      [at("07:30:00"), at("07:30:50"), at("07:31:40")],
+      ctx(),
+    );
+    expect(r.map((x) => x.isDuplicate)).toEqual([false, true, false]);
+    expect(r.map((x) => x.direction)).toEqual(["in", "in", "out"]);
+  });
+
+  it("does not let a run of taps become one endless movement", () => {
+    // Someone testing a reader: in and out every forty-five seconds.
+    const r = resolveDayDirections(
+      [
+        at("07:30:00"),
+        at("07:30:45"),
+        at("07:31:30"),
+        at("07:32:15"),
+        at("07:33:00"),
+      ],
+      ctx(),
+    );
+    expect(r.map((x) => x.isDuplicate)).toEqual([
+      false,
+      true,
+      false,
+      true,
+      false,
+    ]);
+    expect(r.map((x) => x.direction)).toEqual(["in", "in", "out", "out", "in"]);
+  });
+
   it("respects a configured window length", () => {
     const wide = ctx({ duplicateWindowSeconds: 300 });
     const r = resolveDayDirections([at("07:30:00"), at("07:33:00")], wide);

@@ -78,7 +78,14 @@ export function resolveDayDirections(
   const results: ResolvedDirection[] = new Array<ResolvedDirection>(
     scans.length,
   );
-  const lastTapPerDevice = new Map<
+  /**
+   * The last tap on each device that counted as a movement. The window is
+   * measured from that tap, not from the most recent repeat of it: measured
+   * from the repeat, a person tapping every fifty seconds would be one
+   * movement all day, and a reader being tested by someone walking in and
+   * out would appear to have stopped working.
+   */
+  const lastMovementPerDevice = new Map<
     string,
     { at: Date; result: ResolvedDirection }
   >();
@@ -88,7 +95,7 @@ export function resolveDayDirections(
   for (const { scan, index } of ordered) {
     const device = ctx.devices.get(scan.deviceSerial) ?? UNSEEN_DEVICE;
 
-    const previous = lastTapPerDevice.get(scan.deviceSerial);
+    const previous = lastMovementPerDevice.get(scan.deviceSerial);
     const isDuplicate =
       previous !== undefined &&
       (scan.attTime.getTime() - previous.at.getTime()) / 1000 <
@@ -97,19 +104,17 @@ export function resolveDayDirections(
     if (isDuplicate) {
       // People tap twice. The repeat takes the direction of the tap it
       // repeats, so it can never flip the alternation.
-      const result: ResolvedDirection = {
+      results[index] = {
         direction: previous.result.direction,
         directionSource: previous.result.directionSource,
         isDuplicate: true,
       };
-      results[index] = result;
-      lastTapPerDevice.set(scan.deviceSerial, { at: scan.attTime, result });
       continue;
     }
 
     const result = resolveOne(scan, device, ctx, movementCount);
     results[index] = result;
-    lastTapPerDevice.set(scan.deviceSerial, { at: scan.attTime, result });
+    lastMovementPerDevice.set(scan.deviceSerial, { at: scan.attTime, result });
 
     // An undecidable scan does not advance the alternation: guessing past it
     // would corrupt every direction after it as well.
