@@ -14,6 +14,8 @@ import type { DayStatus } from "./api.js";
 export interface SchoolProfile {
   name: string;
   timezone: string;
+  /** A short hash of the uploaded crest; null when there is none. */
+  logoVersion?: string | null;
 }
 
 /** What is used until the server has answered. Matches the API's defaults. */
@@ -45,6 +47,14 @@ export function schoolName(): string {
 
 export function schoolTimezone(): string {
   return profile.timezone;
+}
+
+/**
+ * The crest's version: a hash when one is uploaded, null when the school
+ * has none, undefined before the profile is known (the sign-in page).
+ */
+export function schoolLogoVersion(): string | null | undefined {
+  return profile.logoVersion;
 }
 
 function isValidTimeZone(zone: string): boolean {

@@ -26,6 +26,7 @@ export const AUDIT_ACTIONS = [
   "group_created",
   "group_modified",
   "attendance_rule_changed",
+  "school_mark_changed",
   "report_export",
   "audit_export",
   "dead_letter_replay",

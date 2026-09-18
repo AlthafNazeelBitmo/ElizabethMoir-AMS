@@ -30,8 +30,6 @@ backups/
 apps/web/test-results/
 apps/web/playwright-report/
 
-# The school's own mark, dropped in by the school; never committed.
-apps/web/public/branding/logo.*
 
 # Static files staged for the Vercel deployment; built, never committed.
 apps/api/.static/

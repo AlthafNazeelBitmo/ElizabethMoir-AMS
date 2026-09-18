@@ -50,7 +50,7 @@ const get = (
   h.app.server.inject({ method: "GET", url, headers: { cookie: who.cookie } });
 
 const send = (
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "DELETE",
   url: string,
   payload: unknown,
   who: LoggedIn = admin,
@@ -350,6 +350,7 @@ describe("school name", () => {
     expect(res.json()).toEqual({
       name: "Example High School",
       timezone: "Asia/Colombo",
+      logoVersion: null,
     });
     expect(res.headers["cache-control"]).toBe("no-store");
   });
@@ -357,6 +358,60 @@ describe("school name", () => {
   it("is not readable without a session", async () => {
     const res = await h.app.server.inject({ method: "GET", url: "/api/school" });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe("the school's mark", () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const putLogo = (body: Buffer, type: string) =>
+    h.app.server.inject({
+      method: "PUT",
+      url: "/api/admin/school/logo",
+      payload: body,
+      headers: {
+        cookie: admin.cookie,
+        "x-csrf-token": admin.csrfToken,
+        "content-type": type,
+      },
+    });
+
+  it("is absent until uploaded, then served to anyone, with a version", async () => {
+    expect((await get("/api/school")).json().logoVersion).toBeNull();
+    const nobody = await h.app.server.inject({ method: "GET", url: "/api/school/logo" });
+    expect(nobody.statusCode).toBe(404);
+
+    const put = await putLogo(png, "image/png");
+    expect(put.statusCode).toBe(200);
+    const version = put.json().version;
+    expect(version).toMatch(/^[0-9a-f]{12}$/);
+    expect((await get("/api/school")).json().logoVersion).toBe(version);
+
+    // Public: the sign-in page shows it before there is a session.
+    const served = await h.app.server.inject({ method: "GET", url: "/api/school/logo" });
+    expect(served.statusCode).toBe(200);
+    expect(served.headers["content-type"]).toBe("image/png");
+    expect(served.rawPayload.equals(png)).toBe(true);
+    expect(served.headers["etag"]).toBe(`"${version}"`);
+
+    const cached = await h.app.server.inject({
+      method: "GET",
+      url: "/api/school/logo",
+      headers: { "if-none-match": `"${version}"` },
+    });
+    expect(cached.statusCode).toBe(304);
+  });
+
+  it("refuses anything that is not an image, and is audited", async () => {
+    expect((await putLogo(Buffer.from("<html>"), "text/html")).statusCode).toBe(415);
+    await putLogo(png, "image/png");
+    const removed = await send("DELETE", "/api/admin/school/logo", undefined);
+    expect(removed.statusCode).toBe(200);
+    expect((await get("/api/school")).json().logoVersion).toBeNull();
+    const actions = (await h.db.db.select().from(auditLog)).map((e) => e.action);
+    expect(actions.filter((a) => a === "school_mark_changed")).toHaveLength(2);
   });
 });
 

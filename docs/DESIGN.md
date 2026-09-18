@@ -65,10 +65,11 @@ is drawn.
 
 ### The school's mark
 
-`BrandMark` shows `public/branding/logo.svg` (or `.png`) if the school has
-put its crest there, and otherwise a tile in the banner red carrying the
-school's initials. The crest is never committed — it is the school's, not
-the code's — and the path is gitignored.
+`BrandMark` shows the crest the school has uploaded (Admin → Rules → School
+mark; kept with the other school settings and served by the API, versioned
+so a new upload appears at once), and otherwise a tile in the banner red
+carrying the school's initials. The crest is never in the repository — it
+is the school's, not the code's.
 
 ## Type
 

@@ -34,6 +34,12 @@ import {
 import { parseStatusMap } from "../domain/direction.js";
 import { isValidTimeZone, parseTimeOfDay } from "../domain/time.js";
 import { auditLogToCsv } from "./audit-csv.js";
+import {
+  LOGO_MAX_BYTES,
+  LOGO_SETTING_KEY,
+  LOGO_TYPES,
+  versionOf,
+} from "../school/logo.js";
 import type { ScanProcessor } from "../processing/processor.js";
 import {
   asSchoolName,
@@ -376,6 +382,55 @@ export const adminSystemRoutes: FastifyPluginAsync<
     });
 
     return reply.send({ changed: accepted.map((a) => a.key) });
+  });
+
+  // ── The school's mark ───────────────────────────────────────────────────
+
+  app.put("/api/admin/school/logo", { preHandler }, async (req, reply) => {
+    const mime = (req.headers["content-type"] ?? "").split(";")[0]!.trim();
+    const body = req.body;
+    if (!LOGO_TYPES.has(mime) || !Buffer.isBuffer(body) || body.length === 0) {
+      return reply.code(415).send({
+        error: "unsupported_image",
+        message: "Send the image itself: PNG, JPEG, SVG or WebP.",
+      });
+    }
+    if (body.length > LOGO_MAX_BYTES) {
+      return reply.code(413).send({
+        error: "too_large",
+        message: `The mark must be under ${Math.round(LOGO_MAX_BYTES / 1024)} KB.`,
+      });
+    }
+    await settings.set(
+      LOGO_SETTING_KEY,
+      { mime, data: body.toString("base64") },
+      req.auth!.userId,
+    );
+    const version = versionOf(body);
+    await writeAudit(db, req.log, {
+      action: "school_mark_changed",
+      userId: req.auth!.userId,
+      entity: "settings",
+      entityId: LOGO_SETTING_KEY,
+      after: { mime, bytes: body.length, version },
+      ip: req.ip || null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+    return reply.send({ version });
+  });
+
+  app.delete("/api/admin/school/logo", { preHandler }, async (req, reply) => {
+    await settings.unset(LOGO_SETTING_KEY);
+    await writeAudit(db, req.log, {
+      action: "school_mark_changed",
+      userId: req.auth!.userId,
+      entity: "settings",
+      entityId: LOGO_SETTING_KEY,
+      after: { removed: true },
+      ip: req.ip || null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+    return reply.send({ removed: true });
   });
 
   // ── Calendar ────────────────────────────────────────────────────────────

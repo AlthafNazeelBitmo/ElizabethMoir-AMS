@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { Field, Separator, Skeleton } from "@/components/ui/misc.js";
 import { api } from "@/lib/api.js";
+import { SchoolMark } from "./SchoolMark.js";
 import { Panel, Problem, Section } from "./shared.js";
 
 interface SettingsResponse {
@@ -88,6 +89,8 @@ export function AdminRules() {
       >
         <Panel title="The school" className="p-0">
           <div className="space-y-4 p-4">
+            <SchoolMark />
+
             <Field
               label="School name"
               hint="Printed at the top of every report and shown in the sidebar."

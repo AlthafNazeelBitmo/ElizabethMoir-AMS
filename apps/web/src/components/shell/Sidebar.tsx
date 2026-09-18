@@ -37,7 +37,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip.js";
 import { api, type CurrentUser } from "@/lib/api.js";
-import { schoolName } from "@/lib/format.js";
+import { schoolLogoVersion, schoolName } from "@/lib/format.js";
 import { useTheme, type Theme } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
 
@@ -96,17 +96,21 @@ export function Sidebar({
       data-collapsed={collapsed}
       className={cn(
         "flex h-full shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200",
-        collapsed ? "w-14" : "w-60",
+        collapsed ? "w-16" : "w-60",
       )}
     >
       {/* Brand */}
       <div
         className={cn(
-          "flex h-12 items-center gap-2.5 px-3",
-          collapsed && "justify-center px-0",
+          "flex items-center gap-2.5 px-3",
+          collapsed ? "h-14 justify-center px-0" : "h-12",
         )}
       >
-        <BrandMark name={schoolName()} />
+        <BrandMark
+          key={schoolLogoVersion() ?? "none"}
+          name={schoolName()}
+          size={collapsed ? "lg" : "default"}
+        />
         {!collapsed && (
           <div className="min-w-0 leading-tight">
             <div className="truncate text-sm font-semibold tracking-tight">
@@ -120,14 +124,16 @@ export function Sidebar({
       </div>
 
       {/* Search trigger */}
-      <div className={cn("px-2 pb-2", collapsed && "px-1.5")}>
+      <div className={cn("px-2 pb-2", collapsed && "px-0 pb-1")}>
         <button
           type="button"
           onClick={onOpenSearch}
           aria-label="Search"
           className={cn(
-            "flex h-8 w-full items-center gap-2 rounded-md border bg-card px-2 text-sm text-muted-foreground shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-input/20",
-            collapsed && "justify-center px-0",
+            "flex items-center gap-2 rounded-md text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+            collapsed
+              ? "mx-auto size-10 justify-center"
+              : "h-8 w-full border bg-card px-2 shadow-xs dark:bg-input/20",
           )}
         >
           <SearchGlyph />
@@ -143,7 +149,10 @@ export function Sidebar({
       {/* Navigation */}
       <nav
         aria-label="Main"
-        className={cn("flex flex-col gap-0.5 px-2", collapsed && "px-1.5")}
+        className={cn(
+          "flex flex-col gap-0.5 px-2",
+          collapsed && "items-stretch gap-1 px-0",
+        )}
       >
         <NavItem
           to="/register"
@@ -176,7 +185,7 @@ export function Sidebar({
             aria-label="Admin sections"
             className={cn(
               "flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2",
-              collapsed && "px-1.5",
+              collapsed && "gap-1 px-0",
             )}
           >
             {!collapsed && (
@@ -201,7 +210,7 @@ export function Sidebar({
       <div className="mt-auto" />
 
       {/* Collapse toggle */}
-      <div className={cn("px-2 pb-1", collapsed && "px-1.5")}>
+      <div className={cn("px-2 pb-1", collapsed && "px-0")}>
         <Button
           variant="ghost"
           size="sm"
@@ -209,7 +218,7 @@ export function Sidebar({
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
             "w-full justify-start text-muted-foreground",
-            collapsed && "justify-center",
+            collapsed && "mx-auto size-10 w-10 justify-center px-0",
           )}
         >
           {collapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}
@@ -218,15 +227,17 @@ export function Sidebar({
       </div>
 
       {/* Account */}
-      <div className={cn("border-t p-2", collapsed && "p-1.5")}>
+      <div className={cn("border-t p-2", collapsed && "px-0 py-2")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label="Account menu"
               className={cn(
-                "flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent",
-                collapsed && "justify-center px-0",
+                "flex items-center gap-2.5 rounded-md text-left transition-colors hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent",
+                collapsed
+                  ? "mx-auto size-10 justify-center"
+                  : "w-full px-1.5 py-1.5",
               )}
             >
               <Avatar name={user.fullName} />
@@ -284,32 +295,33 @@ function NavItem({
   isActive?: boolean;
   size?: "default" | "sm";
 }) {
+  // The class list is a plain string, never NavLink's function form: when
+  // the rail is collapsed the link sits inside a tooltip trigger, whose
+  // Slot joins class lists as strings and would turn a function into
+  // nonsense. The active state comes from aria-current, which NavLink sets,
+  // or data-active for a section whose sub-pages share it.
   const link = (
     <NavLink
       to={to}
       aria-label={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          "flex items-center gap-2.5 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
-          size === "sm" ? "h-7 px-2" : "h-8 px-2",
-          collapsed && "justify-center px-0",
-          (forceActive ?? isActive)
-            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <Icon
-            className={cn(
-              "size-4 shrink-0",
-              (forceActive ?? isActive) && "text-primary",
-            )}
-          />
-          {!collapsed && <span className="truncate">{label}</span>}
-        </>
+      data-active={forceActive || undefined}
+      className={cn(
+        "group flex items-center gap-2.5 rounded-md text-sm font-medium text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40",
+        "aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground data-[active]:bg-sidebar-accent data-[active]:text-sidebar-accent-foreground",
+        collapsed
+          ? "mx-auto size-10 justify-center"
+          : size === "sm"
+            ? "h-7 px-2"
+            : "h-8 px-2",
       )}
+    >
+      <Icon
+        className={cn(
+          "size-4 shrink-0 group-aria-[current=page]:text-primary group-data-[active]:text-primary",
+          collapsed && "size-[18px]",
+        )}
+      />
+      {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
   );
   if (!collapsed) return link;

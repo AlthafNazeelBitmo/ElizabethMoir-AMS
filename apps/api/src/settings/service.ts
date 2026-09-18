@@ -110,6 +110,12 @@ export class SettingsService {
     this.invalidate();
   }
 
+  /** Removes a setting so the default applies again. */
+  async unset(key: string): Promise<void> {
+    await this.db.delete(settings).where(eq(settings.key, key));
+    this.invalidate();
+  }
+
   async getRaw(key: string): Promise<unknown> {
     const [row] = await this.db
       .select()

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { requireSession, type CookieContext } from "../auth/http.js";
 import type { AuthService } from "../auth/service.js";
 import type { SettingsService } from "../settings/service.js";
+import { readLogo } from "./logo.js";
 
 export interface SchoolRoutesOptions {
   auth: AuthService;
@@ -28,9 +29,33 @@ export const schoolRoutes: FastifyPluginAsync<SchoolRoutesOptions> = async (
     { preHandler: [requireSession({ auth, cookies })] },
     async (_req, reply) => {
       const current = await settings.get();
-      return reply
-        .header("cache-control", "no-store")
-        .send({ name: current.schoolName, timezone: current.timezone });
+      const logo = await readLogo(settings);
+      return reply.header("cache-control", "no-store").send({
+        name: current.schoolName,
+        timezone: current.timezone,
+        logoVersion: logo?.version ?? null,
+      });
     },
   );
+
+  // The mark itself needs no session: it is on the sign-in page, and it is
+  // the school's public crest, not a record about anyone.
+  app.get("/api/school/logo", async (req, reply) => {
+    const logo = await readLogo(settings);
+    if (!logo) {
+      return reply
+        .code(404)
+        .header("cache-control", "no-store")
+        .send({ error: "not_found", message: "No mark has been uploaded." });
+    }
+    const etag = `"${logo.version}"`;
+    if (req.headers["if-none-match"] === etag) {
+      return reply.code(304).header("etag", etag).send();
+    }
+    return reply
+      .header("content-type", logo.mime)
+      .header("etag", etag)
+      .header("cache-control", "public, max-age=300")
+      .send(logo.bytes);
+  });
 };

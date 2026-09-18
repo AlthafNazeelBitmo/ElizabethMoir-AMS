@@ -20,6 +20,7 @@ import { RegisterBroadcaster } from "./register/broadcaster.js";
 import { registerRoutes } from "./register/routes.js";
 import { RegisterService } from "./register/service.js";
 import { reportRoutes } from "./reports/routes.js";
+import { LOGO_MAX_BYTES, LOGO_TYPES } from "./school/logo.js";
 import { schoolRoutes } from "./school/routes.js";
 import { ReportService } from "./reports/service.js";
 import { ScanProcessor } from "./processing/processor.js";
@@ -67,6 +68,13 @@ export async function buildApp({ config, db, now }: AppDeps): Promise<App> {
   await server.register(multipart, {
     limits: { fileSize: config.MAX_UPLOAD_BYTES, files: 1 },
   });
+  // The school's mark arrives as the image itself. Bounded well below the
+  // directory upload: a crest for a sidebar is kilobytes, not megabytes.
+  server.addContentTypeParser(
+    [...LOGO_TYPES],
+    { parseAs: "buffer", bodyLimit: LOGO_MAX_BYTES },
+    (_req, body, done) => done(null, body),
+  );
 
   // Strict by default. This is an API; it serves no scripts, styles or
   // images. The one HTML page (the Phase 0 report) sets its own policy.

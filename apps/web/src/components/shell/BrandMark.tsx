@@ -1,31 +1,42 @@
 import { useState } from "react";
+import { schoolLogoVersion } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
 /**
  * The school's mark.
  *
- * If the school has dropped its crest into `public/branding/logo.svg` (or
- * `.png`), that is shown. Otherwise a tile in the banner red carries the
- * school's initials — recognisably theirs without a file having to exist.
- * The crest itself is never committed; it is the school's, not the code's.
+ * If a crest has been uploaded (Admin → Rules) it is shown, from the API,
+ * versioned so a new upload appears at once and an unchanged one is cached.
+ * Otherwise a tile in the banner red carries the school's initials —
+ * recognisably theirs without a file having to exist. The sign-in page has
+ * no session and so no version; it simply asks, and falls back if there is
+ * nothing.
  */
 export function BrandMark({
   name,
   size = "default",
   className,
+  version: givenVersion,
 }: {
   /** The school's name, for the initials. Omitted before sign-in. */
   name?: string;
-  size?: "default" | "lg";
+  size?: "default" | "lg" | "xl";
   className?: string;
+  /** The crest version, when the caller tracks it; otherwise the profile's. */
+  version?: string | null | undefined;
 }) {
-  const [source, setSource] = useState<"svg" | "png" | "none">("svg");
+  // undefined: not known (before sign-in) — try. null: known to be absent.
+  const version = givenVersion !== undefined ? givenVersion : schoolLogoVersion();
+  const [failed, setFailed] = useState(false);
   const initials = name ? initialsOf(name) : null;
 
-  const dimensions =
-    size === "lg" ? "size-11 text-base" : "size-7 text-[0.6875rem]";
+  const dimensions = {
+    default: "size-8 text-[0.6875rem]",
+    lg: "size-11 text-base",
+    xl: "size-20 text-2xl",
+  }[size];
 
-  if (source !== "none") {
+  if (version !== null && !failed) {
     return (
       <span
         className={cn(
@@ -35,10 +46,10 @@ export function BrandMark({
         )}
       >
         <img
-          src={`/branding/logo.${source}`}
+          src={`/api/school/logo${version ? `?v=${version}` : ""}`}
           alt=""
           className="size-full object-contain"
-          onError={() => setSource(source === "svg" ? "png" : "none")}
+          onError={() => setFailed(true)}
         />
       </span>
     );
