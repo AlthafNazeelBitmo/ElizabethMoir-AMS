@@ -10,6 +10,7 @@ import {
   SunIcon,
   type LucideIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Avatar } from "@/components/ui/misc.js";
 import {
@@ -38,12 +39,14 @@ export function MobileNav({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [theme, setTheme] = useTheme();
 
   const signOut = async () => {
     try {
       await api.post("/api/auth/logout");
     } finally {
+      queryClient.clear();
       navigate("/login", { replace: true });
     }
   };

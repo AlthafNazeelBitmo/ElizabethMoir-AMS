@@ -20,7 +20,14 @@ export function ChangePasswordPage() {
   const mutation = useMutation({
     mutationFn: () =>
       api.post("/api/auth/change-password", { currentPassword, newPassword }),
-    onSuccess: () => navigate("/login", { replace: true }),
+    // Every session ends with the change, this one included, so the sign-in
+    // page follows — and it has to say why, or the person tries the old
+    // password, fails, and locks themselves out working out what happened.
+    onSuccess: () =>
+      navigate("/login", {
+        replace: true,
+        state: { notice: "Your password was changed. Sign in with the new one." },
+      }),
   });
 
   const problems =

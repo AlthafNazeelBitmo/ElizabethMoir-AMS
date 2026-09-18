@@ -1,5 +1,5 @@
-import { AlertCircleIcon, CopyCheckIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { AlertCircleIcon, CheckIcon, CopyIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button.js";
 import {
   Table as UiTable,
@@ -159,21 +159,39 @@ export function OneTimePassword({
   password: string;
   onDone: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+    } catch {
+      // No clipboard access; the text is still selectable below.
+    }
+  };
   return (
     <div className="rounded-lg border border-primary/30 bg-accent/50 p-4">
       <p className="text-sm font-medium text-accent-foreground">
         Temporary password
       </p>
-      <p className="tabular my-2 rounded-md border bg-card px-3 py-2 font-mono text-base select-all">
-        {password}
-      </p>
+      <div className="my-2 flex items-center gap-2">
+        <p className="tabular flex-1 rounded-md border bg-card px-3 py-2 font-mono text-base select-all">
+          {password}
+        </p>
+        {/* Copied by button, not by selection: a trailing space or line
+            break picked up with the mouse is a wrong password, and five of
+            those lock the account. */}
+        <Button variant="outline" size="sm" onClick={() => void copy()}>
+          {copied ? <CheckIcon /> : <CopyIcon />}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
       <p className="text-xs text-muted-foreground">
-        This is shown once and cannot be recovered. Give it to the account
-        holder over a channel you trust — they must change it when they first
-        sign in.
+        Shown once; it cannot be recovered. Give it to the account holder over
+        a channel you trust. They sign in with it, are asked to choose their
+        own password, and from then on the temporary one no longer works.
       </p>
-      <Button variant="outline" size="sm" className="mt-3" onClick={onDone}>
-        <CopyCheckIcon /> I have copied it
+      <Button variant="ghost" size="sm" className="mt-3" onClick={onDone}>
+        Done
       </Button>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   UsersRoundIcon,
   type LucideIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BrandMark } from "./BrandMark.js";
 import { Avatar, Kbd, Separator } from "@/components/ui/misc.js";
@@ -77,6 +78,7 @@ export function Sidebar({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const isAdmin = user.role === "full";
   const onAdmin = location.pathname.startsWith("/admin");
 
@@ -84,6 +86,7 @@ export function Sidebar({
     try {
       await api.post("/api/auth/logout");
     } finally {
+      queryClient.clear();
       navigate("/login", { replace: true });
     }
   };

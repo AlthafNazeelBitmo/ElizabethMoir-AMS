@@ -1,6 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { BrandMark } from "@/components/shell/BrandMark.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
@@ -13,6 +13,9 @@ import { api, ApiError, type CurrentUser } from "@/lib/api.js";
  */
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const notice = (location.state as { notice?: string } | null)?.notice ?? null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -20,6 +23,9 @@ export function LoginPage() {
     mutationFn: () =>
       api.post<{ user: CurrentUser }>("/api/auth/login", { email, password }),
     onSuccess: (data) => {
+      // Whoever was signed in before is gone: nothing cached under their
+      // name may be shown to the person signing in now.
+      queryClient.clear();
       navigate(
         data.user.mustChangePassword ? "/change-password" : "/register",
         {
@@ -90,6 +96,15 @@ export function LoginPage() {
             />
           </Field>
         </div>
+
+        {notice && !message && (
+          <p
+            role="status"
+            className="mt-3 rounded-md bg-status-onsite-bg px-3 py-2 text-sm text-status-onsite"
+          >
+            {notice}
+          </p>
+        )}
 
         {message && (
           <p role="alert" className="mt-3 text-sm text-status-absent">
