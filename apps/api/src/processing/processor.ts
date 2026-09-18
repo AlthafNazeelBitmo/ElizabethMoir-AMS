@@ -379,7 +379,12 @@ export class ScanProcessor {
       .onConflictDoUpdate({
         target: unknownEnrollments.enrollNo,
         set: {
-          lastSeenAt: sql`greatest(${unknownEnrollments.lastSeenAt}, ${seenAt})`,
+          // The value is passed as text and cast, not as a Date: inside a
+          // raw fragment the query builder does not map it, and the
+          // production driver has its own Date handling switched off by the
+          // builder, so a bare Date reaches the wire untranslated. Column
+          // values elsewhere are mapped; a raw fragment must do it itself.
+          lastSeenAt: sql`greatest(${unknownEnrollments.lastSeenAt}, ${seenAt.toISOString()}::timestamptz)`,
           scanCount: sql`${unknownEnrollments.scanCount} + 1`,
         },
       });
