@@ -44,6 +44,11 @@ export const rawEvents = pgTable(
     parseError: text("parse_error"),
     processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
     processError: text("process_error"),
+    /** Set when an administrator has looked at a failure and set it aside. */
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true, mode: "date" }),
+    dismissedBy: uuid("dismissed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => [
     index("raw_events_received_at_idx").on(t.receivedAt.desc()),

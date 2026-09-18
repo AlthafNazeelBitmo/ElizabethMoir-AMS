@@ -153,6 +153,12 @@ on their row — off the register, history kept, reversible.
 **A parent asks for their child's record.** Reports → the child's name →
 Print, or Export CSV. The file is named by enrolment number, not by name.
 
+**A failed delivery that will never succeed.** Admin → Failed events →
+_Dismiss_. It is set aside, not deleted — body and reason kept, your name
+against it, and _Show dismissed_ → _Restore_ brings it back. Use it for
+test posts and probes; a delivery that failed for a reason worth fixing is
+replayed after the fix, not dismissed.
+
 **Somebody asks who changed something.** Admin → Audit log, filter by
 action or date, and Export CSV if they want to take it away. The export is
 itself logged.

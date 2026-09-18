@@ -22,6 +22,13 @@
       "when": 1789590530254,
       "tag": "0002_seed_reference_data",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789722152253,
+      "tag": "0003_dead_letter_dismissal",
+      "breakpoints": true
     }
   ]
 }

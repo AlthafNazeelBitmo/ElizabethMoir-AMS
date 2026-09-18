@@ -29,6 +29,8 @@ export const AUDIT_ACTIONS = [
   "report_export",
   "audit_export",
   "dead_letter_replay",
+  "dead_letter_dismissed",
+  "dead_letter_restored",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

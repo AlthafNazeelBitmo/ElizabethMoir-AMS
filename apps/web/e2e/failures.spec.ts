@@ -29,4 +29,24 @@ test("a failed delivery is listed and can be replayed from the screen", async ({
   // Still unreadable — but the server said so, rather than refusing the call.
   await expect(page.getByText("Still failing")).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+
+  // It will never succeed, so it is set aside: out of the working list,
+  // kept with a name against it, and back with one click.
+  await row.getByRole("button", { name: "Dismiss" }).click();
+  await expect(page.getByText("Set aside", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("row").filter({ hasText: "not an array" }),
+  ).toHaveCount(0);
+
+  await page.getByLabel("Show dismissed").check();
+  const dismissed = page
+    .getByRole("row")
+    .filter({ hasText: "Dismissed by Head Teacher" })
+    .first();
+  await expect(dismissed).toBeVisible();
+  await dismissed.getByRole("button", { name: "Restore" }).click();
+  await expect(page.getByText("Back in the list")).toBeVisible();
+  const restored = page.getByRole("row").filter({ hasText: "not an array" }).first();
+  await expect(restored).not.toContainText("Dismissed");
+  await expect(restored.getByRole("button", { name: "Replay" })).toBeVisible();
 });

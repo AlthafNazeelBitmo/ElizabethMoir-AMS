@@ -565,6 +565,43 @@ describe("failed deliveries", () => {
     expect(body.failures[0].bodyPreview).toContain("11007");
   });
 
+  it("can be set aside and taken back, kept whole and audited", async () => {
+    await aFailedDelivery();
+    const listed = (await get("/api/admin/dead-letter")).json();
+    expect(listed.total).toBe(1);
+    const id = listed.failures[0].id;
+
+    const dismissed = await send("PATCH", `/api/admin/dead-letter/${id}`, {
+      dismissed: true,
+    });
+    expect(dismissed.statusCode).toBe(200);
+
+    // Out of the working list, still in the full one, with who did it.
+    expect((await get("/api/admin/dead-letter")).json().total).toBe(0);
+    const full = (
+      await get("/api/admin/dead-letter?includeDismissed=true")
+    ).json();
+    expect(full.total).toBe(1);
+    expect(full.failures[0].dismissedAt).toBeTruthy();
+    expect(full.failures[0].dismissedBy).toBe("head");
+    expect(full.failures[0].bodyPreview).toContain("not a timestamp");
+
+    // And back.
+    await send("PATCH", `/api/admin/dead-letter/${id}`, { dismissed: false });
+    expect((await get("/api/admin/dead-letter")).json().total).toBe(1);
+
+    const actions = (await h.db.db.select().from(auditLog)).map((e) => e.action);
+    expect(actions).toContain("dead_letter_dismissed");
+    expect(actions).toContain("dead_letter_restored");
+  });
+
+  it("refuses to dismiss a delivery that did not fail", async () => {
+    const res = await send("PATCH", "/api/admin/dead-letter/999999", {
+      dismissed: true,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
   it("does not list deliveries that processed cleanly", async () => {
     await h.app.server.inject({
       method: "POST",

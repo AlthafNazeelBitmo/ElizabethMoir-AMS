@@ -7,6 +7,7 @@ import {
   eq,
   gte,
   isNotNull,
+  isNull,
   lte,
   sql,
 } from "drizzle-orm";
@@ -580,15 +581,27 @@ export const adminSystemRoutes: FastifyPluginAsync<
 
   // ── Failed deliveries ───────────────────────────────────────────────────
 
+  const deadLetterQuery = pagination.extend({
+    includeDismissed: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+  });
+
   app.get("/api/admin/dead-letter", { preHandler }, async (req, reply) => {
-    const parsed = pagination.safeParse(req.query);
+    const parsed = deadLetterQuery.safeParse(req.query);
     if (!parsed.success) {
       return reply
         .code(400)
         .send({ error: "invalid_query", message: "Check the page values." });
     }
-    const { page, limit } = parsed.data;
-    const where = isNotNull(rawEvents.processError);
+    const { page, limit, includeDismissed } = parsed.data;
+    // A dismissed failure is still a failure — it stays, body and reason —
+    // but it has been looked at, and the list is for what still needs a
+    // person.
+    const where = includeDismissed
+      ? isNotNull(rawEvents.processError)
+      : and(isNotNull(rawEvents.processError), isNull(rawEvents.dismissedAt));
 
     const rows = await db
       .select({
@@ -599,11 +612,14 @@ export const adminSystemRoutes: FastifyPluginAsync<
         parseError: rawEvents.parseError,
         processError: rawEvents.processError,
         processedAt: rawEvents.processedAt,
+        dismissedAt: rawEvents.dismissedAt,
+        dismissedBy: users.fullName,
         // The body is shown truncated: it is the evidence, but a megabyte of
         // it in a list is not useful.
         bodyPreview: sql<string>`left(coalesce(${rawEvents.bodyText}, ''), 500)`,
       })
       .from(rawEvents)
+      .leftJoin(users, eq(users.id, rawEvents.dismissedBy))
       .where(where)
       .orderBy(desc(rawEvents.receivedAt))
       .limit(limit)
@@ -668,6 +684,58 @@ export const adminSystemRoutes: FastifyPluginAsync<
         resolved: after?.processError === null,
         processError: after?.processError ?? null,
       });
+    },
+  );
+
+  // Set a failure aside, or take it back. Nothing is deleted: the queue is
+  // append-only for the same reason the audit log is.
+  app.patch<{ Params: { id: string } }>(
+    "/api/admin/dead-letter/:id",
+    { preHandler },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      const body = z
+        .object({ dismissed: z.boolean() })
+        .safeParse(req.body);
+      if (!Number.isInteger(id) || !body.success) {
+        return reply.code(400).send({
+          error: "invalid_request",
+          message: "Say whether the delivery is dismissed.",
+        });
+      }
+      const [existing] = await db
+        .select({ id: rawEvents.id, dismissedAt: rawEvents.dismissedAt })
+        .from(rawEvents)
+        .where(and(eq(rawEvents.id, id), isNotNull(rawEvents.processError)))
+        .limit(1);
+      if (!existing) {
+        return reply
+          .code(404)
+          .send({ error: "not_found", message: "No such failed delivery." });
+      }
+
+      const dismissed = body.data.dismissed;
+      await db
+        .update(rawEvents)
+        .set(
+          dismissed
+            ? { dismissedAt: new Date(), dismissedBy: req.auth!.userId }
+            : { dismissedAt: null, dismissedBy: null },
+        )
+        .where(eq(rawEvents.id, id));
+
+      await writeAudit(db, req.log, {
+        action: dismissed ? "dead_letter_dismissed" : "dead_letter_restored",
+        userId: req.auth!.userId,
+        entity: "raw_event",
+        entityId: String(id),
+        before: { dismissed: existing.dismissedAt !== null },
+        after: { dismissed },
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+
+      return reply.send({ id, dismissed });
     },
   );
 };
