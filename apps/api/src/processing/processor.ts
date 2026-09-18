@@ -123,7 +123,7 @@ export class ScanProcessor {
       } catch (err) {
         // One bad envelope must not stall the queue behind it. The row is
         // marked with the reason and left in place for inspection.
-        const message = err instanceof Error ? err.message : String(err);
+        const message = describeError(err);
         this.log.error(
           { rawEventId: envelope.id, err: message },
           "envelope processing failed",
@@ -626,4 +626,26 @@ function formatTime(t: {
 }): string {
   const p = (v: number) => String(v).padStart(2, "0");
   return `${p(t.hour)}:${p(t.minute)}:${p(t.second)}`;
+}
+
+/**
+ * The reason, as the database gave it.
+ *
+ * The query builder wraps a driver error in its own, whose message is the
+ * whole statement and its parameters — and hides the one line that says
+ * what was wrong. That line is on the cause; it goes first, with the
+ * database's error code and detail when it has them, and the statement's
+ * first line after it so the two can still be matched up.
+ */
+export function describeError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err);
+  const cause = (err as { cause?: unknown }).cause;
+  if (!(cause instanceof Error)) return err.message;
+  const pg = cause as Error & { code?: string; detail?: string; hint?: string };
+  const parts = [pg.message];
+  if (pg.code) parts.push(`[${pg.code}]`);
+  if (pg.detail) parts.push(pg.detail);
+  if (pg.hint) parts.push(`hint: ${pg.hint}`);
+  const statement = err.message.split("\n")[0]?.slice(0, 200) ?? "";
+  return `${parts.join(" ")} — ${statement}`;
 }

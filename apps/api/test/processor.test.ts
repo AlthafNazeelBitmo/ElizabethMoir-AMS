@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { describeError } from "../src/processing/processor.js";
 import {
   calendarDays,
   dayRecords,
@@ -418,5 +419,26 @@ describe("the scheduled drain endpoint", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().envelopesProcessed).toBe(1);
+  });
+});
+
+describe("describeError", () => {
+  it("puts the database's own words first, with its code and detail", () => {
+    const cause = Object.assign(new Error('column "x" is of type text'), {
+      code: "42804",
+      detail: "You will need to rewrite or cast the expression.",
+    });
+    const wrapped = new Error(
+      'Failed query: insert into "t" values ($1)\nparams: 20',
+      { cause },
+    );
+    expect(describeError(wrapped)).toBe(
+      'column "x" is of type text [42804] You will need to rewrite or cast the expression. — Failed query: insert into "t" values ($1)',
+    );
+  });
+
+  it("leaves an error without a cause alone", () => {
+    expect(describeError(new Error("plain"))).toBe("plain");
+    expect(describeError("not an error")).toBe("not an error");
   });
 });
