@@ -12,7 +12,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { branchFilter } from "../auth/scope.js";
+import { branchFilter, visibleBranches } from "../auth/scope.js";
 import type { Db } from "../db/client.js";
 import {
   calendarDays,
@@ -272,6 +272,36 @@ export class RegisterService {
         total: number;
       }
     >();
+
+    // Every active group the role may see is on the rail, people or not:
+    // a form whose pupils have not been imported yet reads 0/0, which is
+    // true, rather than vanishing, which looks like a fault. On a fresh
+    // deployment this is the whole rail.
+    const active = await this.db
+      .select({
+        id: groups.id,
+        name: groups.name,
+        branch: groups.branch,
+        order: groups.displayOrder,
+      })
+      .from(groups)
+      .where(
+        and(
+          eq(groups.isActive, true),
+          inArray(groups.branch, [...visibleBranches(role)]),
+        ),
+      );
+    for (const group of active) {
+      byGroup.set(group.id, {
+        groupId: group.id,
+        name: group.name,
+        branch: group.branch,
+        order: group.order,
+        onSite: 0,
+        total: 0,
+      });
+    }
+
     for (const raw of rows) {
       if (raw.groupId === null || raw.branch === null || raw.groupName === null)
         continue;

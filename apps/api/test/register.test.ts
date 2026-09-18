@@ -340,6 +340,27 @@ describe("GET /api/register/summary", () => {
     ).toEqual(["Form 1", "Form 2", "Form 10"]);
   });
 
+  it("shows a group with nobody in it yet as 0/0, not not at all", async () => {
+    await h.db.db
+      .insert(groups)
+      .values({ name: "Form 9", branch: "student", displayOrder: 9 });
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    const empty = body.groups.find((g: { name: string }) => g.name === "Form 9");
+    expect(empty).toMatchObject({ onSite: 0, total: 0, branch: "student" });
+  });
+
+  it("keeps an empty staff group off a student-only account's rail", async () => {
+    await h.db.db
+      .insert(groups)
+      .values({ name: "Senior Admin", branch: "staff", displayOrder: 9 });
+    const body = (
+      await get(`/api/register/summary?date=${DATE}`, studentOnly)
+    ).json();
+    expect(
+      body.groups.some((g: { branch: string }) => g.branch === "staff"),
+    ).toBe(false);
+  });
+
   it("drops a deactivated group from the rail but keeps its people", async () => {
     const [form1] = await h.db.db
       .select()
