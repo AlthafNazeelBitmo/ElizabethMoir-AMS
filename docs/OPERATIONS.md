@@ -164,6 +164,11 @@ on their row — off the register, history kept, reversible.
 
 **A parent asks for their child's record.** Reports → the child's name →
 Print, or Export CSV. The file is named by enrolment number, not by name.
+_Print_ opens the browser's print dialog laid out as a sheet — the
+school's logo, the name, the range, who prepared it and when — and "Save
+as PDF" there makes the PDF, named after the report. Untick the browser's
+own "Headers and footers" for a clean page; that line of URL and date is
+the browser's, not the report's.
 
 **A failed delivery that will never succeed.** Admin → Failed events →
 _Dismiss_. It is set aside, not deleted — body and reason kept, your name

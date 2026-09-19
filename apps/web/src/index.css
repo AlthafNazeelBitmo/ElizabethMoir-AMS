@@ -359,10 +359,89 @@
   }
 }
 
+/*
+ * Paper.
+ *
+ * The screen is a fixed frame whose surfaces scroll; paper is the
+ * opposite, a page that flows and breaks. Everything that fixes a height
+ * or scrolls is undone here, the shell is dropped, and the report pages
+ * carry their own printed header. The light palette is applied by the
+ * print hook before the layout is made, so this only has to deal with
+ * shape, not colour.
+ */
 @media print {
+  @page {
+    size: A4;
+    margin: 12mm 12mm 14mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   body {
-    overflow: visible;
-    background: white;
-    color: black;
+    background: white !important;
+    color: black !important;
+    font-size: 10.5pt;
+    line-height: 1.35;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  main,
+  main > * {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /*
+   * Column headings again at the top of every page a table runs on to.
+   * A heading that holds a button (the sortable ones) is never repeated
+   * by the browser, so on paper the button gives up its box and the label
+   * stands on its own.
+   */
+  thead {
+    display: table-header-group;
+  }
+
+  th > button {
+    display: contents;
+  }
+
+  /* The sort arrow means nothing on paper. */
+  th > button > svg,
+  th > button > span {
+    display: none;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+
+  table {
+    font-size: 9pt;
+  }
+
+  th,
+  td {
+    height: auto !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
   }
 }

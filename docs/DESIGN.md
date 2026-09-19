@@ -65,15 +65,20 @@ is drawn.
 
 ### The school's mark
 
-`BrandMark` shows the crest the school has uploaded (Admin → Rules → School
-mark; kept with the other school settings and served by the API, versioned
-so a new upload appears at once). Until one is uploaded, the monogram
-shipped with the code stands in — `apps/web/public/branding/monogram.png`,
-lifted from the school's logo, in the crest's cyan and, for the sign-in
-field, in white — and if even that fails to load, a tile in the banner red
-carries the school's initials. The crest's own colours (`--crest-cyan`,
-`--crest-red`, `--crest-deep`, `--crest-mist`) are kept apart from the
-working palette: they are used on exactly one surface, described next.
+Two components, one rule. `SchoolLogo` is the whole logo — monogram,
+rules, banner — and is the entire brand block at the top of the sidebar
+(no name beside it, no "Attendance" under it) and the head of every
+printed report. `BrandMark` is the monogram alone, for the places only a
+small square fits: the collapsed rail and the sign-in form. Both prefer a
+mark the school has uploaded (Admin → Rules → School mark; kept with the
+other settings, served by the API, versioned so a new upload appears at
+once), then the files shipped with the code under
+`apps/web/public/branding/` — the logo and monogram lifted from the
+school's own artwork, the monogram also in white for the sign-in field —
+and, if even those fail to load, a tile in the banner red with the
+school's initials. The crest's own colours (`--crest-cyan`, `--crest-red`,
+`--crest-deep`, `--crest-mist`) are kept apart from the working palette:
+they are used on exactly one surface, described next.
 
 ### The sign-in page
 
@@ -170,6 +175,22 @@ things the person opened. `prefers-reduced-motion` removes all of it.
 `src/lib/theme.ts`: light, dark, or follow the system; chosen per browser
 from the account menu or the palette; applied before first paint so there
 is no flash. Print is always light.
+
+## Paper
+
+The two report pages print. The screen is a fixed frame whose surfaces
+scroll; paper flows and breaks, so `@media print` in `index.css` undoes
+every fixed height and overflow, drops the shell, and the report pages
+put a `PrintHeader` where their controls were: the logo, the school, the
+report's name, what it covers, and who prepared it when. Column headings
+repeat on every page a table runs on to — which the browser refuses to
+do for a heading that holds a button, so the sortable headings give up
+their button box on paper. `usePrintSetup` sets the light palette and the
+document title for the duration of printing, so a dark screen prints
+light and "Save as PDF" names the file after the report.
+`print-color-adjust: exact` keeps the status colours; the aggregate row's
+tint survives. The person page's charts print at the width they had on
+screen.
 
 ## Adding a screen
 

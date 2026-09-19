@@ -6,7 +6,13 @@ import {
   PrinterIcon,
 } from "lucide-react";
 import { lazy, Suspense } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useOutletContext,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import { PrintHeader } from "@/components/PrintHeader.js";
 import { StatusBadge } from "@/components/status.js";
 import {
   EmptyState,
@@ -31,7 +37,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.js";
-import { api, ApiError, type Branch, type PersonDay } from "@/lib/api.js";
+import {
+  api,
+  ApiError,
+  type Branch,
+  type CurrentUser,
+  type PersonDay,
+} from "@/lib/api.js";
 import {
   formatDate,
   formatTime,
@@ -39,6 +51,7 @@ import {
   schoolName,
   schoolToday,
 } from "@/lib/format.js";
+import { usePrintSetup } from "@/lib/print.js";
 import { cn } from "@/lib/utils.js";
 
 const ArrivalChart = lazy(() => import("@/components/charts/ArrivalChart.js"));
@@ -75,6 +88,7 @@ interface PersonReport {
 
 export function PersonReportPage() {
   const { id = "" } = useParams();
+  const user = useOutletContext<CurrentUser>();
   const today = schoolToday();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -98,23 +112,27 @@ export function PersonReportPage() {
   const backTo = `/reports?${new URLSearchParams({ from, to }).toString()}`;
   const person = report.data?.person;
 
+  // The browser's own print header, and the PDF's file name.
+  usePrintSetup(
+    `${schoolName()} — Attendance${person ? ` — ${person.fullName}` : ""} — ${formatDate(from)} to ${formatDate(to)}`,
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:overflow-visible">
-      <div className="hidden print:block">
-        <h1 className="text-lg font-semibold">
-          {schoolName()} — attendance report
-        </h1>
-        {person && (
-          <p className="text-sm">
-            {person.fullName} · {person.enrollNo}
-            {person.groupName && ` · ${person.groupName}`}
-          </p>
-        )}
-        <p className="text-sm">
-          {formatDate(from)} to {formatDate(to)}
-          {report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""}
-        </p>
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:h-auto print:gap-3 print:overflow-visible print:p-0">
+      <PrintHeader
+        title={person ? `Attendance report — ${person.fullName}` : "Attendance report"}
+        lines={[
+          person
+            ? `${person.enrollNo}${person.groupName ? ` · ${person.groupName}` : ""}${
+                person.tutorInitials ? ` · Tutor ${person.tutorInitials}` : ""
+              }`
+            : "",
+          `${formatDate(from)} to ${formatDate(to)}${
+            report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""
+          }`,
+        ]}
+        preparedBy={user.fullName}
+      />
 
       <div className="print:hidden">
         <Button
@@ -208,8 +226,8 @@ export function PersonReportPage() {
         <>
           <Summary report={report.data} />
 
-          <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-            <Card>
+          <div className="grid gap-4 lg:grid-cols-[2fr_3fr] print:gap-3">
+            <Card className="print:rounded-md print:border-black/20 print:break-inside-avoid">
               <CardHeader>
                 <CardTitle>Arrival times</CardTitle>
               </CardHeader>
@@ -226,7 +244,7 @@ export function PersonReportPage() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden print:rounded-none print:border-0 print:overflow-visible">
               <CardHeader>
                 <CardTitle>Day by day</CardTitle>
               </CardHeader>

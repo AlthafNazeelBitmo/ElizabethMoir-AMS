@@ -60,7 +60,7 @@ export function MobileNav({
   return (
     <nav
       aria-label="Main"
-      className="flex shrink-0 items-stretch border-t bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground"
+      className="flex shrink-0 items-stretch border-t bg-sidebar pb-[env(safe-area-inset-bottom)] text-sidebar-foreground print:hidden"
     >
       <Tab to="/register" icon={RadioIcon} label="Register" />
       <Tab to="/reports" icon={BarChart3Icon} label="Reports" />

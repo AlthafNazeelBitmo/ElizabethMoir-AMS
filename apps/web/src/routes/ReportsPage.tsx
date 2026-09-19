@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
+import { PrintHeader } from "@/components/PrintHeader.js";
 import {
   CardSkeleton,
   EmptyState,
@@ -40,6 +41,7 @@ import {
   type SummaryResponse,
 } from "@/lib/api.js";
 import { formatDate, schoolName, schoolToday } from "@/lib/format.js";
+import { usePrintSetup } from "@/lib/print.js";
 import { cn } from "@/lib/utils.js";
 
 const DailyChart = lazy(() => import("@/components/charts/DailyChart.js"));
@@ -137,6 +139,11 @@ export function ReportsPage() {
     return params.toString();
   }, [from, to, branch, group]);
 
+  // The browser's own print header, and the PDF's file name.
+  usePrintSetup(
+    `${schoolName()} — Attendance report — ${formatDate(from)} to ${formatDate(to)}`,
+  );
+
   const report = useQuery({
     queryKey: ["report", query],
     queryFn: () =>
@@ -193,18 +200,18 @@ export function ReportsPage() {
   const totals = report.data?.totals;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:overflow-visible">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:p-5 print:h-auto print:gap-3 print:overflow-visible print:p-0">
       {/* Printed instead of the controls: the sheet must explain itself. */}
-      <div className="hidden print:block">
-        <h1 className="text-lg font-semibold">
-          {schoolName()} — attendance report
-        </h1>
-        <p className="text-sm">
-          {formatDate(from)} to {formatDate(to)}
-          {report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""}
-        </p>
-        <p className="text-sm">{describeFilters(branch, group, groups)}</p>
-      </div>
+      <PrintHeader
+        title="Attendance report"
+        lines={[
+          `${formatDate(from)} to ${formatDate(to)}${
+            report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""
+          }`,
+          describeFilters(branch, group, groups),
+        ]}
+        preparedBy={user.fullName}
+      />
 
       <PageHeader
         className="print:hidden"
@@ -308,7 +315,7 @@ export function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs xl:grid-cols-4 print:grid-cols-4 print:rounded-md print:border-black/20 print:bg-black/20">
         {report.isPending ? (
           <>
             <CardSkeleton className="rounded-none border-0" />
@@ -347,7 +354,7 @@ export function ReportsPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="print:rounded-md print:border-black/20 print:break-inside-avoid">
         <CardHeader>
           <CardTitle>Attendance by day</CardTitle>
         </CardHeader>
@@ -366,7 +373,9 @@ export function ReportsPage() {
         </CardContent>
       </Card>
 
-      <Card className="min-h-0 shrink-0 overflow-hidden">
+      {/* On paper the table runs across pages on its own hairlines; a box
+          around it would be cut open at every break. */}
+      <Card className="min-h-0 shrink-0 overflow-hidden print:block print:rounded-none print:border-0 print:overflow-visible">
         {report.isPending && <TableSkeleton />}
 
         {report.isError && (
@@ -385,9 +394,9 @@ export function ReportsPage() {
         )}
 
         {report.isSuccess && report.data.rows.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto print:overflow-visible">
             <Table>
-              <TableHeader className="sticky top-0 bg-card">
+              <TableHeader className="sticky top-0 bg-card print:static">
                 <TableRow className="hover:bg-transparent">
                   <SortableHead
                     label="Name"
