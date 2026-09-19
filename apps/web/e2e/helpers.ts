@@ -24,7 +24,8 @@ export async function signIn(
 ): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email").fill(DEMO[who].email);
-  await page.getByLabel("Password").fill(DEMO.password);
+  // Exact: "Show password" is a label too, on the button beside the field.
+  await page.getByLabel("Password", { exact: true }).fill(DEMO.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/register/);
   // The register is only there once the session is confirmed.

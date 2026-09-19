@@ -36,7 +36,7 @@ test("a new account signs in with its temporary password and replaces it", async
   expect((await page.request.get("/api/auth/me")).status()).toBe(401);
 
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(temporary);
+  await page.getByLabel("Password", { exact: true }).fill(temporary);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/change-password/);
 
@@ -51,12 +51,12 @@ test("a new account signs in with its temporary password and replaces it", async
 
   // The temporary password is spent, and the refusal is honest about it.
   await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(temporary);
+  await page.getByLabel("Password", { exact: true }).fill(temporary);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert")).toContainText("not recognised");
 
   // The chosen one works, and the account is a student-only one by default.
-  await page.getByLabel("Password").fill(chosen);
+  await page.getByLabel("Password", { exact: true }).fill(chosen);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/register/);
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();

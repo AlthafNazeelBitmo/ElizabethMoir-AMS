@@ -67,9 +67,26 @@ is drawn.
 
 `BrandMark` shows the crest the school has uploaded (Admin → Rules → School
 mark; kept with the other school settings and served by the API, versioned
-so a new upload appears at once), and otherwise a tile in the banner red
-carrying the school's initials. The crest is never in the repository — it
-is the school's, not the code's.
+so a new upload appears at once). Until one is uploaded, the monogram
+shipped with the code stands in — `apps/web/public/branding/monogram.png`,
+lifted from the school's logo, in the crest's cyan and, for the sign-in
+field, in white — and if even that fails to load, a tile in the banner red
+carries the school's initials. The crest's own colours (`--crest-cyan`,
+`--crest-red`, `--crest-deep`, `--crest-mist`) are kept apart from the
+working palette: they are used on exactly one surface, described next.
+
+### The sign-in page
+
+The one page seen before there is a session, and the one place the brand
+is allowed to be loud. One card, two panels: on the left the *field* —
+`.crest-field`, the crest's colours as layered radial gradients (the deep
+blue under the white monogram, the cyan brightening into a mist, the
+banner's red as a single glow), with the school's name and one line about
+what this is; on the right the form, which asks for an email and a
+password and says plainly that accounts come from the office. On a phone
+the field is a band across the top. The field's slow drift is the only
+motion, and `prefers-reduced-motion` stops it. No sign-up, no "continue
+with", no photograph.
 
 ## Type
 

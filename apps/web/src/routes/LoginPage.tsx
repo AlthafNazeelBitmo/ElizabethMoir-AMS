@@ -1,15 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BrandMark } from "@/components/shell/BrandMark.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
-import { Field } from "@/components/ui/misc.js";
 import { api, ApiError, type CurrentUser } from "@/lib/api.js";
+import { BRAND } from "@/lib/branding.js";
 
 /**
- * Sign in. The school's name is not known until a session exists, so this
- * screen is the one place that says "Attendance" and nothing more.
+ * Sign in.
+ *
+ * Two panels in one card: the school's field on the left — its crest, its
+ * colours, one line about what this is — and the form on the right, which
+ * asks for exactly two things and nothing else. There is no sign-up and no
+ * "continue with": accounts are made by the office, and the page says so
+ * rather than leaving a visitor looking for a button that is not there.
+ *
+ * On a phone the field becomes a band across the top, so the crest is
+ * still the first thing seen and the form is still reachable without
+ * scrolling.
  */
 export function LoginPage() {
   const navigate = useNavigate();
@@ -18,6 +28,9 @@ export function LoginPage() {
   const notice = (location.state as { notice?: string } | null)?.notice ?? null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [shown, setShown] = useState(false);
+  const emailId = useId();
+  const passwordId = useId();
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -43,84 +56,121 @@ export function LoginPage() {
         : null;
 
   return (
-    <div className="relative flex h-full items-center justify-center overflow-hidden p-4">
-      {/* A quiet field of the accent behind the card; never a photograph. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(60rem 30rem at 50% -10%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%)",
-        }}
-      />
-      <form
-        className="w-full max-w-sm rounded-2xl border bg-card p-7 shadow-lg shadow-black/5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
-        onSubmit={(e) => {
-          e.preventDefault();
-          mutation.mutate();
-        }}
-      >
-        <div className="mb-6 flex items-center gap-3">
-          <BrandMark size="lg" />
-          <div>
-            <h1 className="text-base font-semibold tracking-tight">
-              Attendance
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to see the register.
+    <div className="relative flex h-full items-center justify-center overflow-y-auto bg-[color-mix(in_oklch,var(--crest-mist)_45%,var(--background))] p-3 sm:p-6 dark:bg-background">
+      <div className="grid w-full max-w-[64rem] overflow-hidden rounded-[1.75rem] border bg-card shadow-2xl shadow-[color-mix(in_oklch,var(--crest-deep)_18%,transparent)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 md:min-h-[36rem] md:grid-cols-[1.08fr_1fr] md:p-4">
+        {/* The field */}
+        <aside className="crest-field relative flex flex-col justify-between overflow-hidden p-6 text-white md:rounded-[1.25rem] md:p-9">
+          <img
+            src={BRAND.monogramOnDark}
+            alt=""
+            width={195}
+            height={195}
+            className="relative size-14 md:size-[4.5rem]"
+            draggable={false}
+          />
+          <div className="relative mt-10 max-w-sm md:mt-0">
+            <p className="text-sm font-medium text-white/75">{BRAND.name}</p>
+            <p className="mt-1.5 text-[1.375rem]/[1.2] font-semibold tracking-tight text-balance md:text-[1.875rem]/[1.15]">
+              Know who is in, the moment they arrive.
             </p>
           </div>
-        </div>
+        </aside>
 
-        <div className="space-y-4">
-          <Field label="Email">
-            <Input
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              className="h-9"
-            />
-          </Field>
-
-          <Field label="Password">
-            <Input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="h-9"
-            />
-          </Field>
-        </div>
-
-        {notice && !message && (
-          <p
-            role="status"
-            className="mt-3 rounded-md bg-status-onsite-bg px-3 py-2 text-sm text-status-onsite"
-          >
-            {notice}
-          </p>
-        )}
-
-        {message && (
-          <p role="alert" className="mt-3 text-sm text-status-absent">
-            {message}
-          </p>
-        )}
-
-        <Button
-          type="submit"
-          size="lg"
-          className="mt-6 w-full"
-          disabled={mutation.isPending}
+        {/* The form */}
+        <form
+          className="flex flex-col justify-center px-6 py-8 sm:px-10 md:px-12 md:py-10"
+          onSubmit={(e) => {
+            e.preventDefault();
+            mutation.mutate();
+          }}
         >
-          {mutation.isPending ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
+          <BrandMark size="lg" className="hidden size-12 rounded-none md:flex" />
+          <h1 className="text-[1.75rem]/[1.15] font-semibold tracking-tight md:mt-5">
+            Sign in
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground text-pretty">
+            The live register, reports and administration for the school — in
+            one place, from anywhere.
+          </p>
+
+          <div className="mt-8 space-y-5">
+            <div className="flex flex-col gap-2">
+              <label htmlFor={emailId} className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id={emailId}
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+                className="h-11 px-3.5 text-[0.9375rem]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor={passwordId} className="text-sm font-medium">
+                Password
+              </label>
+              <div className="relative">
+                <Input
+                  id={passwordId}
+                  type={shown ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11 px-3.5 pr-11 text-[0.9375rem] tracking-wide"
+                />
+                <button
+                  type="button"
+                  aria-label={shown ? "Hide password" : "Show password"}
+                  aria-pressed={shown}
+                  onClick={() => setShown((s) => !s)}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                >
+                  {shown ? (
+                    <EyeOffIcon className="size-4" />
+                  ) : (
+                    <EyeIcon className="size-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {notice && !message && (
+            <p
+              role="status"
+              className="mt-4 rounded-md bg-status-onsite-bg px-3 py-2 text-sm text-status-onsite"
+            >
+              {notice}
+            </p>
+          )}
+
+          {message && (
+            <p role="alert" className="mt-4 text-sm text-status-absent">
+              {message}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-7 h-11 w-full text-[0.9375rem] shadow-md shadow-primary/25"
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? "Signing in…" : "Sign in"}
+          </Button>
+
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Accounts are created by the school office. Ask there if you need
+            one, or if you have forgotten your password.
+          </p>
+        </form>
+      </div>
     </div>
   );
 }

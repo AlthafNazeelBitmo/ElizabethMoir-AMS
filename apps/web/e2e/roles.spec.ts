@@ -22,7 +22,7 @@ test("a wrong password is told so, not that a session ended", async ({
 }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(DEMO.full.email);
-  await page.getByLabel("Password").fill("not the password at all");
+  await page.getByLabel("Password", { exact: true }).fill("not the password at all");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert")).toContainText("was not recognised");
   await expect(page.getByRole("alert")).not.toContainText("session has ended");

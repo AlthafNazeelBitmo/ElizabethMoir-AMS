@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BRAND } from "@/lib/branding.js";
 import { schoolLogoVersion } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
@@ -7,10 +8,13 @@ import { cn } from "@/lib/utils.js";
  *
  * If a crest has been uploaded (Admin → Rules) it is shown, from the API,
  * versioned so a new upload appears at once and an unchanged one is cached.
- * Otherwise a tile in the banner red carries the school's initials —
- * recognisably theirs without a file having to exist. The sign-in page has
- * no session and so no version; it simply asks, and falls back if there is
- * nothing.
+ * Otherwise the monogram shipped with the code stands in, and if even that
+ * cannot load, a tile in the banner red carries the school's initials.
+ *
+ * The sign-in page has no session and so does not know whether a crest
+ * has been uploaded. It shows the shipped monogram at once and asks the API
+ * quietly; if there is an uploaded crest it takes over once it has loaded,
+ * so nothing blinks while the question is answered.
  */
 export function BrandMark({
   name,
@@ -25,10 +29,21 @@ export function BrandMark({
   /** The crest version, when the caller tracks it; otherwise the profile's. */
   version?: string | null | undefined;
 }) {
-  // undefined: not known (before sign-in) — try. null: known to be absent.
-  const version = givenVersion !== undefined ? givenVersion : schoolLogoVersion();
-  const [failed, setFailed] = useState(false);
+  // undefined: not known (before sign-in) — ask. null: known to be absent.
+  const version =
+    givenVersion !== undefined ? givenVersion : schoolLogoVersion();
+  // What asking found, where the version is not known.
+  const [probe, setProbe] = useState<"pending" | "found" | "missing">(
+    "pending",
+  );
+  const [shippedFailed, setShippedFailed] = useState(false);
   const initials = name ? initialsOf(name) : null;
+
+  const uploadedSrc = `/api/school/logo${version ? `?v=${version}` : ""}`;
+  const showUploaded =
+    version !== null &&
+    probe !== "missing" &&
+    (version !== undefined || probe === "found");
 
   const dimensions = {
     default: "size-8 text-[0.6875rem]",
@@ -36,21 +51,40 @@ export function BrandMark({
     xl: "size-20 text-2xl",
   }[size];
 
-  if (version !== null && !failed) {
+  if (showUploaded || !shippedFailed) {
     return (
       <span
         className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-card",
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-md",
+          showUploaded && "bg-card",
           dimensions,
           className,
         )}
       >
-        <img
-          src={`/api/school/logo${version ? `?v=${version}` : ""}`}
-          alt=""
-          className="size-full object-contain"
-          onError={() => setFailed(true)}
-        />
+        {showUploaded ? (
+          <img
+            src={uploadedSrc}
+            alt=""
+            className="size-full object-contain"
+            onError={() => setProbe("missing")}
+          />
+        ) : (
+          <img
+            src={BRAND.monogram}
+            alt=""
+            className="size-full object-contain"
+            onError={() => setShippedFailed(true)}
+          />
+        )}
+        {version === undefined && probe === "pending" && (
+          <img
+            src={uploadedSrc}
+            alt=""
+            className="hidden"
+            onLoad={() => setProbe("found")}
+            onError={() => setProbe("missing")}
+          />
+        )}
       </span>
     );
   }

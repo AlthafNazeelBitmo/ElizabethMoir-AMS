@@ -54,6 +54,17 @@
   --brand: oklch(0.52 0.2 25);
   --brand-foreground: oklch(0.99 0 0);
 
+  /*
+   * The crest's colours as they are, unadjusted, for the one surface that
+   * is allowed to be them: the field beside the sign-in form. Sampled from
+   * the logo — the monogram's cyan, the banner's red — plus the deep blue
+   * the cyan falls into where the field is dark enough to carry white text.
+   */
+  --crest-cyan: oklch(0.7 0.11 212);
+  --crest-red: oklch(0.5 0.2 27);
+  --crest-deep: oklch(0.3 0.08 240);
+  --crest-mist: oklch(0.9 0.05 210);
+
   --sidebar: oklch(0.975 0.004 265);
   --sidebar-foreground: oklch(0.3 0.02 270);
   --sidebar-primary: oklch(0.52 0.115 218);
@@ -264,6 +275,75 @@
   }
 }
 
+@layer components {
+  /*
+   * The sign-in field: the crest's colours, blurred into one another the
+   * way light does through glass. Deep blue at the top left so the white
+   * monogram and the line beneath it read; the cyan brightening towards the
+   * bottom right into a mist; the banner's red as a single warm glow so the
+   * field is unmistakably this school's and not a stock blue. Layered
+   * radial gradients, no image, so it is crisp at any size and weighs
+   * nothing. The slow drift is the only motion, and reduced-motion stops
+   * it.
+   */
+  .crest-field {
+    background-color: var(--crest-deep);
+    background-image:
+      radial-gradient(
+        85% 65% at 88% 4%,
+        color-mix(in srgb, var(--crest-red) 78%, transparent) 0%,
+        color-mix(in srgb, var(--crest-red) 40%, transparent) 28%,
+        transparent 60%
+      ),
+      radial-gradient(
+        80% 70% at 18% 26%,
+        oklch(0.25 0.09 252) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        95% 80% at 92% 96%,
+        var(--crest-mist) 0%,
+        color-mix(in oklch, var(--crest-cyan) 72%, white) 26%,
+        color-mix(in oklch, var(--crest-cyan) 60%, transparent) 50%,
+        transparent 74%
+      ),
+      radial-gradient(
+        70% 55% at 30% 104%,
+        color-mix(in oklch, var(--crest-cyan) 85%, var(--crest-deep)) 0%,
+        transparent 62%
+      ),
+      linear-gradient(
+        160deg,
+        var(--crest-deep) 0%,
+        oklch(0.36 0.09 228) 55%,
+        var(--crest-cyan) 100%
+      );
+    background-size: 100% 100%;
+  }
+
+  .crest-field::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    background-image: radial-gradient(
+      40% 40% at 50% 50%,
+      color-mix(in oklch, var(--crest-cyan) 55%, transparent) 0%,
+      transparent 70%
+    );
+    animation: crest-drift 22s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes crest-drift {
+    from {
+      transform: translate(-8%, 10%) scale(1);
+    }
+    to {
+      transform: translate(10%, -6%) scale(1.15);
+    }
+  }
+}
+
 @layer utilities {
   /*
    * Someone who has asked for less motion gets an instant colour change
@@ -272,7 +352,8 @@
   @media (prefers-reduced-motion: reduce) {
     .animate-row-flash,
     .animate-count-pulse,
-    .animate-live-dot {
+    .animate-live-dot,
+    .crest-field::before {
       animation: none;
     }
   }
