@@ -159,12 +159,20 @@ async function main(): Promise<void> {
 
   const days: Array<typeof calendarDays.$inferInsert> = [];
   // A day either side of today as well, so the demo is not sensitive to
-  // being started near midnight.
+  // being started near midnight. Those three days are always open: a demo
+  // started on a Sunday that read "not expected" for everyone would show
+  // nothing, and the tests that post a scan and look for it on today's
+  // register would fail for a reason that has nothing to do with them. A
+  // weekend that is open is what the calendar calls an exception.
   for (let offset = 1; offset >= -21; offset--) {
     const iso = schoolDate(offset);
     const weekday = new Date(`${iso}T12:00:00Z`).getUTCDay();
     const weekend = weekday === 0 || weekday === 6;
-    days.push({ date: iso, type: weekend ? "weekend" : "school_day" });
+    const aroundToday = offset >= -1;
+    days.push({
+      date: iso,
+      type: weekend ? (aroundToday ? "exception" : "weekend") : "school_day",
+    });
   }
   await db.insert(calendarDays).values(days);
 
