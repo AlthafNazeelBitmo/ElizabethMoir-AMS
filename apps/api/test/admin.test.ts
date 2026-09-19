@@ -6,6 +6,7 @@ import {
   devices,
   groups,
   people,
+  rawEvents,
   scans,
   tutors,
   unknownEnrollments,
@@ -390,7 +391,7 @@ describe("people endpoints", () => {
     expect((await get("/api/admin/people?limit=500")).statusCode).toBe(400);
   });
 
-  it("hides deactivated people unless asked", async () => {
+  it("hides deactivated people unless asked, and can show only them", async () => {
     const [ann] = await h.db.db
       .select()
       .from(people)
@@ -400,9 +401,90 @@ describe("people endpoints", () => {
       .set({ isActive: false })
       .where(eq(people.id, ann!.id));
     expect((await get("/api/admin/people")).json().total).toBe(2);
+    expect((await get("/api/admin/people?active=all")).json().total).toBe(3);
     expect(
       (await get("/api/admin/people?includeInactive=true")).json().total,
     ).toBe(3);
+    const only = (await get("/api/admin/people?active=false")).json();
+    expect(only.total).toBe(1);
+    expect(only.people[0].enrollNo).toBe("11007");
+  });
+
+  it("filters by tutor", async () => {
+    const tutorsList = (await get("/api/admin/tutors")).json().tutors;
+    const ap = tutorsList.find((t: { initials: string }) => t.initials === "AP");
+    const body = (await get(`/api/admin/people?tutorId=${ap.id}`)).json();
+    expect(body.total).toBe(2);
+    expect(body.people.every((p: { tutorInitials: string }) => p.tutorInitials === "AP")).toBe(true);
+  });
+
+  describe("deleting a person", () => {
+    it("refuses while they are active", async () => {
+      const [ann] = await h.db.db
+        .select()
+        .from(people)
+        .where(eq(people.enrollNo, "11007"));
+      const res = await h.app.server.inject({
+        method: "DELETE",
+        url: `/api/admin/people/${ann!.id}`,
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error).toBe("still_active");
+      expect((await get("/api/admin/people?active=all")).json().total).toBe(3);
+    });
+
+    it("removes a deactivated person with everything computed for them, and audits it", async () => {
+      const [ann] = await h.db.db
+        .select()
+        .from(people)
+        .where(eq(people.enrollNo, "11007"));
+      // A day of history, so there is something to remove.
+      await h.app.server.inject({
+        method: "POST",
+        url: `/ingest/${INGEST_TOKEN}/raw`,
+        headers: { "content-type": "application/json" },
+        payload: JSON.stringify([
+          { EmpId: "11007", AttTime: "2026-09-16 07:30:00", CheckingStatus: "0", DeviceID: "GATE-1" },
+        ]),
+      });
+      await h.app.whenIdle();
+      await h.app.processor.processPending();
+      expect(await h.db.db.select().from(scans)).toHaveLength(1);
+
+      await h.app.server.inject({
+        method: "PATCH",
+        url: `/api/admin/people/${ann!.id}`,
+        payload: { isActive: false },
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      const res = await h.app.server.inject({
+        method: "DELETE",
+        url: `/api/admin/people/${ann!.id}`,
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().deleted).toEqual({ dayRecords: 1, scans: 1 });
+
+      expect((await get("/api/admin/people?active=all")).json().total).toBe(2);
+      expect(await h.db.db.select().from(scans)).toHaveLength(0);
+      // The raw delivery is untouched: nothing the reader said is lost.
+      expect(await h.db.db.select().from(rawEvents)).toHaveLength(1);
+
+      const entries = await h.db.db.select().from(auditLog);
+      const deleted = entries.find((e) => e.action === "person_deleted");
+      expect(deleted?.entityId).toBe(ann!.id);
+      expect((deleted?.before as { fullName: string }).fullName).toBe("Ann Perera");
+    });
+
+    it("404s for someone who is not there", async () => {
+      const res = await h.app.server.inject({
+        method: "DELETE",
+        url: "/api/admin/people/00000000-0000-0000-0000-000000000000",
+        headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+      });
+      expect(res.statusCode).toBe(404);
+    });
   });
 
   it("refuses a duplicate enrolment number", async () => {
@@ -819,5 +901,85 @@ describe("groups", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().group.name).toBe("Year 7");
+  });
+});
+
+describe("tutors", () => {
+  beforeEach(async () => {
+    const preview = (await upload("/api/admin/people/import", FILE)).json();
+    await upload("/api/admin/people/import/confirm", FILE, {
+      "x-plan-hash": preview.planHash,
+    });
+  });
+
+  function send(method: "PATCH" | "DELETE", url: string, payload?: unknown) {
+    return h.app.server.inject({
+      method,
+      url,
+      payload: payload as never,
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+  }
+
+  it("lists them with how many people each has", async () => {
+    const body = (await get("/api/admin/tutors")).json();
+    expect(body.tutors).toEqual([
+      expect.objectContaining({ initials: "AP", peopleCount: 2 }),
+    ]);
+  });
+
+  it("adds one by hand, upper-cased, and audits it", async () => {
+    const res = await post("/api/admin/tutors", {
+      initials: "rj",
+      fullName: "R. Jayasinghe",
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().tutor).toMatchObject({
+      initials: "RJ",
+      fullName: "R. Jayasinghe",
+      peopleCount: 0,
+    });
+    const entries = await h.db.db.select().from(auditLog);
+    expect(entries.some((e) => e.action === "tutor_created")).toBe(true);
+  });
+
+  it("refuses initials already in use, whatever the case", async () => {
+    const res = await post("/api/admin/tutors", { initials: "ap" });
+    expect(res.statusCode).toBe(409);
+  });
+
+  it("renames one", async () => {
+    const ap = (await get("/api/admin/tutors")).json().tutors[0];
+    const res = await send("PATCH", `/api/admin/tutors/${ap.id}`, {
+      fullName: "Ann Perera-Smith",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().tutor.fullName).toBe("Ann Perera-Smith");
+    expect(res.json().tutor.initials).toBe("AP");
+  });
+
+  it("will not remove a tutor who still has people", async () => {
+    const ap = (await get("/api/admin/tutors")).json().tutors[0];
+    const res = await send("DELETE", `/api/admin/tutors/${ap.id}`);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "in_use", peopleCount: 2 });
+    expect((await get("/api/admin/tutors")).json().tutors).toHaveLength(1);
+  });
+
+  it("removes a tutor nobody has, and audits it", async () => {
+    const created = (await post("/api/admin/tutors", { initials: "ZZ" })).json().tutor;
+    const res = await send("DELETE", `/api/admin/tutors/${created.id}`);
+    expect(res.statusCode).toBe(204);
+    expect((await get("/api/admin/tutors")).json().tutors).toHaveLength(1);
+    const entries = await h.db.db.select().from(auditLog);
+    expect(entries.some((e) => e.action === "tutor_deleted")).toBe(true);
+  });
+
+  it("is closed to a student-only account", async () => {
+    const office = await login(h, OFFICE);
+    expect((await get("/api/admin/tutors", office)).statusCode).toBe(403);
+    expect(
+      (await post("/api/admin/tutors", { initials: "QQ" }, office)).statusCode,
+    ).toBe(403);
   });
 });

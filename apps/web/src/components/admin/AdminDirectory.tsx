@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   FileSpreadsheetIcon,
+  GraduationCapIcon,
   MoreHorizontalIcon,
   PencilLineIcon,
   SearchIcon,
+  Trash2Icon,
   UploadIcon,
   UserCheckIcon,
   UserPlusIcon,
@@ -24,9 +28,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.js";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { PersonDialog, type PersonRecord } from "./PersonForm.js";
-import { Input } from "@/components/ui/input.js";
-import { Avatar, Checkbox } from "@/components/ui/misc.js";
+import { TutorsDialog, type Tutor } from "./TutorsDialog.js";
+import { Input, NativeSelect } from "@/components/ui/input.js";
+import { Avatar, Checkbox, Field } from "@/components/ui/misc.js";
 import { api, ApiError, type Branch } from "@/lib/api.js";
 import { cn } from "@/lib/utils.js";
 import { Panel, Problem, Section, Table, Td, Th, Tr } from "./shared.js";
@@ -35,6 +48,13 @@ interface Person extends PersonRecord {
   groupName: string | null;
   branch: Branch | null;
   tutorInitials: string | null;
+}
+
+interface Group {
+  id: number;
+  name: string;
+  branch: Branch;
+  isActive: boolean;
 }
 
 interface ImportPreview {
@@ -75,7 +95,22 @@ export function AdminDirectory() {
     open: false,
     person: null,
   });
+  // "Show deactivated" is a view of its own — the people who have left —
+  // not the active list with the leavers mixed in.
   const [showInactive, setShowInactive] = useState(false);
+  const [branch, setBranch] = useState<"" | Branch>("");
+  const [groupId, setGroupId] = useState("");
+  const [tutorId, setTutorId] = useState("");
+  const [tutorsOpen, setTutorsOpen] = useState(false);
+  const [deleting, setDeleting] = useState<Person | null>(null);
+  // A page of fifty, and back to the first whenever the view changes.
+  const [page, setPage] = useState(1);
+  const view = { search, showInactive, branch, groupId, tutorId };
+  const [lastView, setLastView] = useState(view);
+  if (JSON.stringify(view) !== JSON.stringify(lastView)) {
+    setLastView(view);
+    setPage(1);
+  }
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{
     preview: ImportPreview;
@@ -85,15 +120,42 @@ export function AdminDirectory() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const people = useQuery({
-    queryKey: ["admin-people", search, showInactive],
+    queryKey: [
+      "admin-people",
+      search,
+      showInactive,
+      branch,
+      groupId,
+      tutorId,
+      page,
+    ],
     queryFn: () =>
-      api.get<{ people: Person[]; total: number }>(
+      api.get<{ people: Person[]; total: number; limit: number }>(
         `/api/admin/people?${new URLSearchParams({
           ...(search ? { q: search } : {}),
-          ...(showInactive ? { includeInactive: "true" } : {}),
+          active: showInactive ? "false" : "true",
+          ...(branch ? { branch } : {}),
+          ...(groupId ? { groupId } : {}),
+          ...(tutorId ? { tutorId } : {}),
+          page: String(page),
+          limit: String(PAGE_SIZE),
         }).toString()}`,
       ),
+    placeholderData: (previous) => previous,
   });
+  const pageCount = people.data
+    ? Math.max(1, Math.ceil(people.data.total / PAGE_SIZE))
+    : 1;
+
+  const groups = useQuery({
+    queryKey: ["admin-groups"],
+    queryFn: () => api.get<{ groups: Group[] }>("/api/admin/groups"),
+  });
+  const tutors = useQuery({
+    queryKey: ["admin-tutors"],
+    queryFn: () => api.get<{ tutors: Tutor[] }>("/api/admin/tutors"),
+  });
+  const filtered = Boolean(search || branch || groupId || tutorId);
 
   const setActive = useMutation({
     mutationFn: (args: { person: Person; isActive: boolean }) =>
@@ -112,6 +174,22 @@ export function AdminDirectory() {
       void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
       void queryClient.invalidateQueries({ queryKey: ["register"] });
       void queryClient.invalidateQueries({ queryKey: ["summary"] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (person: Person) =>
+      api.delete<{ deleted: { dayRecords: number; scans: number } }>(
+        `/api/admin/people/${person.id}`,
+      ),
+    onSuccess: (data, person) => {
+      toast.success(`${person.fullName} deleted`, {
+        description: `${data.deleted.dayRecords} day(s) of attendance and ${data.deleted.scans} scan(s) removed with them.`,
+      });
+      setDeleting(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-tutors"] });
+      void queryClient.invalidateQueries({ queryKey: ["unknown-enrollments"] });
     },
   });
 
@@ -189,9 +267,14 @@ export function AdminDirectory() {
       title="People"
       description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no — or add one person at a time."
       actions={
-        <Button onClick={() => setDialog({ open: true, person: null })}>
-          <UserPlusIcon /> Add person
-        </Button>
+        <>
+          <Button variant="outline" onClick={() => setTutorsOpen(true)}>
+            <GraduationCapIcon /> Tutors
+          </Button>
+          <Button onClick={() => setDialog({ open: true, person: null })}>
+            <UserPlusIcon /> Add person
+          </Button>
+        </>
       }
     >
       <PersonDialog
@@ -200,6 +283,43 @@ export function AdminDirectory() {
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
         onSaved={() => undefined}
       />
+      <TutorsDialog open={tutorsOpen} onOpenChange={setTutorsOpen} />
+
+      {/* Deleting is the one action here that cannot be undone, so it is
+          asked twice: once in the menu, once here with what it takes. */}
+      <Dialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+      >
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Delete {deleting?.fullName}?</DialogTitle>
+            <DialogDescription>
+              This removes them from the directory along with every day of
+              attendance computed for them and every scan filed under ID{" "}
+              {deleting?.enrollNo}. The readers' original deliveries are kept,
+              and if the card is ever used again the number will appear under
+              Unknown IDs. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <Problem error={remove.error} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleting(null)}>
+              Keep them
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => deleting && remove.mutate(deleting)}
+            >
+              <Trash2Icon />
+              {remove.isPending ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Panel
         title="Import from a spreadsheet"
@@ -317,18 +437,64 @@ export function AdminDirectory() {
       </Panel>
 
       <Panel>
-        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        <div className="flex flex-wrap items-end gap-2 border-b px-3 py-2">
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              className="w-64 pl-8"
+              className="w-56 pl-8"
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search people"
             />
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Field label="Branch" className="gap-1">
+            <NativeSelect
+              value={branch}
+              onChange={(e) => {
+                setBranch(e.target.value as "" | Branch);
+                setGroupId("");
+              }}
+              className="h-8"
+            >
+              <option value="">Everyone</option>
+              <option value="student">Students</option>
+              <option value="staff">Staff</option>
+            </NativeSelect>
+          </Field>
+          <Field label="Group" className="gap-1">
+            <NativeSelect
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              className="h-8"
+            >
+              <option value="">All groups</option>
+              {(groups.data?.groups ?? [])
+                .filter((g) => !branch || g.branch === branch)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                    {!g.isActive ? " (inactive)" : ""}
+                  </option>
+                ))}
+            </NativeSelect>
+          </Field>
+          <Field label="Tutor" className="gap-1">
+            <NativeSelect
+              value={tutorId}
+              onChange={(e) => setTutorId(e.target.value)}
+              className="h-8"
+            >
+              <option value="">All tutors</option>
+              {(tutors.data?.tutors ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.initials}
+                  {t.fullName ? ` · ${t.fullName}` : ""}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <label className="flex h-8 items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={showInactive}
               onCheckedChange={(checked) => setShowInactive(checked === true)}
@@ -336,10 +502,9 @@ export function AdminDirectory() {
             Show deactivated
           </label>
           {people.isSuccess && (
-            <span className="tabular ml-auto text-xs text-muted-foreground">
-              {people.data.total.toLocaleString("en-GB")} people
-              {people.data.people.length !== people.data.total &&
-                `; showing ${people.data.people.length}`}
+            <span className="tabular ml-auto self-center text-xs text-muted-foreground">
+              {people.data.total.toLocaleString("en-GB")}
+              {showInactive ? " deactivated" : " people"}
             </span>
           )}
         </div>
@@ -350,9 +515,17 @@ export function AdminDirectory() {
           <EmptyState
             icon={UsersIcon}
             title={
-              search ? "Nobody matches that search." : "The directory is empty."
+              showInactive
+                ? filtered
+                  ? "Nobody deactivated matches these filters."
+                  : "Nobody has been deactivated."
+                : filtered
+                  ? "Nobody matches these filters."
+                  : "The directory is empty."
             }
-            detail={search ? undefined : "Import a spreadsheet above."}
+            detail={
+              showInactive || filtered ? undefined : "Import a spreadsheet above."
+            }
           />
         )}
 
@@ -430,6 +603,14 @@ export function AdminDirectory() {
                           </>
                         )}
                       </DropdownMenuItem>
+                      {!person.isActive && (
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onSelect={() => setDeleting(person)}
+                        >
+                          <Trash2Icon /> Delete…
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </Td>
@@ -437,7 +618,40 @@ export function AdminDirectory() {
             ))}
           </Table>
         )}
+
+        {people.isSuccess && pageCount > 1 && (
+          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+            <span className="tabular">
+              {(page - 1) * PAGE_SIZE + 1}–
+              {Math.min(page * PAGE_SIZE, people.data.total)} of{" "}
+              {people.data.total.toLocaleString("en-GB")}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeftIcon /> Previous
+              </Button>
+              <span className="tabular px-1">
+                Page {page} of {pageCount}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page >= pageCount}
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              >
+                Next <ChevronRightIcon />
+              </Button>
+            </div>
+          </div>
+        )}
       </Panel>
     </Section>
   );
 }
+
+const PAGE_SIZE = 50;

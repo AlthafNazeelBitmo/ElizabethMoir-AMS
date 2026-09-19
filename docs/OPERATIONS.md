@@ -160,7 +160,18 @@ to any page and switches between light and dark.
 the enrolment number exactly as ADMS has it, the name, the group. If they
 have already scanned, their scans attach the moment they are saved. For a
 whole intake, import the spreadsheet instead. Leavers: _Actions → Deactivate_
-on their row — off the register, history kept, reversible.
+on their row — off the register, history kept, reversible. _Show
+deactivated_ lists the leavers on their own; from there _Actions →
+Delete…_ removes one for good, with their attendance history and scans
+(the readers' original deliveries are kept). It asks twice and cannot be
+undone; deactivating is the normal thing, deleting is for a record that
+should never have existed. The list filters by branch, group and tutor and
+pages fifty at a time.
+
+**A new tutor.** Admin → People → _Tutors_: initials and, if you like, a
+name. The spreadsheet creates tutors as it meets them, so this is only for
+one who joins between imports. A tutor with people cannot be removed —
+filter People by that tutor, move them, then remove.
 
 **A parent asks for their child's record.** Reports → the child's name →
 Print, or Export CSV. The file is named by enrolment number, not by name.

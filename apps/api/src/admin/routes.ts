@@ -1,4 +1,16 @@
-import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import "@fastify/multipart";
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -15,8 +27,10 @@ import type { Db } from "../db/client.js";
 import {
   BRANCHES,
   DEVICE_DIRECTIONS,
+  dayRecords,
   devices,
   groups,
+  manualAdjustments,
   people,
   scans,
   tutors,
@@ -53,10 +67,19 @@ const peopleQuery = pagination.extend({
   q: z.string().trim().max(200).optional(),
   branch: z.enum(BRANCHES).optional(),
   groupId: z.coerce.number().int().optional(),
+  tutorId: z.coerce.number().int().optional(),
+  /** Which people: the active ones (default), the deactivated ones, or all. */
+  active: z.enum(["true", "false", "all"]).default("true"),
+  /** The older spelling of `active=all`, kept for scripts. */
   includeInactive: z
     .enum(["true", "false"])
     .transform((v) => v === "true")
     .default(false),
+});
+
+const upsertTutor = z.object({
+  initials: z.string().trim().min(1).max(8),
+  fullName: z.string().trim().max(200).nullable().optional(),
 });
 
 const createPerson = z.object({
@@ -133,15 +156,18 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         .code(400)
         .send({ error: "invalid_query", message: "Check the filter values." });
     }
-    const { page, limit, q, branch, groupId, includeInactive } = parsed.data;
+    const { page, limit, q, branch, groupId, tutorId, includeInactive } =
+      parsed.data;
+    const active = includeInactive ? "all" : parsed.data.active;
 
     const conditions = [
       // Even on an admin endpoint the branch predicate is composed in, so
       // the rule holds if this route is ever opened to another role.
       branchFilter(req.auth!.role),
-      includeInactive ? undefined : eq(people.isActive, true),
+      active === "all" ? undefined : eq(people.isActive, active === "true"),
       branch ? eq(groups.branch, branch) : undefined,
       groupId ? eq(people.groupId, groupId) : undefined,
+      tutorId ? eq(people.tutorId, tutorId) : undefined,
       q
         ? or(ilike(people.fullName, `%${q}%`), ilike(people.enrollNo, `%${q}%`))
         : undefined,
@@ -269,6 +295,70 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         userAgent: req.headers["user-agent"] ?? null,
       });
       return reply.send({ person: after, daysRecomputed });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/api/admin/people/:id",
+    { preHandler },
+    async (req, reply) => {
+      const [person] = await db
+        .select()
+        .from(people)
+        .where(eq(people.id, req.params.id))
+        .limit(1);
+      if (!person)
+        return reply
+          .code(404)
+          .send({ error: "not_found", message: "No such person." });
+      if (person.isActive) {
+        // Two steps, always: off the register first, then gone. Nobody on
+        // the register disappears in one click.
+        return reply.code(409).send({
+          error: "still_active",
+          message: `${person.fullName} is still active. Deactivate them first; deletion is for people who have already left.`,
+        });
+      }
+
+      // Everything computed for them goes; the raw deliveries from the
+      // readers stay, so nothing the readers said is lost, and if the card
+      // is ever used again the number comes up under Unknown IDs.
+      const counts = await db.transaction(async (tx) => {
+        const days = await tx
+          .select({ id: dayRecords.id })
+          .from(dayRecords)
+          .where(eq(dayRecords.personId, person.id));
+        if (days.length > 0) {
+          await tx.delete(manualAdjustments).where(
+            inArray(
+              manualAdjustments.dayRecordId,
+              days.map((d) => d.id),
+            ),
+          );
+          await tx.delete(dayRecords).where(eq(dayRecords.personId, person.id));
+        }
+        const removedScans = await tx
+          .delete(scans)
+          .where(eq(scans.personId, person.id))
+          .returning({ id: scans.id });
+        await tx
+          .delete(unknownEnrollments)
+          .where(eq(unknownEnrollments.enrollNo, person.enrollNo));
+        await tx.delete(people).where(eq(people.id, person.id));
+        return { dayRecords: days.length, scans: removedScans.length };
+      });
+
+      await writeAudit(db, req.log, {
+        action: "person_deleted",
+        userId: req.auth!.userId,
+        entity: "person",
+        entityId: person.id,
+        before: person,
+        after: { deleted: counts },
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      return reply.send({ deleted: counts });
     },
   );
 
@@ -705,10 +795,168 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     },
   );
 
+  // ── Tutors ──────────────────────────────────────────────────────────────
+  //
+  // A tutor is a pair of initials and, optionally, a name; the spreadsheet
+  // creates them as it meets them, and these routes let the office keep
+  // the list right between imports. People are counted so a tutor is not
+  // removed from under them.
+
   app.get("/api/admin/tutors", { preHandler }, async (_req, reply) => {
-    const rows = await db.select().from(tutors).orderBy(asc(tutors.initials));
+    const rows = await db
+      .select({
+        id: tutors.id,
+        initials: tutors.initials,
+        fullName: tutors.fullName,
+        peopleCount: count(people.id),
+      })
+      .from(tutors)
+      .leftJoin(
+        people,
+        and(eq(people.tutorId, tutors.id), eq(people.isActive, true)),
+      )
+      .groupBy(tutors.id)
+      .orderBy(asc(tutors.initials));
     return reply.send({ tutors: rows });
   });
+
+  app.post("/api/admin/tutors", { preHandler }, async (req, reply) => {
+    const parsed = upsertTutor.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: "invalid_request",
+        message: "Initials are required, up to eight characters.",
+      });
+    }
+    const initials = parsed.data.initials.toUpperCase();
+    const clash = await db
+      .select({ id: tutors.id })
+      .from(tutors)
+      // Initials are letters, so a pattern-free ilike is a case-blind equals.
+      .where(ilike(tutors.initials, initials))
+      .limit(1);
+    if (clash.length > 0) {
+      return reply.code(409).send({
+        error: "duplicate",
+        message: `There is already a tutor with the initials ${initials}.`,
+      });
+    }
+    const [row] = await db
+      .insert(tutors)
+      .values({ initials, fullName: parsed.data.fullName ?? null })
+      .returning();
+    await writeAudit(db, req.log, {
+      action: "tutor_created",
+      userId: req.auth!.userId,
+      entity: "tutor",
+      entityId: String(row!.id),
+      after: row,
+      ip: req.ip || null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+    return reply.code(201).send({ tutor: { ...row, peopleCount: 0 } });
+  });
+
+  app.patch<{ Params: { id: string } }>(
+    "/api/admin/tutors/:id",
+    { preHandler },
+    async (req, reply) => {
+      const parsed = upsertTutor.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ error: "invalid_request", message: "Check the values." });
+      }
+      const id = Number(req.params.id);
+      const [before] = await db
+        .select()
+        .from(tutors)
+        .where(eq(tutors.id, id))
+        .limit(1);
+      if (!before)
+        return reply
+          .code(404)
+          .send({ error: "not_found", message: "No such tutor." });
+
+      const changes: Partial<typeof tutors.$inferInsert> = {};
+      if (parsed.data.initials !== undefined) {
+        const initials = parsed.data.initials.toUpperCase();
+        const clash = await db
+          .select({ id: tutors.id })
+          .from(tutors)
+          .where(and(ilike(tutors.initials, initials), ne(tutors.id, id)))
+          .limit(1);
+        if (clash.length > 0) {
+          return reply.code(409).send({
+            error: "duplicate",
+            message: `There is already a tutor with the initials ${initials}.`,
+          });
+        }
+        changes.initials = initials;
+      }
+      if (parsed.data.fullName !== undefined)
+        changes.fullName = parsed.data.fullName;
+
+      const [after] = await db
+        .update(tutors)
+        .set(changes)
+        .where(eq(tutors.id, id))
+        .returning();
+      await writeAudit(db, req.log, {
+        action: "tutor_modified",
+        userId: req.auth!.userId,
+        entity: "tutor",
+        entityId: String(id),
+        before,
+        after,
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      return reply.send({ tutor: after });
+    },
+  );
+
+  app.delete<{ Params: { id: string } }>(
+    "/api/admin/tutors/:id",
+    { preHandler },
+    async (req, reply) => {
+      const id = Number(req.params.id);
+      const [tutor] = await db
+        .select()
+        .from(tutors)
+        .where(eq(tutors.id, id))
+        .limit(1);
+      if (!tutor)
+        return reply
+          .code(404)
+          .send({ error: "not_found", message: "No such tutor." });
+
+      // Active or not: a deactivated person's history still names them.
+      const [assigned] = await db
+        .select({ n: count() })
+        .from(people)
+        .where(eq(people.tutorId, id));
+      if ((assigned?.n ?? 0) > 0) {
+        return reply.code(409).send({
+          error: "in_use",
+          message: `${tutor.initials} is the tutor of ${assigned!.n} ${assigned!.n === 1 ? "person" : "people"}. Move them to another tutor first (filter People by tutor).`,
+          peopleCount: assigned!.n,
+        });
+      }
+
+      await db.delete(tutors).where(eq(tutors.id, id));
+      await writeAudit(db, req.log, {
+        action: "tutor_deleted",
+        userId: req.auth!.userId,
+        entity: "tutor",
+        entityId: String(id),
+        before: tutor,
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      return reply.code(204).send();
+    },
+  );
 };
 
 const TOO_LARGE = Symbol("too-large") as unknown as string;
