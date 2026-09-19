@@ -10,7 +10,11 @@
  */
 export const BRAND = {
   name: "Elizabeth Moir School",
-  /** The monogram in the crest's cyan, on transparent. */
+  /** The whole logo — monogram, rules and banner — on transparent. */
+  logo: "/branding/logo.png",
+  /** The logo's proportions, so space is held before it loads. */
+  logoAspect: "622 / 246",
+  /** The monogram alone in the crest's cyan, for small tiles. */
   monogram: "/branding/monogram.png",
   /** The monogram in white, for the sign-in field. */
   monogramOnDark: "/branding/monogram-white.png",

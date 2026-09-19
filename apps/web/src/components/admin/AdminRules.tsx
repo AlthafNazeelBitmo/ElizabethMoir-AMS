@@ -93,7 +93,7 @@ export function AdminRules() {
 
             <Field
               label="School name"
-              hint="Printed at the top of every report and shown in the sidebar."
+              hint="Printed at the top of every report, and the name of the browser tab."
             >
               <Input
                 value={draft.school_name}

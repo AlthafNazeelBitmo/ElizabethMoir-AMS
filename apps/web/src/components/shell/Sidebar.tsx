@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BrandMark } from "./BrandMark.js";
+import { BrandMark, SchoolLogo } from "./BrandMark.js";
 import { Avatar, Kbd, Separator } from "@/components/ui/misc.js";
 import { Button } from "@/components/ui/button.js";
 import {
@@ -37,7 +37,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip.js";
 import { api, type CurrentUser } from "@/lib/api.js";
-import { schoolLogoVersion, schoolName } from "@/lib/format.js";
+import { schoolLogoVersion } from "@/lib/format.js";
 import { useTheme, type Theme } from "@/lib/theme.js";
 import { cn } from "@/lib/utils.js";
 
@@ -95,33 +95,23 @@ export function Sidebar({
     <aside
       data-collapsed={collapsed}
       className={cn(
-        "flex h-full shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200",
+        "flex h-full shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground transition-[width] duration-200 print:hidden",
         collapsed ? "w-16" : "w-60",
       )}
     >
-      {/* Brand */}
-      <div
-        className={cn(
-          "flex items-center gap-2.5 px-3",
-          collapsed ? "h-14 justify-center px-0" : "h-12",
-        )}
-      >
-        <BrandMark
-          key={schoolLogoVersion() ?? "none"}
-          name={schoolName()}
-          size={collapsed ? "lg" : "default"}
-        />
-        {!collapsed && (
-          <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold tracking-tight">
-              {schoolName()}
-            </div>
-            <div className="text-[0.6875rem] text-muted-foreground">
-              Attendance
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Brand: the whole logo when there is room, the monogram when not. */}
+      {collapsed ? (
+        <div className="flex h-14 items-center justify-center">
+          <BrandMark key={schoolLogoVersion() ?? "none"} size="lg" />
+        </div>
+      ) : (
+        <div className="px-4 pt-4 pb-2">
+          <SchoolLogo
+            key={schoolLogoVersion() ?? "none"}
+            className="h-[5.25rem] w-full"
+          />
+        </div>
+      )}
 
       {/* Search trigger */}
       <div className={cn("px-2 pb-2", collapsed && "px-0 pb-1")}>

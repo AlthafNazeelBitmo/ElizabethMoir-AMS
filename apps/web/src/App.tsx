@@ -133,11 +133,11 @@ function Shell({ user }: { user: CurrentUser }) {
             onOpenSearch={() => setPaletteOpen(true)}
           />
         )}
-        <main className="min-h-0 min-w-0 flex-1">
+        <main className="min-h-0 min-w-0 flex-1 print:overflow-visible">
           {/* Keyed on the path so a new page fades in; 150ms, nothing more. */}
           <div
             key={location.pathname}
-            className="h-full animate-in fade-in-0 duration-150"
+            className="h-full animate-in fade-in-0 duration-150 print:h-auto"
           >
             <Outlet context={user} />
           </div>
@@ -187,10 +187,7 @@ function ShellSkeleton() {
   return (
     <div className="flex h-full" aria-busy>
       <div className="flex w-60 flex-col gap-3 border-r bg-sidebar p-3">
-        <div className="flex items-center gap-2.5">
-          <Skeleton className="size-7 rounded-md" />
-          <Skeleton className="h-3.5 w-28" />
-        </div>
+        <Skeleton className="mx-1 mt-1 h-[5.25rem]" />
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-7 w-full" />
         <Skeleton className="h-7 w-full" />

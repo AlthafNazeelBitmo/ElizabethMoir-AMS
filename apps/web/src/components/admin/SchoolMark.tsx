@@ -2,19 +2,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageUpIcon, Trash2Icon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
-import { BrandMark } from "@/components/shell/BrandMark.js";
+import { SchoolLogo } from "@/components/shell/BrandMark.js";
 import { Button } from "@/components/ui/button.js";
 import { api, ApiError } from "@/lib/api.js";
-import { schoolName, type SchoolProfile } from "@/lib/format.js";
+import type { SchoolProfile } from "@/lib/format.js";
 import { Problem } from "./shared.js";
 
 const ACCEPT = "image/png,image/jpeg,image/svg+xml,image/webp";
 const MAX_BYTES = 512 * 1024;
 
 /**
- * The school's crest, uploaded once and kept with the other school
- * settings. Shown in the sidebar and on the sign-in page; until one is
- * uploaded, a tile with the school's initials stands in.
+ * The school's mark, uploaded once and kept with the other school
+ * settings. Shown at the top of the sidebar, on the sign-in page and at
+ * the head of printed reports; until one is uploaded, the logo shipped
+ * with the code stands in.
  */
 export function SchoolMark() {
   const queryClient = useQueryClient();
@@ -84,8 +85,10 @@ export function SchoolMark() {
       <span className="text-xs font-medium leading-none text-muted-foreground">
         School mark
       </span>
-      <div className="flex items-center gap-4">
-        <BrandMark key={version ?? "none"} name={schoolName()} size="xl" version={version} />
+      <div className="flex flex-wrap items-center gap-5">
+        <div className="w-56 rounded-lg border bg-sidebar p-3">
+          <SchoolLogo key={version ?? "none"} className="h-20 w-full" version={version} />
+        </div>
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
             <Button
@@ -108,9 +111,10 @@ export function SchoolMark() {
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            PNG, JPEG, SVG or WebP, under 512 KB. A square crest with a clear
-            background sits best in the sidebar.
+          <p className="max-w-xs text-xs text-muted-foreground">
+            PNG, JPEG, SVG or WebP, under 512 KB. It is shown exactly as it
+            is here, at the top of the sidebar and on printed reports, so a
+            wide logo with a clear background sits best.
           </p>
         </div>
       </div>
