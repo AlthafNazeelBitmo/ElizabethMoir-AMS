@@ -217,6 +217,25 @@ describe("validateDirectoryCsv", () => {
       /no rows/,
     );
   });
+
+  it("accepts a row with no group and no branch: in the directory, unclassified", () => {
+    const { records, problems } = validateDirectoryCsv(
+      `${HEADER}
+11007,Ann,,,,`,
+      GROUPS,
+    );
+    expect(problems).toEqual([]);
+    expect(records[0]).toMatchObject({ groupName: null, branch: null });
+  });
+
+  it("still requires a branch once a group is named", () => {
+    const { problems } = validateDirectoryCsv(
+      `${HEADER}
+11007,Ann,,Form 1,,`,
+      GROUPS,
+    );
+    expect(problems[0]?.column).toBe("branch");
+  });
 });
 
 describe("planImport", () => {
@@ -275,6 +294,30 @@ describe("planImport", () => {
     const plan = planImport([record("11007")], [existing("11007")], ["AP"]);
     expect(plan.unchangedCount).toBe(1);
     expect(plan.updates).toHaveLength(0);
+  });
+
+  it("leaves a group and tutor set by hand alone when the file has none", () => {
+    // The readers' export knows no classification for many people; a
+    // re-import must not undo what the office has since done.
+    const plan = planImport(
+      [record("11007", { branch: null, groupName: null, tutorInitials: null })],
+      [existing("11007")],
+      ["AP"],
+    );
+    expect(plan.unchangedCount).toBe(1);
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.ungroupedCount).toBe(1);
+  });
+
+  it("still changes a group the file names differently", () => {
+    const plan = planImport(
+      [record("11007", { groupName: "Form 2" })],
+      [existing("11007")],
+      ["AP"],
+    );
+    expect(plan.updates[0]?.changes).toEqual([
+      { field: "group", before: "Form 1", after: "Form 2" },
+    ]);
   });
 
   it("proposes deactivating anyone active but absent from the file", () => {

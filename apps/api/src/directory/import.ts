@@ -131,7 +131,9 @@ export class DirectoryImporter {
           .values({
             enrollNo: create.record.enrollNo,
             fullName: create.record.fullName,
-            groupId: groupIds.get(normalise(create.record.groupName)) ?? null,
+            groupId: create.record.groupName
+              ? (groupIds.get(normalise(create.record.groupName)) ?? null)
+              : null,
             tutorId: create.record.tutorInitials
               ? (tutorIds.get(create.record.tutorInitials.toLowerCase()) ??
                 null)
@@ -156,7 +158,9 @@ export class DirectoryImporter {
           .update(people)
           .set({
             fullName: update.record.fullName,
-            groupId: groupIds.get(normalise(update.record.groupName)) ?? null,
+            groupId: update.record.groupName
+              ? (groupIds.get(normalise(update.record.groupName)) ?? null)
+              : null,
             tutorId: update.record.tutorInitials
               ? (tutorIds.get(update.record.tutorInitials.toLowerCase()) ??
                 null)

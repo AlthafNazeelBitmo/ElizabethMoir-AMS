@@ -17,9 +17,15 @@ export interface DirectoryRecord {
   /** The enrolment number assigned on the physical reader. */
   enrollNo: string;
   fullName: string;
-  branch: Branch;
-  /** Group name as written by the source; resolved to a row on import. */
-  groupName: string;
+  /** Null when the source names no group: the branch follows the group. */
+  branch: Branch | null;
+  /**
+   * Group name as written by the source; resolved to a row on import. Null
+   * for someone the source has not classified yet — they join the
+   * directory, their scans get their name, and they sit on the register in
+   * no group and expected nowhere until the office puts them in one.
+   */
+  groupName: string | null;
   tutorInitials: string | null;
   admissionNo: string | null;
 }

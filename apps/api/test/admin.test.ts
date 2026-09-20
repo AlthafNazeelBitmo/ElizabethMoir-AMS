@@ -168,6 +168,34 @@ describe("CSV import", () => {
     ]);
   });
 
+  it("imports a person with no group, counts them, and shows them unclassified", async () => {
+    const file = `${HEADER}
+11007,Ann Perera,student,Form 1,AP,
+5050,Not Yet Placed,,,,`;
+    const preview = (await upload("/api/admin/people/import", file)).json();
+    expect(preview.preview.counts).toMatchObject({ create: 2, ungrouped: 1 });
+    const res = await upload("/api/admin/people/import/confirm", file, {
+      "x-plan-hash": preview.planHash,
+    });
+    expect(res.statusCode).toBe(200);
+
+    const [placed] = await h.db.db
+      .select()
+      .from(people)
+      .where(eq(people.enrollNo, "5050"));
+    expect(placed?.groupId).toBeNull();
+    // In the directory, findable, editable…
+    const listed = (await get("/api/admin/people?q=5050")).json();
+    expect(listed.people[0]).toMatchObject({ fullName: "Not Yet Placed", groupName: null });
+    // …and on the register under nobody's group, expected nowhere, until
+    // somebody classifies them.
+    const live = (await get("/api/register/live?date=2026-09-16")).json();
+    const row = live.rows.find((r: { enrollNo: string }) => r.enrollNo === "5050");
+    expect(row).toMatchObject({ groupName: null, status: "not_expected" });
+    const summary = (await get("/api/register/summary?date=2026-09-16")).json();
+    expect(JSON.stringify(summary)).not.toContain("5050");
+  });
+
   it("creates the tutors named in the file", async () => {
     const preview = (await upload("/api/admin/people/import", FILE)).json();
     await upload("/api/admin/people/import/confirm", FILE, {

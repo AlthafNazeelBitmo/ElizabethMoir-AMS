@@ -66,7 +66,10 @@ const pagination = z.object({
 const peopleQuery = pagination.extend({
   q: z.string().trim().max(200).optional(),
   branch: z.enum(BRANCHES).optional(),
-  groupId: z.coerce.number().int().optional(),
+  /** A group's id, or "none" for the people who are in no group. */
+  groupId: z
+    .union([z.literal("none"), z.coerce.number().int()])
+    .optional(),
   tutorId: z.coerce.number().int().optional(),
   /** Which people: the active ones (default), the deactivated ones, or all. */
   active: z.enum(["true", "false", "all"]).default("true"),
@@ -166,7 +169,11 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       branchFilter(req.auth!.role),
       active === "all" ? undefined : eq(people.isActive, active === "true"),
       branch ? eq(groups.branch, branch) : undefined,
-      groupId ? eq(people.groupId, groupId) : undefined,
+      groupId === "none"
+        ? isNull(people.groupId)
+        : groupId
+          ? eq(people.groupId, groupId)
+          : undefined,
       tutorId ? eq(people.tutorId, tutorId) : undefined,
       q
         ? or(ilike(people.fullName, `%${q}%`), ilike(people.enrollNo, `%${q}%`))
@@ -1007,6 +1014,7 @@ function summarise(plan: ImportPlan) {
       deactivate: plan.deactivates.length,
       unchanged: plan.unchangedCount,
       newTutors: plan.newTutorInitials.length,
+      ungrouped: plan.ungroupedCount,
     },
     creates: plan.creates.slice(0, SAMPLE).map((c) => c.record),
     updates: plan.updates.slice(0, SAMPLE).map((u) => ({

@@ -64,6 +64,7 @@ interface ImportPreview {
     deactivate: number;
     unchanged: number;
     newTutors: number;
+    ungrouped: number;
   };
   creates: Array<{ enrollNo: string; fullName: string; groupName: string }>;
   updates: Array<{
@@ -265,7 +266,7 @@ export function AdminDirectory() {
   return (
     <Section
       title="People"
-      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no — or add one person at a time."
+      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no — or add one person at a time. A blank group leaves the person unclassified (or, for someone already here, leaves their group as it is)."
       actions={
         <>
           <Button variant="outline" onClick={() => setTutorsOpen(true)}>
@@ -386,6 +387,12 @@ export function AdminDirectory() {
                     {preview.preview.newTutorInitials.join(", ")}
                   </Badge>
                 )}
+                {preview.preview.counts.ungrouped > 0 && (
+                  <Badge className="border-transparent bg-status-late-bg text-status-late">
+                    {preview.preview.counts.ungrouped} with no group — filter
+                    by “No group” afterwards to place them
+                  </Badge>
+                )}
               </div>
 
               {preview.preview.deactivates.length > 0 && (
@@ -469,6 +476,7 @@ export function AdminDirectory() {
               className="h-8"
             >
               <option value="">All groups</option>
+              <option value="none">No group</option>
               {(groups.data?.groups ?? [])
                 .filter((g) => !branch || g.branch === branch)
                 .map((g) => (

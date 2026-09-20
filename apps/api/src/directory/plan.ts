@@ -50,6 +50,8 @@ export interface ImportPlan {
   unchangedCount: number;
   /** Tutors named in the file that do not exist yet and will be created. */
   newTutorInitials: string[];
+  /** Rows with no group: in the directory, off the register until given one. */
+  ungroupedCount: number;
   /**
    * Identifies exactly this plan. The confirm step recomputes the plan and
    * compares: if the directory changed in between, the administrator is
@@ -70,12 +72,23 @@ export function planImport(
   const updates: PlannedUpdate[] = [];
   let unchangedCount = 0;
 
-  for (const record of records) {
-    const current = byEnroll.get(record.enrollNo);
+  for (const given of records) {
+    const current = byEnroll.get(given.enrollNo);
     if (!current) {
-      creates.push({ record });
+      creates.push({ record: given });
       continue;
     }
+
+    // A blank group or tutor in the file means the source does not know,
+    // not that there is none: an export from the readers carries no
+    // classification for many people, and a re-import must not undo what
+    // the office has since set by hand. Clearing is done on the person's
+    // own edit form, deliberately.
+    const record: DirectoryRecord = {
+      ...given,
+      groupName: given.groupName ?? current.groupName,
+      tutorInitials: given.tutorInitials ?? current.tutorInitials,
+    };
 
     const changes = diff(current, record);
     if (changes.length === 0) {
@@ -116,6 +129,7 @@ export function planImport(
     deactivates,
     unchangedCount,
     newTutorInitials,
+    ungroupedCount: records.filter((r) => r.groupName === null).length,
   };
   return { ...plan, hash: hashPlan(plan) };
 }
@@ -152,8 +166,8 @@ function describeRecord(r: DirectoryRecord): string {
   return JSON.stringify([
     r.enrollNo,
     r.fullName,
-    r.branch,
-    r.groupName,
+    r.branch ?? "",
+    r.groupName ?? "",
     r.tutorInitials ?? "",
     r.admissionNo ?? "",
   ]);

@@ -62,10 +62,15 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    day, nobody can be absent on it — so absence reporting says nothing
    until this is done. Set the term as weekdays, then carve out holidays.
 3. **Import the directory.** Admin → People, or from a checkout:
-   `pnpm --filter @ams/api import-directory people.csv --confirm`. Groups
-   named in the file are created as it loads; tidy them afterwards under
-   Admin → Groups — the order they appear in, which ones expect attendance
-   (contractors do not), and any group with its own late threshold.
+   `pnpm --filter @ams/api import-directory people.csv --confirm`. Every
+   group named in the file must already exist under Admin → Groups (the
+   standard forms and staff groups are there from the start); tutors are
+   created as the file names them. A row may leave `group` (and `branch`)
+   blank — the readers' own export does, for anyone nobody has classified
+   — and that person joins the directory in no group, expected nowhere,
+   until the office places them: filter People by _No group_. A blank
+   group or tutor in the file never clears one the office has set by hand;
+   clearing is done on the person's edit form.
 4. **Name the readers.** Admin → Devices. If a reader is mounted so that
    everyone passing it is arriving, set it to _Entry only_ — that makes
    every direction from it certain instead of inferred.

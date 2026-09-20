@@ -90,19 +90,14 @@ export function validateDirectoryCsv(
       fail("full_name", `full_name is longer than ${MAX_NAME} characters.`);
     }
 
-    if (branchRaw === "") {
-      fail("branch", `branch is required. Use one of: ${BRANCHES.join(", ")}.`);
-    } else if (!isBranch(branchRaw)) {
-      fail(
-        "branch",
-        `branch "${row.values.branch}" is not valid. Use one of: ${BRANCHES.join(", ")}.`,
-      );
-    }
-
+    // A group may be left blank: an export from the readers often carries
+    // people nobody has classified yet, and a name in the directory is
+    // worth more than a number under Unknown IDs. Such a person is in no
+    // group and expected nowhere until the office sets one. A group that is
+    // named must exist, and must agree with the branch.
     let group: KnownGroup | undefined;
-    if (groupName === "") {
-      fail("group", "group is required.");
-    } else {
+    const ungrouped = groupName === "";
+    if (!ungrouped) {
       group = groupsByName.get(normalise(groupName));
       if (!group) {
         fail(
@@ -112,6 +107,16 @@ export function validateDirectoryCsv(
             .join(", ")}.`,
         );
       }
+    }
+
+    if (branchRaw === "") {
+      if (!ungrouped)
+        fail("branch", `branch is required. Use one of: ${BRANCHES.join(", ")}.`);
+    } else if (!isBranch(branchRaw)) {
+      fail(
+        "branch",
+        `branch "${row.values.branch}" is not valid. Use one of: ${BRANCHES.join(", ")}.`,
+      );
     }
 
     // A row whose branch and group disagree is the mistake most likely to
@@ -131,13 +136,13 @@ export function validateDirectoryCsv(
       fail("admission_no", "admission_no is longer than 64 characters.");
     }
 
-    if (!rowOk || !isBranch(branchRaw)) continue;
+    if (!rowOk) continue;
 
     records.push({
       enrollNo,
       fullName,
-      branch: branchRaw,
-      groupName: group!.name,
+      branch: group ? group.branch : isBranch(branchRaw) ? branchRaw : null,
+      groupName: group ? group.name : null,
       tutorInitials: tutorInitials === "" ? null : tutorInitials,
       admissionNo: admissionNo === "" ? null : admissionNo,
     });
