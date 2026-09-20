@@ -91,6 +91,8 @@ export const api = {
 export type Branch = "student" | "staff";
 export type DayStatus =
   "on_site" | "departed" | "late" | "absent" | "not_expected";
+/** A row's status: a day's verdict, or "pending" — expected, not arrived yet. */
+export type RegisterStatus = DayStatus | "pending";
 export type UserRole = "full" | "student_only";
 
 export interface CurrentUser {
@@ -112,7 +114,7 @@ export interface RegisterRow {
   dayRecordId: number | null;
   firstIn: string | null;
   lastOut: string | null;
-  status: DayStatus;
+  status: RegisterStatus;
   isLate: boolean;
   hasManualEdit: boolean;
   scanCount: number;
@@ -124,19 +126,26 @@ export interface RegisterPage {
   total: number;
 }
 
-export type StatusCounts = Record<DayStatus | "total" | "late", number>;
+/** `total` is the roll in view; `expected` the part of it expected today. */
+export type StatusCounts = Record<
+  RegisterStatus | "total" | "expected" | "late",
+  number
+>;
 
+/** A group on the rail: how many have checked in today, out of how many. */
 export interface GroupCount {
   groupId: number;
   name: string;
   branch: Branch;
-  onSite: number;
+  checkedIn: number;
   total: number;
 }
 
 export interface SummaryResponse {
   counts: StatusCounts;
   groups: GroupCount[];
+  /** The people in no group, so the rail adds up to the roll. */
+  ungrouped: { checkedIn: number; total: number };
 }
 
 export interface PersonDetail {

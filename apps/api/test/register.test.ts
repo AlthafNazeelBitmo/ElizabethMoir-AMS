@@ -138,9 +138,16 @@ describe("GET /api/register/live", () => {
   it("does not mark anyone absent before the day has started", async () => {
     h.setNow(new Date("2026-09-15T22:00:00.000Z")); // 03:30 local, before 09:00
     const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    // Expected, not arrived, and not yet absent: pending — never "not
+    // expected", which would say the opposite of the truth all morning.
     expect(
-      body.rows.every((r: { status: string }) => r.status === "not_expected"),
+      body.rows.every((r: { status: string }) => r.status === "pending"),
     ).toBe(true);
+    const summary = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(summary.counts).toMatchObject({ expected: 3, pending: 3, absent: 0, not_expected: 0 });
+    // And the filter finds them.
+    const waiting = (await get(`/api/register/live?date=${DATE}&status=pending`, full)).json();
+    expect(waiting.rows).toHaveLength(3);
   });
 
   it("carries the group and tutor for each row", async () => {
@@ -314,8 +321,10 @@ describe("GET /api/register/summary", () => {
       absent: 0,
       not_expected: 3,
     });
+    // The rail counts who has checked in — the same people the register
+    // lists when it opens — not who is still on site.
     const form1 = body.groups.find((g: { name: string }) => g.name === "Form 1");
-    expect(form1).toMatchObject({ total: 2, onSite: 1 });
+    expect(form1).toMatchObject({ total: 2, checkedIn: 2 });
 
     // The list's status filter speaks the same language as the counts.
     const inNow = (
@@ -334,7 +343,7 @@ describe("GET /api/register/summary", () => {
     const form1 = body.groups.find(
       (g: { name: string }) => g.name === "Form 1",
     );
-    expect(form1).toMatchObject({ total: 2, onSite: 1 });
+    expect(form1).toMatchObject({ total: 2, checkedIn: 1 });
   });
 
   it("lists groups in the school's display order, not alphabetically", async () => {
@@ -374,7 +383,7 @@ describe("GET /api/register/summary", () => {
       .values({ name: "Form 9", branch: "student", displayOrder: 9 });
     const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
     const empty = body.groups.find((g: { name: string }) => g.name === "Form 9");
-    expect(empty).toMatchObject({ onSite: 0, total: 0, branch: "student" });
+    expect(empty).toMatchObject({ checkedIn: 0, total: 0, branch: "student" });
   });
 
   it("keeps an empty staff group off a student-only account's rail", async () => {
@@ -389,7 +398,9 @@ describe("GET /api/register/summary", () => {
     ).toBe(false);
   });
 
-  it("drops a deactivated group from the rail but keeps its people", async () => {
+  it("keeps a group with people on the rail even if the table says inactive", async () => {
+    // The admin route refuses to deactivate a group with people; were the
+    // flag flipped by other means, the rail still adds up to the roll.
     const [form1] = await h.db.db
       .select()
       .from(groups)
@@ -402,14 +413,41 @@ describe("GET /api/register/summary", () => {
     const summary = (
       await get(`/api/register/summary?date=${DATE}`, full)
     ).json();
-    expect(
-      summary.groups.some((g: { name: string }) => g.name === "Form 1"),
-    ).toBe(false);
+    const row = summary.groups.find((g: { name: string }) => g.name === "Form 1");
+    expect(row).toMatchObject({ total: 2 });
 
     const live = (await get(`/api/register/live?date=${DATE}`, full)).json();
     expect(
       live.rows.some((r: { enrollNo: string }) => r.enrollNo === "11007"),
     ).toBe(true);
+  });
+
+  it("counts the people in no group on their own line, so the rail adds up", async () => {
+    await h.db.db.insert(people).values({ enrollNo: "70001", fullName: "Not Placed" });
+    await scan("70001", "2026-09-16 07:40:00");
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(body.ungrouped).toEqual({ checkedIn: 1, total: 1 });
+    const railTotal =
+      body.groups.reduce((n: number, g: { total: number }) => n + g.total, 0) +
+      body.ungrouped.total;
+    expect(railTotal).toBe(body.counts.total);
+
+    // The line is a filter, like any group.
+    const live = (await get(`/api/register/live?date=${DATE}&group=none`, full)).json();
+    expect(live.rows.map((r: { enrollNo: string }) => r.enrollNo)).toEqual(["70001"]);
+    // A student-only account sees neither: no branch, no view.
+    const theirs = (await get(`/api/register/summary?date=${DATE}`, studentOnly)).json();
+    expect(theirs.ungrouped).toEqual({ checkedIn: 0, total: 0 });
+  });
+
+  it("says how many are expected today, apart from how many there are", async () => {
+    // A school day: everyone in a group that expects attendance.
+    const onDay = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(onDay.counts.expected).toBe(onDay.counts.total);
+    // A Sunday: nobody, whatever the roll.
+    const sunday = (await get(`/api/register/summary?date=2026-09-20`, full)).json();
+    expect(sunday.counts.total).toBeGreaterThan(0);
+    expect(sunday.counts.expected).toBe(0);
   });
 });
 

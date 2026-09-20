@@ -7,6 +7,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNull,
   lte,
   or,
   sql,
@@ -40,6 +41,14 @@ import type {
  * a parameter, a count, or a page of results.
  */
 
+/**
+ * A row's status is a day record's status, plus one the register alone
+ * needs: "pending", for someone expected today who has not arrived and
+ * cannot yet be called absent. It is never stored — a day record that
+ * exists has a verdict — and the morning register is mostly made of it.
+ */
+export type RegisterStatus = DayStatus | "pending";
+
 export interface RegisterRow {
   personId: string;
   enrollNo: string;
@@ -51,7 +60,7 @@ export interface RegisterRow {
   dayRecordId: number | null;
   firstIn: string | null;
   lastOut: string | null;
-  status: DayStatus;
+  status: RegisterStatus;
   isLate: boolean;
   hasManualEdit: boolean;
   scanCount: number;
@@ -60,9 +69,10 @@ export interface RegisterRow {
 export interface RegisterFilters {
   date: string;
   branch?: Branch | undefined;
-  groupId?: number | undefined;
+  /** A group's id, or "none" for the people who are in no group. */
+  groupId?: number | "none" | undefined;
   tutorId?: number | undefined;
-  status?: DayStatus | undefined;
+  status?: RegisterStatus | undefined;
   q?: string | undefined;
 }
 
@@ -72,7 +82,15 @@ export interface RegisterPage {
   total: number;
 }
 
-export type StatusCounts = Record<DayStatus | "total" | "late", number>;
+/**
+ * The figures on the tiles. `total` is the roll in view; `expected` the
+ * part of it expected today — a group that expects attendance, on a school
+ * day — which on a Sunday, or before the calendar is entered, is nobody.
+ */
+export type StatusCounts = Record<
+  RegisterStatus | "total" | "expected" | "late",
+  number
+>;
 
 export class RegisterService {
   constructor(
@@ -200,11 +218,13 @@ export class RegisterService {
 
     const counts: StatusCounts = {
       total: 0,
+      expected: 0,
       on_site: 0,
       departed: 0,
       late: 0,
       absent: 0,
       not_expected: 0,
+      pending: 0,
     };
     for (const raw of rows) {
       const row = this.toRegisterRow(raw, dayContext, settings);
@@ -217,24 +237,39 @@ export class RegisterService {
       else if (isOut(row)) counts.departed += 1;
       if (row.status === "absent") counts.absent += 1;
       if (row.status === "not_expected") counts.not_expected += 1;
+      if (row.status === "pending") counts.pending += 1;
+      // Expected is the fact, not the verdict: in a group that expects
+      // attendance, on a school day.
+      if (
+        dayContext.isSchoolDay &&
+        raw.groupId !== null &&
+        (raw.expectsAttendance ?? false)
+      )
+        counts.expected += 1;
       if (row.isLate) counts.late += 1;
     }
     return counts;
   }
 
-  /** Live counts beside each group in the left rail. */
+  /**
+   * Live counts beside each group in the left rail: how many have checked
+   * in today — the same people the register lists when it opens — out of
+   * how many there are. The people in no group are counted too, as their
+   * own line, so the rail adds up to the roll.
+   */
   async groupCounts(
     role: UserRole,
     date: string,
-  ): Promise<
-    Array<{
+  ): Promise<{
+    groups: Array<{
       groupId: number;
       name: string;
       branch: Branch;
-      onSite: number;
+      checkedIn: number;
       total: number;
-    }>
-  > {
+    }>;
+    ungrouped: { checkedIn: number; total: number };
+  }> {
     const settings = await this.settingsService.get();
     const dayContext = await this.dayContextFor(date, settings);
 
@@ -260,7 +295,7 @@ export class RegisterService {
         scanCount: dayRecords.scanCount,
       })
       .from(people)
-      .innerJoin(groups, eq(groups.id, people.groupId))
+      .leftJoin(groups, eq(groups.id, people.groupId))
       .leftJoin(tutors, eq(tutors.id, people.tutorId))
       .leftJoin(
         dayRecords,
@@ -275,10 +310,11 @@ export class RegisterService {
         name: string;
         branch: Branch;
         order: number;
-        onSite: number;
+        checkedIn: number;
         total: number;
       }
     >();
+    const ungrouped = { checkedIn: 0, total: 0 };
 
     // Every active group the role may see is on the rail, people or not:
     // a form whose pupils have not been imported yet reads 0/0, which is
@@ -304,34 +340,39 @@ export class RegisterService {
         name: group.name,
         branch: group.branch,
         order: group.order,
-        onSite: 0,
+        checkedIn: 0,
         total: 0,
       });
     }
 
     for (const raw of rows) {
-      if (raw.groupId === null || raw.branch === null || raw.groupName === null)
+      const row = this.toRegisterRow(raw, dayContext, settings);
+      const checkedIn = row.firstIn !== null;
+      if (raw.groupId === null || raw.branch === null || raw.groupName === null) {
+        ungrouped.total += 1;
+        if (checkedIn) ungrouped.checkedIn += 1;
         continue;
-      // A deactivated group leaves the rail; its people stay in the register.
-      if (!raw.groupActive) continue;
+      }
+      // A group is never deactivated while it has people (the admin route
+      // refuses), so every grouped person has a line on the rail.
       const entry = byGroup.get(raw.groupId) ?? {
         groupId: raw.groupId,
         name: raw.groupName,
         branch: raw.branch,
         order: raw.groupOrder ?? 0,
-        onSite: 0,
+        checkedIn: 0,
         total: 0,
       };
       entry.total += 1;
-      const row = this.toRegisterRow(raw, dayContext, settings);
-      if (isIn(row)) entry.onSite += 1;
+      if (checkedIn) entry.checkedIn += 1;
       byGroup.set(raw.groupId, entry);
     }
     // In the order the school chose, so "Form 10" does not sit between
     // "Form 1" and "Form 2"; the name only breaks ties.
-    return [...byGroup.values()]
+    const list = [...byGroup.values()]
       .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
       .map(({ order: _order, ...group }) => group);
+    return { groups: list, ungrouped };
   }
 
   /** One person, for the side panel. Role-scoped: 404 rather than 403. */
@@ -416,7 +457,11 @@ export class RegisterService {
       branchFilter(role),
       eq(people.isActive, true),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
-      filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
+      filters.groupId === "none"
+        ? isNull(people.groupId)
+        : filters.groupId
+          ? eq(people.groupId, filters.groupId)
+          : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
       filters.q
         ? or(
@@ -526,9 +571,10 @@ export class RegisterService {
       dayRecordId: null,
       firstIn: null,
       lastOut: null,
-      // Null means the day has not reached the point where absence is
-      // meaningful; nothing has happened yet, which reads as not expected.
-      status: computed?.status ?? "not_expected",
+      // Null means they are expected and the day has not reached the point
+      // where absence is meaningful: they have not arrived yet, and that is
+      // all that can be said.
+      status: computed?.status ?? "pending",
       isLate: false,
       hasManualEdit: false,
       scanCount: 0,
@@ -578,8 +624,8 @@ export function isOut(row: { lastOut: string | null }): boolean {
  * are presence, the rest the day's status, late the flag.
  */
 export function matchesStatus(
-  row: { status: DayStatus; isLate: boolean; firstIn: string | null; lastOut: string | null },
-  status: DayStatus | undefined,
+  row: { status: RegisterStatus; isLate: boolean; firstIn: string | null; lastOut: string | null },
+  status: RegisterStatus | undefined,
 ): boolean {
   switch (status) {
     case undefined:

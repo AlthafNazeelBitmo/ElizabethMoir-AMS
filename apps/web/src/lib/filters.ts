@@ -1,4 +1,4 @@
-import type { Branch, DayStatus } from "./api.js";
+import type { Branch, DayStatus, RegisterStatus } from "./api.js";
 
 /**
  * Filters live in the URL so a view can be bookmarked and shared — the
@@ -13,14 +13,17 @@ import type { Branch, DayStatus } from "./api.js";
  * single status is a single status; "late" is the late flag, which sits
  * on top of on site or departed.
  */
-export type StatusFilter = DayStatus | "checked_in" | "any";
+export type StatusFilter = RegisterStatus | "checked_in" | "any";
 
 export const DEFAULT_STATUS: StatusFilter = "checked_in";
+
+/** A group's id, or "none" for the people who are in no group. */
+export type GroupFilter = number | "none";
 
 export interface RegisterFilters {
   date: string;
   branch: Branch | null;
-  group: number | null;
+  group: GroupFilter | null;
   tutor: number | null;
   status: StatusFilter;
   q: string;
@@ -37,7 +40,7 @@ export function filtersFromSearch(params: URLSearchParams, today: string): Regis
   return {
     date: /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : today,
     branch: branch === "student" || branch === "staff" ? branch : null,
-    group: num("group"),
+    group: params.get("group") === "none" ? "none" : num("group"),
     tutor: num("tutor"),
     status: status === "any" || isStatus(status) ? status : DEFAULT_STATUS,
     q: params.get("q") ?? "",
@@ -87,7 +90,7 @@ export function hasActiveFilters(filters: RegisterFilters): boolean {
  */
 export function matchesStatus(
   row: {
-    status: DayStatus;
+    status: RegisterStatus;
     isLate: boolean;
     firstIn: string | null;
     lastOut: string | null;
@@ -110,12 +113,13 @@ export function matchesStatus(
   }
 }
 
-function isStatus(value: string | null): value is DayStatus {
+function isStatus(value: string | null): value is RegisterStatus {
   return (
     value === "on_site" ||
     value === "departed" ||
     value === "late" ||
     value === "absent" ||
-    value === "not_expected"
+    value === "not_expected" ||
+    value === "pending"
   );
 }

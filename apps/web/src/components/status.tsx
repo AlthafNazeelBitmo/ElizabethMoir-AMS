@@ -1,4 +1,4 @@
-import type { DayStatus } from "@/lib/api.js";
+import type { RegisterStatus } from "@/lib/api.js";
 import { STATUS_PRESENTATION } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
@@ -11,7 +11,7 @@ export function StatusBadge({
   isLate,
   size = "default",
 }: {
-  status: DayStatus;
+  status: RegisterStatus;
   isLate?: boolean;
   size?: "sm" | "default";
 }) {
@@ -26,7 +26,7 @@ export function StatusBadge({
             : "px-2 py-0.5 text-xs",
           p.text,
           p.bg,
-          status === "not_expected" &&
+          (status === "not_expected" || status === "pending") &&
             "border border-dashed border-status-idle",
         )}
       >
@@ -53,7 +53,7 @@ export function StatusShape({
   status,
   className,
 }: {
-  status: DayStatus;
+  status: RegisterStatus;
   className?: string;
 }) {
   const p = STATUS_PRESENTATION[status];

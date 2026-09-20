@@ -158,11 +158,21 @@ seen before it is read; everyone, the students and the staff are three
 parts ruled apart by full-width bands. `RegisterTable` is virtualised and
 updates a row in place from the stream; a changed row flashes once.
 
-"On site" and "Departed" — on the tiles, on the rail, and as filters — are
-**presence**, not status: scanned in and not out, scanned out. Someone in
-the building on a day they were not expected, a Sunday or a contractor,
-is counted as here; "Absent" and "Not expected" remain the day's verdict,
-and the row's badge still says which.
+**The numbers agree with each other.** "Expected" on the tiles is the
+people expected today — a group that expects attendance, on a school day
+— and is nobody on a Sunday. "N of M people" under the search is the roll
+in view. The rail's "in / of" is who has checked in out of who there is,
+the same people the list shows when it opens, and "Everyone" on the rail
+is the whole roll: people in no group get a line of their own under
+"Unplaced", and a group cannot be deactivated while it has people, so the
+parts always add up to the total. "On site" and "Departed" — on the tiles
+and as filters — are **presence**, not status: scanned in and not out,
+scanned out. Someone in the building on a day they were not expected, a
+Sunday or a contractor, is counted as here; "Absent" and "Not expected"
+remain the day's verdict. Someone expected who has not arrived and cannot
+yet be called absent is "Not arrived" (`pending`), a status the register
+alone has — the morning is mostly made of it, and it must never read
+"Not expected".
 
 The register **rests on who has checked in**. The whole roll is fetched,
 so a scan brings its person on to the screen through the stream alone,

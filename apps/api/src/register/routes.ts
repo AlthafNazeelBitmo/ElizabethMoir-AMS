@@ -40,12 +40,17 @@ const MAX_LIMIT = 200;
 
 const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
 
+/** A group's id, or "none" for the people who are in no group. */
+const groupParam = z
+  .union([z.literal("none"), z.coerce.number().int()])
+  .optional();
+
 const liveQuery = z.object({
   date: dateString,
   branch: z.enum(BRANCHES).optional(),
-  group: z.coerce.number().int().optional(),
+  group: groupParam,
   tutor: z.coerce.number().int().optional(),
-  status: z.enum(DAY_STATUSES).optional(),
+  status: z.enum([...DAY_STATUSES, "pending"]).optional(),
   q: z.string().trim().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(MAX_LIMIT).default(MAX_LIMIT),
   cursor: z.string().max(500).optional(),
@@ -54,7 +59,7 @@ const liveQuery = z.object({
 const summaryQuery = z.object({
   date: dateString,
   branch: z.enum(BRANCHES).optional(),
-  group: z.coerce.number().int().optional(),
+  group: groupParam,
   tutor: z.coerce.number().int().optional(),
   q: z.string().trim().max(200).optional(),
 });
@@ -113,7 +118,7 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
         });
     }
     const { date, branch, group, tutor, q } = parsed.data;
-    const [counts, groupCounts] = await Promise.all([
+    const [counts, rail] = await Promise.all([
       register.summary(req.auth!.role, {
         date,
         branch,
@@ -123,7 +128,7 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
       }),
       register.groupCounts(req.auth!.role, date),
     ]);
-    return reply.send({ counts, groups: groupCounts });
+    return reply.send({ counts, groups: rail.groups, ungrouped: rail.ungrouped });
   });
 
   // ── The live stream ─────────────────────────────────────────────────────

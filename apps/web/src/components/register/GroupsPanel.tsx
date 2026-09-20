@@ -1,14 +1,19 @@
 import type { Branch, GroupCount } from "@/lib/api.js";
+import type { GroupFilter } from "@/lib/filters.js";
 import { cn } from "@/lib/utils.js";
 
 /**
- * The groups, with how many of each are in. The bar under each name is the
- * on-site share, so the one form that is half empty stands out from across
- * the room before its number is read. Everyone, the students and the staff
- * are three parts ruled apart, each with its heading.
+ * The groups, with how many of each have checked in today — the same
+ * people the register lists when it opens — out of how many there are.
+ * The bar under each name is that share, so the one form that is half
+ * empty stands out from across the room before its number is read.
+ * Everyone, the students and the staff are three parts ruled apart, each
+ * with its heading, and the people in no group get a line of their own so
+ * the rail adds up to the roll.
  */
 export function GroupsPanel({
   groups,
+  ungrouped,
   activeGroup,
   activeBranch,
   canSeeStaff,
@@ -16,21 +21,22 @@ export function GroupsPanel({
   className,
 }: {
   groups: GroupCount[];
-  activeGroup: number | null;
+  ungrouped: { checkedIn: number; total: number };
+  activeGroup: GroupFilter | null;
   activeBranch: Branch | null;
   canSeeStaff: boolean;
-  onSelect: (branch: Branch | null, group: number | null) => void;
+  onSelect: (branch: Branch | null, group: GroupFilter | null) => void;
   className?: string;
 }) {
   const students = groups.filter((g) => g.branch === "student");
   const staff = groups.filter((g) => g.branch === "staff");
-  const sum = (list: GroupCount[]) =>
+  const sum = (list: Array<{ checkedIn: number; total: number }>) =>
     list.reduce(
       (acc, g) => ({
-        onSite: acc.onSite + g.onSite,
+        checkedIn: acc.checkedIn + g.checkedIn,
         total: acc.total + g.total,
       }),
-      { onSite: 0, total: 0 },
+      { checkedIn: 0, total: 0 },
     );
 
   return (
@@ -43,7 +49,7 @@ export function GroupsPanel({
     >
       <GroupItem
         label="Everyone"
-        {...sum(groups)}
+        {...sum([...groups, ungrouped])}
         active={activeBranch === null && activeGroup === null}
         onClick={() => onSelect(null, null)}
         heading
@@ -61,7 +67,7 @@ export function GroupsPanel({
         <GroupItem
           key={group.groupId}
           label={group.name}
-          onSite={group.onSite}
+          checkedIn={group.checkedIn}
           total={group.total}
           active={activeGroup === group.groupId}
           onClick={() => onSelect("student", group.groupId)}
@@ -83,12 +89,27 @@ export function GroupsPanel({
             <GroupItem
               key={group.groupId}
               label={group.name}
-              onSite={group.onSite}
+              checkedIn={group.checkedIn}
               total={group.total}
               active={activeGroup === group.groupId}
               onClick={() => onSelect("staff", group.groupId)}
             />
           ))}
+        </>
+      )}
+
+      {/* People the directory has not placed yet. Only an account that can
+          see everyone sees them; they belong to no branch. */}
+      {canSeeStaff && ungrouped.total > 0 && (
+        <>
+          <SectionLabel>Unplaced</SectionLabel>
+          <GroupItem
+            label="No group"
+            checkedIn={ungrouped.checkedIn}
+            total={ungrouped.total}
+            active={activeGroup === "none"}
+            onClick={() => onSelect(null, "none")}
+          />
         </>
       )}
     </nav>
@@ -106,20 +127,20 @@ function SectionLabel({ children }: { children: string }) {
 
 function GroupItem({
   label,
-  onSite,
+  checkedIn,
   total,
   active,
   onClick,
   heading,
 }: {
   label: string;
-  onSite: number;
+  checkedIn: number;
   total: number;
   active: boolean;
   onClick: () => void;
   heading?: boolean;
 }) {
-  const share = total > 0 ? (onSite / total) * 100 : 0;
+  const share = total > 0 ? (checkedIn / total) * 100 : 0;
   return (
     <button
       type="button"
@@ -142,7 +163,7 @@ function GroupItem({
         </span>
         <span className="tabular shrink-0 text-xs text-muted-foreground">
           <span className={cn(active && "text-primary font-medium")}>
-            {onSite}
+            {checkedIn}
           </span>
           <span className="opacity-60">/{total}</span>
         </span>

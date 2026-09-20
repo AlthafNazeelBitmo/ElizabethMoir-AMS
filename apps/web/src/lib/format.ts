@@ -1,4 +1,4 @@
-import type { DayStatus } from "./api.js";
+import type { DayStatus, RegisterStatus } from "./api.js";
 
 /**
  * How times and statuses are rendered.
@@ -198,7 +198,7 @@ export interface StatusPresentation {
   solid: string;
 }
 
-export const STATUS_PRESENTATION: Record<DayStatus, StatusPresentation> = {
+export const STATUS_PRESENTATION: Record<RegisterStatus, StatusPresentation> = {
   on_site: {
     label: "On site",
     shape: "filled",
@@ -229,6 +229,13 @@ export const STATUS_PRESENTATION: Record<DayStatus, StatusPresentation> = {
   },
   not_expected: {
     label: "Not expected",
+    shape: "outline",
+    text: "text-muted-foreground",
+    bg: "bg-transparent",
+    solid: "bg-status-idle",
+  },
+  pending: {
+    label: "Not arrived",
     shape: "outline",
     text: "text-muted-foreground",
     bg: "bg-transparent",

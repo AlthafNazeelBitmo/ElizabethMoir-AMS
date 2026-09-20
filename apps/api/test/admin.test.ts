@@ -916,6 +916,21 @@ describe("groups", () => {
     expect((entries[0]!.after as { name: string }).name).toBe("Upper 6");
   });
 
+  it("refuses to deactivate a group that still has people", async () => {
+    await importTheFile();
+    const [form1] = await h.db.db.select().from(groups).where(eq(groups.name, "Form 1"));
+    const res = await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/groups/${form1!.id}`,
+      payload: { isActive: false },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "in_use", peopleCount: 2 });
+    const [after] = await h.db.db.select().from(groups).where(eq(groups.id, form1!.id));
+    expect(after?.isActive).toBe(true);
+  });
+
   it("refuses to move a group with people in it to the other branch", async () => {
     // A staff group becoming a student group would put its members in
     // front of every student-only account. That is not an edit.

@@ -330,6 +330,7 @@ export function RegisterPage() {
       <div className="flex gap-4 md:min-h-0 md:flex-1">
         <GroupsPanel
           groups={summary.data?.groups ?? []}
+          ungrouped={summary.data?.ungrouped ?? { checkedIn: 0, total: 0 }}
           activeGroup={filters.group}
           activeBranch={filters.branch}
           canSeeStaff={user.role === "full"}
@@ -360,6 +361,7 @@ export function RegisterPage() {
               onChange={(e) => {
                 const value = e.target.value;
                 if (!value) return setFilters({ branch: null, group: null });
+                if (value === "none") return setFilters({ branch: null, group: "none" });
                 if (value.startsWith("branch:"))
                   return setFilters({ branch: value.slice(7) as "student" | "staff", group: null });
                 const group = (summary.data?.groups ?? []).find((g) => String(g.groupId) === value);
@@ -385,6 +387,9 @@ export function RegisterPage() {
                         {g.name}
                       </option>
                     ))}
+                  {(summary.data?.ungrouped?.total ?? 0) > 0 && (
+                    <option value="none">No group</option>
+                  )}
                 </>
               )}
             </NativeSelect>
@@ -401,6 +406,7 @@ export function RegisterPage() {
               <option value="on_site">On site</option>
               <option value="departed">Departed</option>
               <option value="late">Late</option>
+              <option value="pending">Not arrived yet</option>
               <option value="absent">Absent</option>
               <option value="not_expected">Not expected</option>
             </NativeSelect>

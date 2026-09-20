@@ -26,7 +26,7 @@ const TILES: Array<{
   bar: string;
 }> = [
   {
-    key: "total",
+    key: "expected",
     label: "Expected",
     filter: "any",
     accent: "",
@@ -75,7 +75,9 @@ export function StatCards({
   onSelectStatus: (status: StatusFilter) => void;
   isLoading: boolean;
 }) {
-  const total = counts?.total ?? 0;
+  // Shares are of the people expected today; when nobody is — a Sunday,
+  // or a calendar not yet entered — of the roll in view.
+  const total = counts?.expected || counts?.total || 0;
   return (
     // One surface, hairlines between the numbers: six figures read as one
     // line of thought, not six boxes competing for attention.
@@ -84,7 +86,7 @@ export function StatCards({
         const value = counts?.[tile.key] ?? 0;
         const active = activeStatus === tile.filter;
         const share =
-          total > 0 && tile.key !== "total" ? (value / total) * 100 : 100;
+          total > 0 && tile.key !== "expected" ? (value / total) * 100 : 100;
         return (
           <button
             key={tile.key}
