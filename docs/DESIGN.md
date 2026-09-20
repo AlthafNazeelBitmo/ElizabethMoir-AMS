@@ -142,7 +142,11 @@ The register is the dashboard: what is, and what to do next.
 `AttentionStrip` is the "what next" — cards that scanned but match nobody,
 deliveries that could not be read — shown only when there is something and
 only to an account that can act on it, each one click from the screen that
-fixes it. `StatCards` are the counts in one strip, each with a share bar
+fixes it. They are plain chips, not warnings: the count is the information
+and the link is the action, and a screen read all day must not shout. A
+lost connection is likewise a quiet dashed line, and only after it has
+been lost for six seconds; the reconnects a serverless host causes every
+fifteen seconds are never mentioned. `StatCards` are the counts in one strip, each with a share bar
 and a click that filters.
 `ArrivalsSparkline` is the morning's arrivals in ten-minute slots, computed
 from the rows already on screen — nothing is fetched for it. `GroupsPanel`

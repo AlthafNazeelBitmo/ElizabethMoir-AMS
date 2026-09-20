@@ -153,9 +153,10 @@ arriving there either, the problem is the reader or its network, not this
 system. If they are arriving in ADMS but not here, check the webhook URL
 under ADMS → System → Webhook, and the `INGEST_ALLOWED_IPS` setting.
 
-**A time is wrong for one person.** Open them in the register, press
-_Correct_, and give a reason. The correction is recorded against your name
-and survives recomputation.
+**A time is wrong for one person.** An administrator opens them in the
+register and presses _Correct_: first-in and last-out times, the status,
+and a reason. The correction is recorded against your name and survives
+recomputation. A student-only account can read a day but not change one.
 
 **Finding anyone, fast.** Press Ctrl+K (⌘K on a Mac) anywhere and type a
 name or a number; Enter opens them on the register. The same palette jumps
@@ -200,11 +201,11 @@ itself logged.
 Rules. Scans keep the time exactly as transmitted, so fixing the setting
 and replaying re-derives every instant correctly.
 
-**The stream says "Reconnecting".** The figures on screen are from the time
-shown in the amber bar. They are not live until it goes away. The register
-reconnects on its own, and if it comes back to a different server process
-— after a restart, say — it fetches the screen again rather than trusting
-that nothing happened in between.
+**The register says "Connection lost".** The figures on screen are as of
+the time shown. The register reconnects on its own — a drop of a few
+seconds is never mentioned — and if it comes back to a different server
+process, after a restart say, it fetches the screen again rather than
+trusting that nothing happened in between.
 
 ## Logs
 

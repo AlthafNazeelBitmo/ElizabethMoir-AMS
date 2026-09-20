@@ -503,15 +503,58 @@ describe("manual adjustment", () => {
     expect(rows.map((r) => r.field).sort()).toEqual(["last_out", "status"]);
   });
 
-  it("refuses a student_only account editing a staff day", async () => {
+  it("refuses a student_only account any correction, even of a student's day", async () => {
+    // Overriding what the readers said is an administrator's act.
+    const own = await aDayRecord();
+    expect(
+      (
+        await patch(
+          own.id,
+          { status: "departed", reason: "Should not work." },
+          studentOnly,
+        )
+      ).statusCode,
+    ).toBe(403);
+
     await scan("2001", "2026-09-16 07:30:00");
-    const [record] = await h.db.db.select().from(dayRecords);
-    const res = await patch(
-      record!.id,
-      { status: "departed", reason: "Should not work." },
-      studentOnly,
-    );
-    expect(res.statusCode).toBe(404);
+    const [staffDay] = await h.db.db
+      .select()
+      .from(dayRecords)
+      .where(eq(dayRecords.personId, (await h.db.db.select().from(people).where(eq(people.enrollNo, "2001")))[0]!.id));
+    expect(
+      (
+        await patch(
+          staffDay!.id,
+          { status: "departed", reason: "Should not work." },
+          studentOnly,
+        )
+      ).statusCode,
+    ).toBe(403);
+  });
+
+  it("moves a time, and the register reads the moved time", async () => {
+    const record = await aDayRecord();
+    const res = await patch(record.id, {
+      firstIn: "2026-09-16T01:45:00.000Z",
+      lastOut: "2026-09-16T09:30:00.000Z",
+      status: "departed",
+      reason: "Signed in at reception; the reader was down.",
+    });
+    expect(res.statusCode).toBe(200);
+    const live = (
+      await h.app.server.inject({
+        method: "GET",
+        url: "/api/register/live?date=2026-09-16",
+        headers: { cookie: full.cookie },
+      })
+    ).json();
+    const row = live.rows.find((r: { enrollNo: string }) => r.enrollNo === "11007");
+    expect(row).toMatchObject({
+      firstIn: "2026-09-16T01:45:00.000Z",
+      lastOut: "2026-09-16T09:30:00.000Z",
+      status: "departed",
+      hasManualEdit: true,
+    });
   });
 });
 

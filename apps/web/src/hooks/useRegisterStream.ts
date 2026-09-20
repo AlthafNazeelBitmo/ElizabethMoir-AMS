@@ -35,10 +35,21 @@ export interface UseRegisterStreamOptions {
 }
 
 export interface RegisterStream {
+  /** The connection as it is this instant. */
   state: ConnectionState;
+  /**
+   * The connection as it is worth telling someone about. A stream that
+   * drops and is back within a few seconds — every fifteen seconds on a
+   * serverless host — was never really gone: this stays "live" through
+   * such a blink and only reports the interruption once it has lasted.
+   */
+  shown: ConnectionState;
   /** When data was last known to be current. Shown when the stream drops. */
   lastContactAt: Date | null;
 }
+
+/** How long a stream may be away before the screen says so. */
+const INTERRUPTION_GRACE_MS = 6_000;
 
 export function useRegisterStream({
   onScan,
@@ -46,7 +57,18 @@ export function useRegisterStream({
   enabled = true,
 }: UseRegisterStreamOptions): RegisterStream {
   const [state, setState] = useState<ConnectionState>("connecting");
+  const [shown, setShown] = useState<ConnectionState>("connecting");
   const [lastContactAt, setLastContactAt] = useState<Date | null>(null);
+
+  // Downgrades from "live" wait out the grace; everything else is immediate.
+  useEffect(() => {
+    if (state === "live" || state === "idle" || shown !== "live") {
+      setShown(state);
+      return;
+    }
+    const timer = window.setTimeout(() => setShown(state), INTERRUPTION_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [state, shown]);
 
   // Held in refs so reconnecting does not need the effect to re-run, which
   // would tear down the connection every time the parent re-rendered.
@@ -151,5 +173,5 @@ export function useRegisterStream({
     };
   }, [enabled]);
 
-  return { state, lastContactAt };
+  return { state, shown, lastContactAt };
 }

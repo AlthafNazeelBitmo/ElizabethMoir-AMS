@@ -73,18 +73,21 @@ export function AttentionStrip({ user }: { user: CurrentUser }) {
           key={item.key}
           to={item.to}
           className={cn(
-            "group inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border py-1 pr-2.5 pl-1.5 text-sm transition-colors sm:rounded-full",
-            item.tone === "warn" &&
-              "border-status-late/30 bg-status-late-bg text-status-late hover:border-status-late/60",
-            item.tone === "bad" &&
-              "border-status-absent/30 bg-status-absent-bg text-status-absent hover:border-status-absent/60",
+            "group inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border bg-card py-1 pr-2.5 pl-1.5 text-sm text-muted-foreground shadow-xs transition-colors hover:border-foreground/30 hover:text-foreground sm:rounded-full dark:bg-input/20",
           )}
         >
-          <span className="flex size-5 items-center justify-center rounded-full bg-card/70">
+          <span
+            className={cn(
+              "flex size-5 items-center justify-center rounded-full",
+              item.tone === "bad"
+                ? "bg-status-absent-bg text-status-absent"
+                : "bg-muted text-foreground/70",
+            )}
+          >
             <item.icon className="size-3" />
           </span>
           <span>{item.text}</span>
-          <span className="inline-flex items-center gap-1 font-medium">
+          <span className="inline-flex items-center gap-1 font-medium text-primary">
             {item.action}
             <ArrowRightIcon className="size-3 transition-transform group-hover:translate-x-0.5" />
           </span>

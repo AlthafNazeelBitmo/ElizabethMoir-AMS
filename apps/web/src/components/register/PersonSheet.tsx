@@ -7,13 +7,13 @@ import {
   PencilLineIcon,
 } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
 import { StatusBadge, StatusShape } from "@/components/status.js";
 import { ErrorState } from "@/components/states.js";
 import { Button } from "@/components/ui/button.js";
 import { Field, Avatar, Skeleton } from "@/components/ui/misc.js";
-import { NativeSelect, Textarea } from "@/components/ui/input.js";
+import { Input, NativeSelect, Textarea } from "@/components/ui/input.js";
 import {
   Sheet,
   SheetContent,
@@ -29,6 +29,7 @@ import {
   api,
   ApiError,
   type Adjustment,
+  type CurrentUser,
   type DayStatus,
   type PersonDay,
   type PersonDetail,
@@ -37,8 +38,10 @@ import {
 import {
   formatDate,
   formatTime,
+  isoToWallTime,
   NO_TIME,
   STATUS_PRESENTATION,
+  wallTimeToIso,
 } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
@@ -89,6 +92,7 @@ function PersonBody({
   date: string;
   onChanged: () => void;
 }) {
+  const user = useOutletContext<CurrentUser>();
   const from = thirtyDaysBefore(date);
 
   const person = useQuery({
@@ -163,7 +167,9 @@ function PersonBody({
           <Timeline scans={todaysScans} isLoading={history.isPending} />
         </Section>
 
-        {today && <ManualAdjustment dayRecord={today} onChanged={onChanged} />}
+        {today && user.role === "full" && (
+          <ManualAdjustment dayRecord={today} onChanged={onChanged} />
+        )}
 
         <Section
           title="Last 30 days"
@@ -360,7 +366,34 @@ function ManualAdjustment({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<DayStatus>(dayRecord.status);
+  const [firstIn, setFirstIn] = useState(isoToWallTime(dayRecord.firstIn));
+  const [lastOut, setLastOut] = useState(isoToWallTime(dayRecord.lastOut));
   const [reason, setReason] = useState("");
+
+  // A time is sent only if it was changed; "" means cleared. The status is
+  // nudged to agree with the times unless the administrator has chosen it
+  // themselves — a first-in makes an absent day on site, a last-out makes
+  // it departed — so the two cannot quietly contradict each other.
+  const changeFirstIn = (value: string) => {
+    setFirstIn(value);
+    if (value && (status === "absent" || status === "not_expected"))
+      setStatus(lastOut ? "departed" : "on_site");
+  };
+  const changeLastOut = (value: string) => {
+    setLastOut(value);
+    if (value && status === "on_site") setStatus("departed");
+    if (!value && status === "departed") setStatus("on_site");
+  };
+  const body = () => {
+    const out: Record<string, unknown> = { status, reason };
+    if (firstIn !== isoToWallTime(dayRecord.firstIn))
+      out["firstIn"] = firstIn ? wallTimeToIso(dayRecord.date, firstIn) : null;
+    if (lastOut !== isoToWallTime(dayRecord.lastOut))
+      out["lastOut"] = lastOut ? wallTimeToIso(dayRecord.date, lastOut) : null;
+    return out;
+  };
+  const timesInOrder =
+    !firstIn || !lastOut || firstIn <= lastOut;
 
   const adjustments = useQuery({
     queryKey: ["adjustments", dayRecord.id],
@@ -372,8 +405,7 @@ function ManualAdjustment({
   });
 
   const mutation = useMutation({
-    mutationFn: () =>
-      api.patch(`/api/day-records/${dayRecord.id}`, { status, reason }),
+    mutationFn: () => api.patch(`/api/day-records/${dayRecord.id}`, body()),
     onSuccess: () => {
       setOpen(false);
       setReason("");
@@ -419,6 +451,30 @@ function ManualAdjustment({
             mutation.mutate();
           }}
         >
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First in" hint="Blank for none.">
+              <Input
+                type="time"
+                className="tabular"
+                value={firstIn}
+                onChange={(e) => changeFirstIn(e.target.value)}
+              />
+            </Field>
+            <Field label="Last out" hint="Blank for still on site.">
+              <Input
+                type="time"
+                className="tabular"
+                value={lastOut}
+                onChange={(e) => changeLastOut(e.target.value)}
+              />
+            </Field>
+          </div>
+          {!timesInOrder && (
+            <p role="alert" className="text-sm text-status-absent">
+              The last out is before the first in.
+            </p>
+          )}
+
           <Field label="Status">
             <NativeSelect
               value={status}
@@ -455,7 +511,9 @@ function ManualAdjustment({
           <div className="flex gap-2">
             <Button
               type="submit"
-              disabled={mutation.isPending || reason.trim().length < 3}
+              disabled={
+                mutation.isPending || reason.trim().length < 3 || !timesInOrder
+              }
             >
               {mutation.isPending ? "Saving…" : "Save correction"}
             </Button>

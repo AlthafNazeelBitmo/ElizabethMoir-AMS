@@ -104,6 +104,65 @@ function makeIsoDateFormatter(timeZone: string): Intl.DateTimeFormat {
 /** An em dash, not "—:—" or "N/A": an absence of time reads as nothing. */
 export const NO_TIME = "—";
 
+/**
+ * A time of day in the school's zone, as a time input shows it ("07:45"),
+ * or "" for none. The inverse of `wallTimeToIso`.
+ */
+export function isoToWallTime(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: profile.timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  return `${get("hour")}:${get("minute")}`;
+}
+
+/**
+ * The instant at which the school's clocks read `hhmm` on `date`, as ISO.
+ * Found by taking the wall time as if it were UTC and correcting by the
+ * zone's offset at that moment — twice, so a zone that changes offset that
+ * day still lands on the right side of the change.
+ */
+export function wallTimeToIso(date: string, hhmm: string): string | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!m) return null;
+  const [y, mo, d] = date.split("-").map(Number);
+  if (!y || !mo || !d) return null;
+  const asUtc = Date.UTC(y, mo - 1, d, Number(m[1]), Number(m[2]));
+  let instant = asUtc - offsetMinutesAt(asUtc) * 60_000;
+  instant = asUtc - offsetMinutesAt(instant) * 60_000;
+  return new Date(instant).toISOString();
+}
+
+/** The zone's offset from UTC, in minutes, at a given instant. */
+function offsetMinutesAt(epochMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: profile.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(epochMs));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const wall = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+  return Math.round((wall - epochMs) / 60_000);
+}
+
 export function formatTime(iso: string | null): string {
   if (!iso) return NO_TIME;
   const date = new Date(iso);

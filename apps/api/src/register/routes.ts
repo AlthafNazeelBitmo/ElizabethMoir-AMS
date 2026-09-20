@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { writeAudit } from "../audit.js";
 import {
+  requireRole,
   requireSession,
   unauthorized,
   type CookieContext,
@@ -249,9 +250,11 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
 
   // ── Manual adjustment ───────────────────────────────────────────────────
 
+  // Correcting a day is an administrator's act: it overrides what the
+  // readers said and stands in every report afterwards.
   app.patch<{ Params: { id: string } }>(
     "/api/day-records/:id",
-    { preHandler },
+    { preHandler: [...preHandler, requireRole("full")] },
     async (req, reply) => {
       const parsed = adjustBody.safeParse(req.body);
       if (!parsed.success) {

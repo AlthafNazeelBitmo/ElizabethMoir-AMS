@@ -32,7 +32,10 @@ test("correcting a day writes an audit entry that the admin screen shows", async
   expect(personName.length).toBeGreaterThan(0);
 
   await panel.getByRole("button", { name: "Correct", exact: true }).click();
-  await panel.getByLabel("Status").selectOption("departed");
+  // Giving them a departure time nudges the status to departed by itself.
+  await panel.getByLabel("Last out").fill("15:05");
+  await expect(panel.getByLabel("Status")).toHaveValue("departed");
+  await panel.getByLabel("First in").fill("07:12");
 
   // A correction without a reason cannot be saved.
   const save = panel.getByRole("button", { name: "Save correction" });
@@ -41,8 +44,11 @@ test("correcting a day writes an audit entry that the admin screen shows", async
   await expect(save).toBeEnabled();
   await save.click();
 
-  // The register row, the panel, and the hand-correction marker all update.
+  // The register row reads the moved times, the panel and the
+  // hand-correction marker all update.
   await expect(row).toContainText("Departed");
+  await expect(row).toContainText("07:12");
+  await expect(row).toContainText("15:05");
   await expect(row.getByLabel("Corrected by hand")).toBeVisible();
   await expect(panel).toContainText(`Last corrected by ${DEMO.full.name}`);
   await expect(panel).toContainText(REASON);
@@ -83,4 +89,16 @@ test("correcting a day writes an audit entry that the admin screen shows", async
   expect(entries[0]!.action).toBe("manual_adjustment");
   expect(entries[0]!.entity).toBe("day_record");
   expect(JSON.stringify(entries[0]!.after)).toContain(REASON);
+});
+
+test("a student-only account can read a day but not correct it", async ({
+  page,
+}) => {
+  await signIn(page, "studentOnly");
+  await page.getByLabel("Search by name or ID").fill(DEMO.reportStudent);
+  await rowFor(page, DEMO.reportStudent).click();
+  const panel = page.getByRole("dialog", { name: "Person detail" });
+  await expect(panel).toContainText(DEMO.reportStudent);
+  await expect(panel.getByRole("button", { name: "Correct", exact: true })).toHaveCount(0);
+  await expect(panel.getByText("Correct this day")).toHaveCount(0);
 });

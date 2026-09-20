@@ -25,7 +25,6 @@ import {
 } from "@/components/states.js";
 import { Button } from "@/components/ui/button.js";
 import { Input, NativeSelect } from "@/components/ui/input.js";
-import { Kbd } from "@/components/ui/misc.js";
 import {
   useRegisterStream,
   type ConnectionState,
@@ -46,7 +45,7 @@ import {
   searchFromFilters,
   type RegisterFilters,
 } from "@/lib/filters.js";
-import { formatDate, schoolToday } from "@/lib/format.js";
+import { formatDate, formatTime, schoolToday } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
 /**
@@ -250,7 +249,7 @@ export function RegisterPage() {
         actions={
           <>
             <ConnectionIndicator
-              state={stream.state}
+              state={stream.shown}
               lastContactAt={stream.lastContactAt}
             />
             <div className="flex items-center rounded-md border bg-card shadow-xs dark:bg-input/20">
@@ -298,19 +297,20 @@ export function RegisterPage() {
         }
       />
 
-      {stream.state === "reconnecting" && (
+      {/* Only once the stream has been gone long enough to matter: a
+          reconnect that lands within seconds is not worth a line. */}
+      {stream.shown === "reconnecting" && (
         <div
           role="status"
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-status-late/40 bg-status-late-bg px-3 py-2 text-sm text-status-late"
+          className="flex shrink-0 items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
         >
-          <span className="size-2 rounded-full bg-status-late" />
-          Reconnecting — showing data from{" "}
-          {stream.lastContactAt
-            ? stream.lastContactAt.toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "when the page loaded"}
+          <span className="size-1.5 rounded-full bg-status-late" aria-hidden />
+          Connection lost — reconnecting. The figures are as of{" "}
+          <span className="tabular font-medium text-foreground">
+            {stream.lastContactAt
+              ? formatTime(stream.lastContactAt.toISOString())
+              : "when the page loaded"}
+          </span>
           .
         </div>
       )}
@@ -342,13 +342,12 @@ export function RegisterPage() {
               <Input
                 ref={searchInputRef}
                 type="search"
-                className="w-64 pl-8 pr-9"
+                className="w-64 pl-8"
                 placeholder="Search name or ID"
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
                 aria-label="Search by name or ID"
               />
-              <Kbd className="absolute top-1/2 right-2 -translate-y-1/2">/</Kbd>
             </div>
 
             {/* The rail is hidden on a phone; the same choice, as a select. */}

@@ -21,7 +21,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BrandMark, SchoolLogo } from "./BrandMark.js";
-import { Avatar, Kbd, Separator } from "@/components/ui/misc.js";
+import { Avatar, Separator } from "@/components/ui/misc.js";
 import { Button } from "@/components/ui/button.js";
 import {
   DropdownMenu,
@@ -127,12 +127,7 @@ export function Sidebar({
           )}
         >
           <SearchGlyph />
-          {!collapsed && (
-            <>
-              <span className="flex-1 text-left">Search…</span>
-              <Kbd>⌘K</Kbd>
-            </>
-          )}
+          {!collapsed && <span className="flex-1 text-left">Search…</span>}
         </button>
       </div>
 
