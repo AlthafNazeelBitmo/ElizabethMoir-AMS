@@ -554,7 +554,6 @@ export function AdminDirectory() {
                 <Th>Name</Th>
                 <Th>ID</Th>
                 <Th>Group</Th>
-                <Th>Tutor</Th>
                 <Th />
               </>
             }
@@ -578,9 +577,6 @@ export function AdminDirectory() {
                 </Td>
                 <Td className="text-muted-foreground">
                   {person.groupName ?? "—"}
-                </Td>
-                <Td className="text-muted-foreground">
-                  {person.tutorInitials ?? "—"}
                 </Td>
                 <Td className="text-right">
                   <DropdownMenu>

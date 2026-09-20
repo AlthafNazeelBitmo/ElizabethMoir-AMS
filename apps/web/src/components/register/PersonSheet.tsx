@@ -138,8 +138,6 @@ function PersonBody({
                 {person.data.person.enrollNo}
                 {person.data.person.groupName &&
                   ` · ${person.data.person.groupName}`}
-                {person.data.person.tutorInitials &&
-                  ` · Tutor ${person.data.person.tutorInitials}`}
               </>
             )}
           </SheetDescription>

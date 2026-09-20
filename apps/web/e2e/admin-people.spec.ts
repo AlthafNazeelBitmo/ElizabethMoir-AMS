@@ -102,8 +102,9 @@ test("the directory filters by branch, group and tutor", async ({ page }) => {
   };
   const rj = tutors.tutors.find((t) => t.initials === "RJ")!;
   await page.getByLabel("Tutor").selectOption(String(rj.id));
-  await expect(page.getByRole("cell", { name: "AP", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("cell", { name: "RJ", exact: true }).first()).toBeVisible();
+  // Ann Fernando's tutor is AP; Ben Fernando's is RJ.
+  await expect(rowFor(page, "11040")).toHaveCount(0);
+  await expect(rowFor(page, "11041")).toBeVisible();
 });
 
 test("tutors are added, named and removed by hand", async ({ page }) => {

@@ -698,6 +698,55 @@ describe("unknown enrolment numbers", () => {
     expect((await h.db.db.select().from(auditLog)).filter((e) => e.action === "unknown_matched")).toHaveLength(1);
   });
 
+  it("removes a stray number with the scans nobody owns, keeping the deliveries", async () => {
+    await scanFromUnknown("20", "2026-09-16 07:30:00");
+    await scanFromUnknown("20", "2026-09-16 07:31:00");
+    await scanFromUnknown("99999", "2026-09-16 07:32:00");
+    const res = await h.app.server.inject({
+      method: "DELETE",
+      url: "/api/admin/unknown-enrollments/20",
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ scansRemoved: 2 });
+
+    const listed = (await get("/api/admin/unknown-enrollments")).json();
+    expect(listed.unknownEnrollments.map((u: { enrollNo: string }) => u.enrollNo)).toEqual(["99999"]);
+    expect((await h.db.db.select().from(scans)).map((s) => s.enrollNo)).toEqual(["99999"]);
+    expect(await h.db.db.select().from(rawEvents)).toHaveLength(3);
+    const entries = await h.db.db.select().from(auditLog);
+    expect(entries.some((e) => e.action === "unknown_removed" && e.entityId === "20")).toBe(true);
+
+    // Gone is gone; and a number that was never seen is the same answer.
+    const again = await h.app.server.inject({
+      method: "DELETE",
+      url: "/api/admin/unknown-enrollments/20",
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it("will not sweep away a deactivated person's number", async () => {
+    const [group] = await h.db.db.select().from(groups).where(eq(groups.branch, "student"));
+    const created = (
+      await post("/api/admin/people", { enrollNo: "22222", fullName: "Gone Away", groupId: group!.id })
+    ).json().person as { id: string };
+    await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/people/${created.id}`,
+      payload: { isActive: false },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    await scanFromUnknown("22222", "2026-09-16 07:30:00");
+    const res = await h.app.server.inject({
+      method: "DELETE",
+      url: "/api/admin/unknown-enrollments/22222",
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("number_held");
+  });
+
   it("404s for a number that was never seen", async () => {
     const res = await post("/api/admin/unknown-enrollments/00000/attach", {
       create: { fullName: "Nobody" },

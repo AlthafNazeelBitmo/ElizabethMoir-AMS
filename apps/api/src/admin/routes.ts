@@ -529,6 +529,61 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     },
   );
 
+  app.delete<{ Params: { enroll: string } }>(
+    "/api/admin/unknown-enrollments/:enroll",
+    { preHandler },
+    async (req, reply) => {
+      const enrollNo = req.params.enroll;
+      const [unknown] = await db
+        .select()
+        .from(unknownEnrollments)
+        .where(eq(unknownEnrollments.enrollNo, enrollNo))
+        .limit(1);
+      if (!unknown || unknown.resolvedPersonId !== null) {
+        return reply
+          .code(404)
+          .send({ error: "not_found", message: "No such unknown enrolment." });
+      }
+      const [holder] = await db
+        .select({ id: people.id })
+        .from(people)
+        .where(eq(people.enrollNo, enrollNo))
+        .limit(1);
+      if (holder) {
+        // A deactivated person's number: it is theirs to reactivate or
+        // delete under People, not a stray to sweep away.
+        return reply.code(409).send({
+          error: "number_held",
+          message: `Enrolment number ${enrollNo} belongs to someone who is deactivated. Reactivate or delete them under People instead.`,
+        });
+      }
+
+      // A test card, a probe, a number enrolled by mistake: the number and
+      // the scans nobody owns go; the readers' raw deliveries stay, so
+      // nothing said is lost, and if the card scans again the number is
+      // simply back.
+      const removedScans = await db
+        .delete(scans)
+        .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)))
+        .returning({ id: scans.id });
+      await db
+        .delete(unknownEnrollments)
+        .where(eq(unknownEnrollments.enrollNo, enrollNo));
+
+      await writeAudit(db, req.log, {
+        action: "unknown_removed",
+        userId: req.auth!.userId,
+        entity: "unknown_enrollment",
+        entityId: enrollNo,
+        before: unknown,
+        after: { scansRemoved: removedScans.length },
+        ip: req.ip || null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      return reply.send({ scansRemoved: removedScans.length });
+    },
+  );
+
   app.post<{ Params: { enroll: string } }>(
     "/api/admin/unknown-enrollments/:enroll/attach",
     { preHandler },

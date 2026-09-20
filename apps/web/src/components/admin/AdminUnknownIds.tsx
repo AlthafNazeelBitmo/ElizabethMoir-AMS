@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
   RefreshCwIcon,
+  Trash2Icon,
   UserPlusIcon,
   UserRoundCheckIcon,
 } from "lucide-react";
@@ -9,6 +10,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, TableSkeleton } from "@/components/states.js";
 import { Button } from "@/components/ui/button.js";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { Input, NativeSelect } from "@/components/ui/input.js";
 import { Field } from "@/components/ui/misc.js";
 import { api, type Branch } from "@/lib/api.js";
@@ -59,6 +68,7 @@ interface Group {
 export function AdminUnknownIds() {
   const queryClient = useQueryClient();
   const [attaching, setAttaching] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<UnknownEnrollment | null>(null);
 
   const unknown = useQuery({
     queryKey: ["unknown-enrollments"],
@@ -128,6 +138,20 @@ export function AdminUnknownIds() {
     },
   });
 
+  const remove = useMutation({
+    mutationFn: (row: UnknownEnrollment) =>
+      api.delete<{ scansRemoved: number }>(
+        `/api/admin/unknown-enrollments/${encodeURIComponent(row.enrollNo)}`,
+      ),
+    onSuccess: (data, row) => {
+      toast.success(`ID ${row.enrollNo} removed`, {
+        description: `${data.scansRemoved} scan(s) went with it. If the card scans again, it will be back.`,
+      });
+      setRemoving(null);
+      void queryClient.invalidateQueries({ queryKey: ["unknown-enrollments"] });
+    },
+  });
+
   const reactivate = useMutation({
     mutationFn: (args: { personId: string; fullName: string }) =>
       api.patch<{ daysRecomputed: number }>(
@@ -159,6 +183,39 @@ export function AdminUnknownIds() {
       }
     >
       <Problem error={attach.error ?? reactivate.error ?? match.error} />
+
+      <Dialog
+        open={removing !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoving(null);
+        }}
+      >
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Remove ID {removing?.enrollNo}?</DialogTitle>
+            <DialogDescription>
+              For a test card, a probe, or a number enrolled by mistake. The
+              number and its {removing?.scanCount} scan(s) are removed; the
+              readers&apos; original deliveries are kept. If the card scans
+              again, the number comes back here.
+            </DialogDescription>
+          </DialogHeader>
+          <Problem error={remove.error} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRemoving(null)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={remove.isPending}
+              onClick={() => removing && remove.mutate(removing)}
+            >
+              <Trash2Icon />
+              {remove.isPending ? "Removing…" : "Remove"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Panel>
         {unknown.isPending && <TableSkeleton rows={4} />}
@@ -259,13 +316,21 @@ export function AdminUnknownIds() {
                       </Button>
                     </form>
                   ) : (
-                    <div className="text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setAttaching(row.enrollNo)}
                       >
                         <UserPlusIcon /> Give this a name
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove ID ${row.enrollNo}`}
+                        onClick={() => setRemoving(row)}
+                      >
+                        <Trash2Icon />
                       </Button>
                     </div>
                   )}

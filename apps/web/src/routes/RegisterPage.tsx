@@ -217,7 +217,9 @@ export function RegisterPage() {
     });
   }, [rows, filters.status, filters.q]);
 
-  const showTutor = filters.branch !== "staff";
+  // The tutor initials are kept off the register for now: the office
+  // asked for the screen without them.
+  const showTutor = false;
   const isNarrow = useIsNarrow();
   const isCompact = useMediaQuery("(max-width: 1023px)");
   const isToday = filters.date === today;

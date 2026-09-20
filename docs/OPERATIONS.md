@@ -137,6 +137,13 @@ nobody has entered is not a school day.
 directory does not know still records its scans; give the number a name and
 the history comes with it.
 
+**A number on Unknown IDs that is nobody's.** A test card, a probe, a
+number enrolled on the reader by mistake: the bin icon on its row removes
+the number and the scans nobody owns (the readers' original deliveries
+are kept). If the card scans again the number simply reappears. A
+deactivated person's number cannot be removed this way — reactivate or
+delete them under People.
+
 **A deactivated person keeps scanning.** Their card still opens the reader.
 The scans are not filed under a record the register no longer shows: the
 number goes back to Admin → Unknown IDs, marked _Was <name>, deactivated_,
