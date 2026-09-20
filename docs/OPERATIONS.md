@@ -126,9 +126,12 @@ deduplicate on the way back in.
 
 ## When something looks wrong
 
-**The register is empty.** Check Admin → People: if the directory is
-empty, import it. If people are listed but everyone is "Not expected",
-check Admin → Calendar for that date.
+**The register is empty.** It shows who has checked in; before the first
+scan of the day it says so, and _Show everyone_ (or the status filter set
+to _Everyone_) lists the whole roll. If the roll itself is empty, check
+Admin → People and import the directory. If people are listed but
+everyone is "Not expected", check Admin → Calendar for that date — a day
+nobody has entered is not a school day.
 
 **Somebody is missing from the register.** Admin → Unknown IDs. A card the
 directory does not know still records its scans; give the number a name and

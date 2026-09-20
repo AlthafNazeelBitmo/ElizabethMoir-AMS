@@ -24,11 +24,12 @@ test("a posted scan reaches the open register through the stream", async ({
 
   // Narrow the view to the one person, so the row is on screen regardless
   // of how the virtualised table has laid out the rest. Search is applied
-  // in the browser, so this is not a fetch.
+  // in the browser, so this is not a fetch. They have not scanned today,
+  // so the resting view — who has checked in — does not show them yet.
   await page.getByLabel("Search by name or ID").fill(DEMO.unscannedStudent);
   const row = rowFor(page, DEMO.unscannedStudent);
-  await expect(row).toBeVisible();
-  await expect(row).not.toContainText("On site");
+  await expect(page.getByText("Nobody checked in matches")).toBeVisible();
+  await expect(row).toHaveCount(0);
 
   // Wait for the stream to be live before posting; a scan delivered before
   // the subscription is replayed on connect, which would also pass but
@@ -61,6 +62,8 @@ test("a posted scan reaches the open register through the stream", async ({
   });
   expect(response.status()).toBe(200);
 
+  // The scan brings them on to the screen, through the stream alone.
+  await expect(row).toBeVisible();
   await expect(row).toContainText("On site");
   await expect(row).toContainText(time.slice(0, 5));
   expect(registerFetches).toBe(fetchesBeforeScan);

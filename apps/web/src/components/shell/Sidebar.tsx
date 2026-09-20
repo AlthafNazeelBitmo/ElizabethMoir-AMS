@@ -194,8 +194,11 @@ export function Sidebar({
 
       <div className="mt-auto" />
 
-      {/* Collapse toggle */}
-      <div className={cn("px-2 pb-1", collapsed && "px-0")}>
+      {/* Collapse toggle. The button is inline-flex, so the rail centres
+          it with a flex parent rather than a margin it would ignore. */}
+      <div
+        className={cn("px-2 pb-1", collapsed && "flex justify-center px-0")}
+      >
         <Button
           variant="ghost"
           size="sm"
@@ -203,7 +206,7 @@ export function Sidebar({
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className={cn(
             "w-full justify-start text-muted-foreground",
-            collapsed && "mx-auto size-10 w-10 justify-center px-0",
+            collapsed && "size-10 w-10 justify-center px-0",
           )}
         >
           {collapsed ? <ChevronsRightIcon /> : <ChevronsLeftIcon />}

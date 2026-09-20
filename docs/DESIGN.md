@@ -150,9 +150,19 @@ fifteen seconds are never mentioned. `StatCards` are the counts in one strip, ea
 and a click that filters.
 `ArrivalsSparkline` is the morning's arrivals in ten-minute slots, computed
 from the rows already on screen — nothing is fetched for it. `GroupsPanel`
-is the rail with an on-site bar under each group so the half-empty form is
-seen before it is read. `RegisterTable` is virtualised and updates a row in
-place from the stream; a changed row flashes once.
+is the rail: each group a row with a small ring filled to its on-site
+share, so the half-empty form is seen before its number is read, and each
+branch a small-capitals row that is itself a filter. `RegisterTable` is
+virtualised and updates a row in place from the stream; a changed row
+flashes once.
+
+The register **rests on who has checked in**. The whole roll is fetched,
+so a scan brings its person on to the screen through the stream alone,
+but the list shows only people with a first-in until the status filter
+says otherwise: "Everyone" is one choice away, in the select, on the
+"Expected" tile, and on the empty state that says nobody checked in
+matches a search. A school of six hundred names with a dash beside most
+of them is not a register of who is here.
 
 `PersonSheet` is **non-modal** on purpose: the register stays readable and
 clickable beside it, so the next person is one click away and a screen

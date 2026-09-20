@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers.js";
+import { DEMO, rowFor, signIn } from "./helpers.js";
 
 /**
  * Specification §12: apply filters and assert URL state survives a reload.
@@ -72,7 +72,27 @@ test("group, status and search filters live in the URL and survive a reload", as
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).toHaveURL(/\/register$/);
   await expect(search).toHaveValue("");
-  await expect(status).toHaveValue("");
+  // The resting view is the people who have checked in, not the whole roll.
+  await expect(status).toHaveValue("checked_in");
+});
+
+test("the register rests on who has checked in, and can show everyone", async ({
+  page,
+}) => {
+  await signIn(page, "full");
+  const status = page.getByLabel("Status");
+  await expect(status).toHaveValue("checked_in");
+
+  // Someone who has not scanned today is not on the resting view…
+  await page.getByLabel("Search by name or ID").fill(DEMO.unscannedStudent);
+  await expect(rowFor(page, DEMO.unscannedStudent)).toHaveCount(0);
+  await expect(page.getByText("Nobody checked in matches")).toBeVisible();
+
+  // …and one click away.
+  await page.getByRole("button", { name: "Show everyone" }).click();
+  await expect(page).toHaveURL(/status=any/);
+  await expect(status).toHaveValue("any");
+  await expect(rowFor(page, DEMO.unscannedStudent)).toBeVisible();
 });
 
 test("a date in the URL is honoured and survives a reload", async ({

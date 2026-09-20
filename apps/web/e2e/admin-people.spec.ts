@@ -31,7 +31,7 @@ test("a person can be added by hand, edited, and deactivated", async ({
   await expect(listed).toContainText("Form 1");
 
   // And on the register, where it counts.
-  await page.goto(`/register?q=${enrollNo}`);
+  await page.goto(`/register?q=${enrollNo}&status=any`);
   await expect(rowFor(page, enrollNo)).toContainText(name);
 
   // Edited in place; the number cannot be changed.
@@ -59,7 +59,7 @@ test("a person can be added by hand, edited, and deactivated", async ({
   await expect(rowFor(page, enrollNo)).toContainText("Inactive");
   await expect(rowFor(page, DEMO.seededStudent)).toHaveCount(0);
 
-  await page.goto(`/register?q=${enrollNo}`);
+  await page.goto(`/register?q=${enrollNo}&status=any`);
   await expect(page.getByText("No one matches these filters.")).toBeVisible();
 
   // Deleted: asked twice, then gone for good.

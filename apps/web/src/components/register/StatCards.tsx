@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { DayStatus, RegisterRow, StatusCounts } from "@/lib/api.js";
+import type { RegisterRow, StatusCounts } from "@/lib/api.js";
+import { DEFAULT_STATUS, type StatusFilter } from "@/lib/filters.js";
 import { schoolTimezone } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
@@ -20,14 +21,14 @@ const ArrivalsSparkline = lazy(() => import("@/components/charts/ArrivalsSparkli
 const TILES: Array<{
   key: keyof StatusCounts;
   label: string;
-  filter: DayStatus | null;
+  filter: StatusFilter;
   accent: string;
   bar: string;
 }> = [
   {
     key: "total",
     label: "Expected",
-    filter: null,
+    filter: "any",
     accent: "",
     bar: "bg-foreground/70",
   },
@@ -41,7 +42,7 @@ const TILES: Array<{
   {
     key: "late",
     label: "Late",
-    filter: null,
+    filter: "late",
     accent: "text-status-late",
     bar: "bg-status-late",
   },
@@ -70,8 +71,8 @@ export function StatCards({
 }: {
   counts: StatusCounts | undefined;
   rows: RegisterRow[];
-  activeStatus: DayStatus | null;
-  onSelectStatus: (status: DayStatus | null) => void;
+  activeStatus: StatusFilter;
+  onSelectStatus: (status: StatusFilter) => void;
   isLoading: boolean;
 }) {
   const total = counts?.total ?? 0;
@@ -81,24 +82,21 @@ export function StatCards({
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-7">
       {TILES.map((tile) => {
         const value = counts?.[tile.key] ?? 0;
-        const filterable = tile.filter !== null;
-        const active = filterable && activeStatus === tile.filter;
+        const active = activeStatus === tile.filter;
         const share =
           total > 0 && tile.key !== "total" ? (value / total) * 100 : 100;
         return (
           <button
             key={tile.key}
             type="button"
-            aria-pressed={filterable ? active : undefined}
-            onClick={() => {
-              if (tile.key === "total") return onSelectStatus(null);
-              if (!filterable) return;
-              onSelectStatus(active ? null : tile.filter);
-            }}
-            disabled={isLoading || (!filterable && tile.key !== "total")}
+            aria-pressed={active}
+            // A second click on a tile returns to the resting view.
+            onClick={() =>
+              onSelectStatus(active ? DEFAULT_STATUS : tile.filter)
+            }
+            disabled={isLoading}
             className={cn(
-              "group flex flex-col gap-1 bg-card p-3.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset disabled:cursor-default",
-              (filterable || tile.key === "total") && "hover:bg-muted/50",
+              "group flex flex-col gap-1 bg-card p-3.5 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset disabled:cursor-default",
               active && "bg-accent/70 hover:bg-accent/70",
             )}
           >

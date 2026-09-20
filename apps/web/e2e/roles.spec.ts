@@ -37,10 +37,8 @@ test("a full account sees students, staff and admin", async ({ page }) => {
   await expect(nav.getByRole("link", { name: "Admin" })).toBeVisible();
 
   const rail = page.getByRole("navigation", { name: "Groups" });
-  await expect(
-    rail.getByRole("button", { name: "All students" }),
-  ).toBeVisible();
-  await expect(rail.getByRole("button", { name: "All staff" })).toBeVisible();
+  await expect(rail.getByRole("button", { name: /^Students:/ })).toBeVisible();
+  await expect(rail.getByRole("button", { name: /^Staff:/ })).toBeVisible();
 
   await expect(page.getByText(DEMO.full.name)).toBeVisible();
 
@@ -72,10 +70,7 @@ test("a student-only account sees no staff and no admin, anywhere", async ({
   await expect(nav.getByRole("link", { name: "Admin" })).toHaveCount(0);
 
   const rail = page.getByRole("navigation", { name: "Groups" });
-  await expect(
-    rail.getByRole("button", { name: "All students" }),
-  ).toBeVisible();
-  await expect(rail.getByRole("button", { name: "All staff" })).toHaveCount(0);
+  await expect(rail.getByRole("button", { name: /^Students:/ })).toBeVisible();
   await expect(rail.getByRole("button", { name: /Staff/ })).toHaveCount(0);
 
   await expect(page.getByText(/students only/i)).toBeVisible();

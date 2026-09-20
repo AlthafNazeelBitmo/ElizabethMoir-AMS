@@ -5,12 +5,24 @@ import type { Branch, DayStatus } from "./api.js";
  * office and the head can send each other a link to exactly what they are
  * looking at, and a reload does not lose the view.
  */
+/**
+ * What the list is narrowed to. "checked_in" — everyone who has scanned in
+ * today, whatever their status since — is the register's resting state:
+ * the screen is about who is here, and a school of six hundred names with
+ * a dash beside most of them is not that. "any" is the whole roll. A
+ * single status is a single status; "late" is the late flag, which sits
+ * on top of on site or departed.
+ */
+export type StatusFilter = DayStatus | "checked_in" | "any";
+
+export const DEFAULT_STATUS: StatusFilter = "checked_in";
+
 export interface RegisterFilters {
   date: string;
   branch: Branch | null;
   group: number | null;
   tutor: number | null;
-  status: DayStatus | null;
+  status: StatusFilter;
   q: string;
 }
 
@@ -27,7 +39,7 @@ export function filtersFromSearch(params: URLSearchParams, today: string): Regis
     branch: branch === "student" || branch === "staff" ? branch : null,
     group: num("group"),
     tutor: num("tutor"),
-    status: isStatus(status) ? status : null,
+    status: status === "any" || isStatus(status) ? status : DEFAULT_STATUS,
     q: params.get("q") ?? "",
   };
 }
@@ -38,7 +50,7 @@ export function searchFromFilters(filters: RegisterFilters, today: string): URLS
   if (filters.branch) params.set("branch", filters.branch);
   if (filters.group !== null) params.set("group", String(filters.group));
   if (filters.tutor !== null) params.set("tutor", String(filters.tutor));
-  if (filters.status) params.set("status", filters.status);
+  if (filters.status !== DEFAULT_STATUS) params.set("status", filters.status);
   if (filters.q.trim()) params.set("q", filters.q.trim());
   return params;
 }
@@ -61,9 +73,26 @@ export function hasActiveFilters(filters: RegisterFilters): boolean {
     filters.branch !== null ||
     filters.group !== null ||
     filters.tutor !== null ||
-    filters.status !== null ||
+    filters.status !== DEFAULT_STATUS ||
     filters.q.trim() !== ""
   );
+}
+
+/** Whether a row passes the status filter. */
+export function matchesStatus(
+  row: { status: DayStatus; isLate: boolean; firstIn: string | null },
+  status: StatusFilter,
+): boolean {
+  switch (status) {
+    case "any":
+      return true;
+    case "checked_in":
+      return row.firstIn !== null;
+    case "late":
+      return row.isLate;
+    default:
+      return row.status === status;
+  }
 }
 
 function isStatus(value: string | null): value is DayStatus {

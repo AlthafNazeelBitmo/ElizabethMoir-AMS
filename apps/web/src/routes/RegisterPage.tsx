@@ -34,16 +34,18 @@ import {
   fetchAllRegisterRows,
   api,
   type CurrentUser,
-  type DayStatus,
   type RegisterRow,
   type SummaryResponse,
 } from "@/lib/api.js";
 import {
+  DEFAULT_STATUS,
   filtersFromSearch,
   hasActiveFilters,
+  matchesStatus,
   queryFromFilters,
   searchFromFilters,
   type RegisterFilters,
+  type StatusFilter,
 } from "@/lib/filters.js";
 import { formatDate, formatTime, schoolToday } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
@@ -206,7 +208,7 @@ export function RegisterPage() {
   const visibleRows = useMemo(() => {
     const needle = filters.q.trim().toLowerCase();
     return rows.filter((row) => {
-      if (filters.status && row.status !== filters.status) return false;
+      if (!matchesStatus(row, filters.status)) return false;
       if (!needle) return true;
       return (
         row.fullName.toLowerCase().includes(needle) ||
@@ -389,16 +391,16 @@ export function RegisterPage() {
 
             <NativeSelect
               aria-label="Status"
-              value={filters.status ?? ""}
+              value={filters.status}
               onChange={(e) =>
-                setFilters({
-                  status: (e.target.value || null) as DayStatus | null,
-                })
+                setFilters({ status: e.target.value as StatusFilter })
               }
             >
-              <option value="">Any status</option>
+              <option value="checked_in">Checked in</option>
+              <option value="any">Everyone</option>
               <option value="on_site">On site</option>
               <option value="departed">Departed</option>
+              <option value="late">Late</option>
               <option value="absent">Absent</option>
               <option value="not_expected">Not expected</option>
             </NativeSelect>
@@ -457,14 +459,33 @@ export function RegisterPage() {
               <EmptyState
                 icon={SearchIcon}
                 title={
-                  hasActiveFilters(filters)
-                    ? "No one matches these filters."
-                    : "Nobody is in the register for this day."
+                  rows.length === 0
+                    ? "Nobody is in the register for this day."
+                    : filters.status === "checked_in"
+                      ? filters.q.trim()
+                        ? `Nobody checked in matches “${filters.q.trim()}”.`
+                        : "Nobody has checked in yet."
+                      : "No one matches these filters."
                 }
                 detail={
-                  hasActiveFilters(filters)
-                    ? "Clear the filters to see everyone."
-                    : "Import the school directory in Admin, then scans will appear here as they happen."
+                  rows.length === 0
+                    ? "Import the school directory in Admin, then scans will appear here as they happen."
+                    : filters.status === "checked_in"
+                      ? filters.q.trim()
+                        ? "They may not have scanned today."
+                        : "Scans appear here as they happen."
+                      : "Clear the filters to see everyone."
+                }
+                action={
+                  rows.length > 0 && filters.status === "checked_in" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilters({ status: "any" })}
+                    >
+                      Show everyone
+                    </Button>
+                  ) : undefined
                 }
               />
             )}
@@ -567,7 +588,7 @@ function blankFilters(today: string): RegisterFilters {
     branch: null,
     group: null,
     tutor: null,
-    status: null,
+    status: DEFAULT_STATUS,
     q: "",
   };
 }
