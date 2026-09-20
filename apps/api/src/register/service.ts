@@ -139,7 +139,7 @@ export class RegisterService {
       .map((row) => this.toRegisterRow(row, dayContext, settings))
       // A status filter applies after synthesis, because someone with no
       // day record still has a status — that is the whole point of "absent".
-      .filter((row) => (filters.status ? row.status === filters.status : true));
+      .filter((row) => matchesStatus(row, filters.status));
 
     const last = page.at(-1);
     const [total] = await this.db
@@ -209,7 +209,14 @@ export class RegisterService {
     for (const raw of rows) {
       const row = this.toRegisterRow(raw, dayContext, settings);
       counts.total += 1;
-      counts[row.status] += 1;
+      // On site and departed are presence, not status: someone who scanned
+      // in on a day they were not expected — a Sunday, or a contractor — is
+      // in the building all the same, and the register is about who is
+      // here. Absent and not expected remain the day's verdict.
+      if (isIn(row)) counts.on_site += 1;
+      else if (isOut(row)) counts.departed += 1;
+      if (row.status === "absent") counts.absent += 1;
+      if (row.status === "not_expected") counts.not_expected += 1;
       if (row.isLate) counts.late += 1;
     }
     return counts;
@@ -317,7 +324,7 @@ export class RegisterService {
       };
       entry.total += 1;
       const row = this.toRegisterRow(raw, dayContext, settings);
-      if (row.status === "on_site") entry.onSite += 1;
+      if (isIn(row)) entry.onSite += 1;
       byGroup.set(raw.groupId, entry);
     }
     // In the order the school chose, so "Form 10" does not sit between
@@ -554,4 +561,36 @@ export function decodeCursor(
     // is almost always a stale bookmark, not an attack.
   }
   return null;
+}
+
+/** Scanned in and not yet out, whatever the day's verdict. */
+export function isIn(row: { firstIn: string | null; lastOut: string | null }): boolean {
+  return row.firstIn !== null && row.lastOut === null;
+}
+
+/** Scanned out. */
+export function isOut(row: { lastOut: string | null }): boolean {
+  return row.lastOut !== null;
+}
+
+/**
+ * The status filter, in the same terms as the counts: on site and departed
+ * are presence, the rest the day's status, late the flag.
+ */
+export function matchesStatus(
+  row: { status: DayStatus; isLate: boolean; firstIn: string | null; lastOut: string | null },
+  status: DayStatus | undefined,
+): boolean {
+  switch (status) {
+    case undefined:
+      return true;
+    case "on_site":
+      return isIn(row);
+    case "departed":
+      return isOut(row);
+    case "late":
+      return row.isLate;
+    default:
+      return row.status === status;
+  }
 }

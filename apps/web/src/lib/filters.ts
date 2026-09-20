@@ -78,9 +78,20 @@ export function hasActiveFilters(filters: RegisterFilters): boolean {
   );
 }
 
-/** Whether a row passes the status filter. */
+/**
+ * Whether a row passes the status filter, in the same terms as the counts
+ * on the tiles and the rail: on site and departed are presence — scanned
+ * in and not out, scanned out — whatever the day's verdict, so a Sunday's
+ * scans or a contractor's still count as here; absent and not expected
+ * are the verdict; late is the flag.
+ */
 export function matchesStatus(
-  row: { status: DayStatus; isLate: boolean; firstIn: string | null },
+  row: {
+    status: DayStatus;
+    isLate: boolean;
+    firstIn: string | null;
+    lastOut: string | null;
+  },
   status: StatusFilter,
 ): boolean {
   switch (status) {
@@ -88,6 +99,10 @@ export function matchesStatus(
       return true;
     case "checked_in":
       return row.firstIn !== null;
+    case "on_site":
+      return row.firstIn !== null && row.lastOut === null;
+    case "departed":
+      return row.lastOut !== null;
     case "late":
       return row.isLate;
     default:

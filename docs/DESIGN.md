@@ -150,11 +150,16 @@ fifteen seconds are never mentioned. `StatCards` are the counts in one strip, ea
 and a click that filters.
 `ArrivalsSparkline` is the morning's arrivals in ten-minute slots, computed
 from the rows already on screen — nothing is fetched for it. `GroupsPanel`
-is the rail: each group a row with a small ring filled to its on-site
-share, so the half-empty form is seen before its number is read, and each
-branch a small-capitals row that is itself a filter. `RegisterTable` is
-virtualised and updates a row in place from the stream; a changed row
-flashes once.
+is the rail with an on-site bar under each group so the half-empty form is
+seen before it is read; everyone, the students and the staff are three
+parts ruled apart by full-width bands. `RegisterTable` is virtualised and
+updates a row in place from the stream; a changed row flashes once.
+
+"On site" and "Departed" — on the tiles, on the rail, and as filters — are
+**presence**, not status: scanned in and not out, scanned out. Someone in
+the building on a day they were not expected, a Sunday or a contractor,
+is counted as here; "Absent" and "Not expected" remain the day's verdict,
+and the row's badge still says which.
 
 The register **rests on who has checked in**. The whole roll is fetched,
 so a scan brings its person on to the screen through the stream alone,

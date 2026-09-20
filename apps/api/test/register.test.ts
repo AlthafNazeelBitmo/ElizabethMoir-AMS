@@ -300,6 +300,34 @@ describe("GET /api/register/summary", () => {
     expect(body.counts.late).toBe(1);
   });
 
+  it("counts who is in the building on a day nobody was expected", async () => {
+    // A Sunday, or a day the calendar has not been given yet: the verdict
+    // is "not expected", but the register is about who is here.
+    const sunday = "2026-09-20";
+    await scan("11007", "2026-09-20 09:00:00");
+    await scan("11008", "2026-09-20 09:05:00");
+    await scan("11008", "2026-09-20 12:00:00");
+    const body = (await get(`/api/register/summary?date=${sunday}`, full)).json();
+    expect(body.counts).toMatchObject({
+      on_site: 1,
+      departed: 1,
+      absent: 0,
+      not_expected: 3,
+    });
+    const form1 = body.groups.find((g: { name: string }) => g.name === "Form 1");
+    expect(form1).toMatchObject({ total: 2, onSite: 1 });
+
+    // The list's status filter speaks the same language as the counts.
+    const inNow = (
+      await get(`/api/register/live?date=${sunday}&status=on_site`, full)
+    ).json();
+    expect(inNow.rows.map((r: { enrollNo: string }) => r.enrollNo)).toEqual(["11007"]);
+    const gone = (
+      await get(`/api/register/live?date=${sunday}&status=departed`, full)
+    ).json();
+    expect(gone.rows.map((r: { enrollNo: string }) => r.enrollNo)).toEqual(["11008"]);
+  });
+
   it("returns a live count for each group", async () => {
     await scan("11007", "2026-09-16 07:30:00");
     const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
