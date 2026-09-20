@@ -22,7 +22,9 @@ test("a wrong password is told so, not that a session ended", async ({
 }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(DEMO.full.email);
-  await page.getByLabel("Password", { exact: true }).fill("not the password at all");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("not the password at all");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("alert")).toContainText("was not recognised");
   await expect(page.getByRole("alert")).not.toContainText("session has ended");
@@ -57,7 +59,11 @@ test("a full account sees students, staff and admin", async ({ page }) => {
     "Audit log",
     "Failed events",
   ]) {
-    await expect(sections.getByRole("link", { name: label, exact: true })).toBeVisible();
+    // A count may follow the label ("Unknown IDs 3"), so the name is
+    // matched from its start.
+    await expect(
+      sections.getByRole("link", { name: new RegExp(`^${label}( [0-9]+)?$`) }),
+    ).toBeVisible();
   }
 });
 

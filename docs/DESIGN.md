@@ -116,10 +116,15 @@ screens is a headline.
 
 ## Layout
 
-- **Sidebar** (`components/shell/Sidebar.tsx`): brand, search trigger,
+- **Sidebar** (`components/shell/Sidebar.tsx`): the logo, search trigger,
   the three destinations, the admin sections while inside admin, and the
   account menu (appearance, password, sign out). Collapses to an icon rail
-  by choice.
+  by choice. The admin sections hang off the Admin entry on a guide line
+  in three groups — Directory, Readers, School — as words without icons
+  (nine icons in a column is noise), the open one marked on the line;
+  Unknown IDs and Failed events carry their count, the same two numbers
+  the register's attention strip shows. Collapsed, they are icon tiles in
+  the same three groups, a dot on a tile that has work waiting.
 - **Pages** own their header (`PageHeader`) and their controls. There is no
   top bar; the sidebar is the only chrome.
 - **Surfaces**: one level of elevation. `Card` / `Panel` are bordered,

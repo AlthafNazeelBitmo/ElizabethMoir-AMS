@@ -36,6 +36,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip.js";
+import { useAttentionCounts } from "@/hooks/useAttentionCounts.js";
 import { api, type CurrentUser } from "@/lib/api.js";
 import { schoolLogoVersion } from "@/lib/format.js";
 import { useTheme, type Theme } from "@/lib/theme.js";
@@ -49,21 +50,54 @@ import { cn } from "@/lib/utils.js";
  * Admin group at all.
  */
 
-export const ADMIN_SECTIONS: ReadonlyArray<{
-  id: string;
+/**
+ * The admin screens, in three groups a person can hold in their head: the
+ * directory, the readers, and the school itself. The order within each is
+ * the order of use.
+ */
+export const ADMIN_GROUPS: ReadonlyArray<{
   label: string;
-  icon: LucideIcon;
+  sections: ReadonlyArray<{
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    /** Which attention count, if any, sits beside the entry. */
+    count?: "unknown" | "failures";
+  }>;
 }> = [
-  { id: "people", label: "People", icon: UsersIcon },
-  { id: "groups", label: "Groups", icon: UsersRoundIcon },
-  { id: "unknown", label: "Unknown IDs", icon: IdCardIcon },
-  { id: "devices", label: "Devices", icon: ScanLineIcon },
-  { id: "calendar", label: "Calendar", icon: CalendarDaysIcon },
-  { id: "rules", label: "Rules", icon: SettingsIcon },
-  { id: "users", label: "Users", icon: KeyRoundIcon },
-  { id: "audit", label: "Audit log", icon: ScrollTextIcon },
-  { id: "failures", label: "Failed events", icon: TriangleAlertIcon },
+  {
+    label: "Directory",
+    sections: [
+      { id: "people", label: "People", icon: UsersIcon },
+      { id: "groups", label: "Groups", icon: UsersRoundIcon },
+      { id: "unknown", label: "Unknown IDs", icon: IdCardIcon, count: "unknown" },
+    ],
+  },
+  {
+    label: "Readers",
+    sections: [
+      { id: "devices", label: "Devices", icon: ScanLineIcon },
+      {
+        id: "failures",
+        label: "Failed events",
+        icon: TriangleAlertIcon,
+        count: "failures",
+      },
+    ],
+  },
+  {
+    label: "School",
+    sections: [
+      { id: "calendar", label: "Calendar", icon: CalendarDaysIcon },
+      { id: "rules", label: "Rules", icon: SettingsIcon },
+      { id: "users", label: "Users", icon: KeyRoundIcon },
+      { id: "audit", label: "Audit log", icon: ScrollTextIcon },
+    ],
+  },
 ];
+
+/** Every admin screen, flat, for the palette and the routes. */
+export const ADMIN_SECTIONS = ADMIN_GROUPS.flatMap((g) => g.sections);
 
 export function Sidebar({
   user,
@@ -81,6 +115,7 @@ export function Sidebar({
   const queryClient = useQueryClient();
   const isAdmin = user.role === "full";
   const onAdmin = location.pathname.startsWith("/admin");
+  const counts = useAttentionCounts(isAdmin);
 
   const signOut = async () => {
     try {
@@ -162,34 +197,54 @@ export function Sidebar({
         )}
       </nav>
 
-      {/* Admin sub-navigation, only while inside admin. */}
+      {/* Admin sub-navigation, only while inside admin: the screens in
+          three groups, hung off the Admin entry on a guide line, without
+          icons — nine icons in a column is noise, and the words carry it.
+          The two screens with work waiting carry their count. */}
       {isAdmin && onAdmin && (
-        <>
-          <Separator className="mx-3 my-2 w-auto" />
-          <nav
-            aria-label="Admin sections"
-            className={cn(
-              "flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2",
-              collapsed && "gap-1 px-0",
-            )}
-          >
-            {!collapsed && (
-              <div className="px-2 pt-1 pb-1.5 text-[0.6875rem] font-medium tracking-wide text-muted-foreground uppercase">
-                Administration
-              </div>
-            )}
-            {ADMIN_SECTIONS.map((section) => (
-              <NavItem
-                key={section.id}
-                to={`/admin/${section.id}`}
-                icon={section.icon}
-                label={section.label}
-                collapsed={collapsed}
-                size="sm"
-              />
-            ))}
-          </nav>
-        </>
+        <nav
+          aria-label="Admin sections"
+          className={cn(
+            "flex min-h-0 flex-1 flex-col overflow-y-auto",
+            collapsed ? "mt-1 gap-1 px-0" : "mt-1 px-2",
+          )}
+        >
+          {collapsed && <Separator className="mx-3 mb-1 w-auto" />}
+          {ADMIN_GROUPS.map((group, index) => (
+            <div
+              key={group.label}
+              className={cn(
+                !collapsed && "relative ml-[1.1rem] border-l border-border/80 pl-3",
+                !collapsed && index > 0 && "mt-1.5",
+                collapsed && index > 0 && "mt-1 border-t border-border/60 pt-1",
+              )}
+            >
+              {!collapsed && (
+                <div className="px-2 pt-1.5 pb-1 text-[0.625rem] font-semibold tracking-[0.12em] text-muted-foreground/70 uppercase">
+                  {group.label}
+                </div>
+              )}
+              {group.sections.map((section) => {
+                const badge =
+                  section.count === "unknown"
+                    ? counts.unknown
+                    : section.count === "failures"
+                      ? counts.failures
+                      : 0;
+                return (
+                  <SubNavItem
+                    key={section.id}
+                    to={`/admin/${section.id}`}
+                    icon={section.icon}
+                    label={section.label}
+                    collapsed={collapsed}
+                    badge={badge}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </nav>
       )}
 
       <div className="mt-auto" />
@@ -318,6 +373,81 @@ function NavItem({
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+/**
+ * One admin screen under the Admin entry. Expanded, it is a word on the
+ * guide line, the current one marked on the line itself; collapsed, an
+ * icon tile with a tooltip, as the main entries are.
+ */
+function SubNavItem({
+  to,
+  icon: Icon,
+  label,
+  collapsed,
+  badge,
+}: {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  collapsed: boolean;
+  badge: number;
+}) {
+  const count =
+    badge > 0 ? (
+      <span
+        className={cn(
+          "tabular ml-auto rounded-full px-1.5 py-px text-[0.625rem] font-semibold",
+          "bg-muted text-foreground/80 group-aria-[current=page]:bg-primary/15 group-aria-[current=page]:text-primary",
+        )}
+      >
+        {badge > 99 ? "99+" : badge}
+      </span>
+    ) : null;
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <NavLink
+            to={to}
+            aria-label={badge > 0 ? `${label} (${badge})` : label}
+            className={cn(
+              "group relative mx-auto flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40",
+              "aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground",
+            )}
+          >
+            <Icon className="size-[18px] group-aria-[current=page]:text-primary" />
+            {badge > 0 && (
+              <span
+                aria-hidden
+                className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-primary"
+              />
+            )}
+          </NavLink>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {label}
+          {badge > 0 ? ` · ${badge}` : ""}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <NavLink
+      to={to}
+      className={cn(
+        "group relative flex h-7 items-center gap-2 rounded-md px-2 text-[0.8125rem] text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40",
+        "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground",
+        // The mark on the guide line, for the screen that is open.
+        "before:absolute before:top-1/2 before:-left-[0.875rem] before:size-1.5 before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-primary before:opacity-0 before:transition-opacity aria-[current=page]:before:opacity-100",
+      )}
+    >
+      <span className="truncate">{label}</span>
+      {count}
+    </NavLink>
   );
 }
 

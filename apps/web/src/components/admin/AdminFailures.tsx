@@ -62,7 +62,6 @@ export function AdminFailures() {
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["admin-dead-letter"] });
-    void queryClient.invalidateQueries({ queryKey: ["attention-failures"] });
   };
 
   const replay = useMutation({

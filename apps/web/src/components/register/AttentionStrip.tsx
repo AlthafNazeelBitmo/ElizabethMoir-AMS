@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { ArrowRightIcon, IdCardIcon, TriangleAlertIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { api, type CurrentUser } from "@/lib/api.js";
+import { useAttentionCounts } from "@/hooks/useAttentionCounts.js";
+import type { CurrentUser } from "@/lib/api.js";
 import { cn } from "@/lib/utils.js";
 
 /**
@@ -14,23 +14,7 @@ import { cn } from "@/lib/utils.js";
  * on either.
  */
 export function AttentionStrip({ user }: { user: CurrentUser }) {
-  const enabled = user.role === "full";
-
-  const unknown = useQuery({
-    queryKey: ["attention-unknown"],
-    queryFn: () =>
-      api.get<{ total: number }>("/api/admin/unknown-enrollments?limit=1"),
-    enabled,
-    staleTime: 60_000,
-    refetchInterval: 120_000,
-  });
-  const failures = useQuery({
-    queryKey: ["attention-failures"],
-    queryFn: () => api.get<{ total: number }>("/api/admin/dead-letter?limit=1"),
-    enabled,
-    staleTime: 60_000,
-    refetchInterval: 120_000,
-  });
+  const counts = useAttentionCounts(user.role === "full");
 
   const items: Array<{
     key: string;
@@ -41,7 +25,7 @@ export function AttentionStrip({ user }: { user: CurrentUser }) {
     action: string;
   }> = [];
 
-  const unknownCount = unknown.data?.total ?? 0;
+  const unknownCount = counts.unknown;
   if (unknownCount > 0) {
     items.push({
       key: "unknown",
@@ -52,7 +36,7 @@ export function AttentionStrip({ user }: { user: CurrentUser }) {
       action: "Give them a name",
     });
   }
-  const failureCount = failures.data?.total ?? 0;
+  const failureCount = counts.failures;
   if (failureCount > 0) {
     items.push({
       key: "failures",
