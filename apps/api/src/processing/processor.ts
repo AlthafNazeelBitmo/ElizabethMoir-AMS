@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import type { Db } from "../db/client.js";
 import {
@@ -227,6 +227,84 @@ export class ScanProcessor {
       formatTime(settings.dayRolloverTime),
     );
     return this.markAbsences(date);
+  }
+
+  /**
+   * Gives a person every scan stored under their number that nobody holds,
+   * takes the number off the unknown list, and recomputes the days involved
+   * so the register shows them at once. One path for every way a number
+   * comes to belong to someone: added by hand, named under Unknown IDs,
+   * reactivated, or imported after the scans had already arrived.
+   */
+  async claimScansFor(personId: string, enrollNo: string): Promise<number> {
+    await this.db
+      .update(scans)
+      .set({ personId })
+      .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
+    await this.db
+      .update(unknownEnrollments)
+      .set({ resolvedPersonId: personId })
+      .where(eq(unknownEnrollments.enrollNo, enrollNo));
+    return this.recomputeAllDaysFor(enrollNo);
+  }
+
+  /**
+   * Matches the unknown numbers against the directory.
+   *
+   * A scan arriving before its person exists is stored unattached, and the
+   * directory usually arrives later — as a spreadsheet, after the readers
+   * have been sending for days. Every number that now belongs to an active
+   * person is claimed for them. Idempotent and cheap when there is nothing
+   * to do, so the scheduled sweep runs it as well as the import and the
+   * button under Unknown IDs: the register heals itself without anyone
+   * having to remember.
+   */
+  async matchUnknownToDirectory(): Promise<{
+    people: number;
+    scans: number;
+    days: number;
+  }> {
+    // Numbers with unattached scans, or still on the unknown list, that an
+    // active person now holds.
+    const orphaned = await this.db
+      .selectDistinct({ enrollNo: scans.enrollNo, personId: people.id })
+      .from(scans)
+      .innerJoin(
+        people,
+        and(eq(people.enrollNo, scans.enrollNo), eq(people.isActive, true)),
+      )
+      .where(isNull(scans.personId));
+    const listed = await this.db
+      .select({ enrollNo: unknownEnrollments.enrollNo, personId: people.id })
+      .from(unknownEnrollments)
+      .innerJoin(
+        people,
+        and(
+          eq(people.enrollNo, unknownEnrollments.enrollNo),
+          eq(people.isActive, true),
+        ),
+      )
+      .where(isNull(unknownEnrollments.resolvedPersonId));
+
+    const byNumber = new Map<string, string>();
+    for (const row of [...orphaned, ...listed]) byNumber.set(row.enrollNo, row.personId);
+    if (byNumber.size === 0) return { people: 0, scans: 0, days: 0 };
+
+    let claimedScans = 0;
+    let days = 0;
+    for (const [enrollNo, personId] of byNumber) {
+      const [n] = await this.db
+        .select({ n: count() })
+        .from(scans)
+        .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
+      claimedScans += n?.n ?? 0;
+      days += await this.claimScansFor(personId, enrollNo);
+    }
+    this.log.info(
+      { people: byNumber.size, scans: claimedScans, days },
+      "matched unknown numbers to the directory",
+    );
+    return { people: byNumber.size, scans: claimedScans, days };
   }
 
   /**

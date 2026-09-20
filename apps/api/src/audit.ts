@@ -21,6 +21,7 @@ export const AUDIT_ACTIONS = [
   "person_modified",
   "person_deactivated",
   "person_deleted",
+  "unknown_matched",
   "tutor_created",
   "tutor_modified",
   "tutor_deleted",

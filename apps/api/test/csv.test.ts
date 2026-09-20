@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv, readDirectoryCsv } from "../src/directory/csv.js";
+import type { DirectoryRecord } from "../src/directory/provider.js";
 import {
   validateDirectoryCsv,
   type KnownGroup,
@@ -241,16 +242,16 @@ describe("validateDirectoryCsv", () => {
 describe("planImport", () => {
   const record = (
     enrollNo: string,
-    over: Partial<ReturnType<typeof base>> = {},
-  ) => ({
+    over: Partial<DirectoryRecord> = {},
+  ): DirectoryRecord => ({
     ...base(enrollNo),
     ...over,
   });
-  function base(enrollNo: string) {
+  function base(enrollNo: string): DirectoryRecord {
     return {
       enrollNo,
       fullName: "Ann Perera",
-      branch: "student" as const,
+      branch: "student",
       groupName: "Form 1",
       tutorInitials: "AP",
       admissionNo: "2024/001",

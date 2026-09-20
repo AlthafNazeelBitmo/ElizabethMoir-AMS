@@ -30,6 +30,8 @@ async function main(): Promise<void> {
       .processPending()
       .then(async (r) => {
         if (r.envelopesProcessed > 0) server.log.info(r, "processed pending envelopes");
+        // Numbers that have since been given a name claim their scans.
+        await processor.matchUnknownToDirectory();
         // The nightly absence job, idempotent and cheap to repeat.
         await processor.markAbsencesForToday();
       })

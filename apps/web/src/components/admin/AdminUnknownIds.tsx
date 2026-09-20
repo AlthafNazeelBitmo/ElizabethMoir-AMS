@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2Icon, UserPlusIcon, UserRoundCheckIcon } from "lucide-react";
+import {
+  CheckCircle2Icon,
+  RefreshCwIcon,
+  UserPlusIcon,
+  UserRoundCheckIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, TableSkeleton } from "@/components/states.js";
@@ -88,6 +93,31 @@ export function AdminUnknownIds() {
     },
   });
 
+  const match = useMutation({
+    mutationFn: () =>
+      api.post<{ matched: { people: number; scans: number; days: number } }>(
+        "/api/admin/unknown-enrollments/match",
+        {},
+      ),
+    onSuccess: ({ matched }) => {
+      if (matched.people === 0) {
+        toast.message("Nothing to match", {
+          description: "No number on this list belongs to anyone in the directory.",
+        });
+      } else {
+        toast.success(
+          `${matched.people} ${matched.people === 1 ? "number" : "numbers"} matched`,
+          {
+            description: `${matched.scans} scan(s) attached and ${matched.days} day(s) recalculated.`,
+          },
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ["unknown-enrollments"] });
+      void queryClient.invalidateQueries({ queryKey: ["register"] });
+      void queryClient.invalidateQueries({ queryKey: ["summary"] });
+    },
+  });
+
   const reactivate = useMutation({
     mutationFn: (args: { personId: string; fullName: string }) =>
       api.patch<{ daysRecomputed: number }>(
@@ -106,9 +136,19 @@ export function AdminUnknownIds() {
   return (
     <Section
       title="Unknown IDs"
-      description="Cards and fingerprints that scanned but match nobody in the directory. Their scans are stored, not discarded — give the number a name and the history comes with it."
+      description="Cards and fingerprints that scanned but match nobody in the directory. Their scans are stored, not discarded — give the number a name and the history comes with it. After a spreadsheet import, numbers that now have a name are matched on their own; the button does it at once."
+      actions={
+        <Button
+          variant="outline"
+          onClick={() => match.mutate()}
+          disabled={match.isPending}
+        >
+          <RefreshCwIcon className={match.isPending ? "animate-spin" : undefined} />
+          {match.isPending ? "Matching…" : "Match against the directory"}
+        </Button>
+      }
     >
-      <Problem error={attach.error ?? reactivate.error} />
+      <Problem error={attach.error ?? reactivate.error ?? match.error} />
 
       <Panel>
         {unknown.isPending && <TableSkeleton rows={4} />}

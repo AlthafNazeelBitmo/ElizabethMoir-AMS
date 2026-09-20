@@ -235,6 +235,51 @@ describe("unknown enrollment numbers", () => {
     expect(await h.db.db.select().from(dayRecords)).toHaveLength(0);
   });
 
+  it("matches unknown numbers against the directory once they have a name", async () => {
+    // The readers send first; the directory arrives days later.
+    await deliver([
+      event("11007", "2026-09-16 07:30:00"),
+      event("11007", "2026-09-16 15:00:00"),
+      event("99999", "2026-09-16 07:31:00"),
+    ]);
+    await h.app.whenIdle();
+    await h.app.processor.processPending();
+    expect(await h.db.db.select().from(dayRecords)).toHaveLength(0);
+
+    // Nothing to do yet: nobody is named.
+    expect(await h.app.processor.matchUnknownToDirectory()).toEqual({
+      people: 0,
+      scans: 0,
+      days: 0,
+    });
+
+    const person = await addPerson("11007", "Named Later");
+    const matched = await h.app.processor.matchUnknownToDirectory();
+    expect(matched).toEqual({ people: 1, scans: 2, days: 1 });
+
+    const own = await h.db.db
+      .select()
+      .from(scans)
+      .where(eq(scans.enrollNo, "11007"));
+    expect(own.every((s) => s.personId === person.id)).toBe(true);
+    const [record] = await h.db.db
+      .select()
+      .from(dayRecords)
+      .where(eq(dayRecords.personId, person.id));
+    expect(record?.status).toBe("departed");
+    const unknown = await h.db.db.select().from(unknownEnrollments);
+    expect(unknown.find((u) => u.enrollNo === "11007")?.resolvedPersonId).toBe(person.id);
+    // The number nobody has named is left alone.
+    expect(unknown.find((u) => u.enrollNo === "99999")?.resolvedPersonId).toBeNull();
+
+    // Done once; doing it again finds nothing.
+    expect(await h.app.processor.matchUnknownToDirectory()).toEqual({
+      people: 0,
+      scans: 0,
+      days: 0,
+    });
+  });
+
   it("treats a deactivated person's number as nobody's", async () => {
     const person = await addPerson("11007", "Left The School");
     await h.db.db

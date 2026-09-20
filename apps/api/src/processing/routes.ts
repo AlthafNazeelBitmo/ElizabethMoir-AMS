@@ -30,16 +30,19 @@ export const processingRoutes: FastifyPluginAsync<ProcessingPluginOptions> = asy
     }
     const started = Date.now();
     const result = await processor.processPending();
+    const matched = await processor.matchUnknownToDirectory();
     // The nightly absence job, on the same schedule. It is idempotent and
     // does nothing before the day has reached the point where absence is
     // meaningful, so running it often is free — and running it only at
     // midnight would leave the register wrong all day.
     const absencesMarked = await processor.markAbsencesForToday();
     req.log.info(
-      { ...result, absencesMarked, ms: Date.now() - started },
+      { ...result, matched, absencesMarked, ms: Date.now() - started },
       "processed pending envelopes",
     );
-    return reply.code(200).send({ ...result, absencesMarked, ms: Date.now() - started });
+    return reply
+      .code(200)
+      .send({ ...result, matched, absencesMarked, ms: Date.now() - started });
   };
 
   app.route({ method: ["GET", "POST"], url: "/internal/process", handler });

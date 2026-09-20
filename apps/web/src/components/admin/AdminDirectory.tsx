@@ -247,19 +247,26 @@ export function AdminDirectory() {
         ...(confirmDeactivations ? { "x-confirm-deactivations": "true" } : {}),
       }),
     onSuccess: (data) => {
-      const result = (
-        data as {
-          result: { created: number; updated: number; deactivated: number };
-        }
-      ).result;
+      const { result, matched } = data as {
+        result: { created: number; updated: number; deactivated: number };
+        matched?: { people: number; scans: number; days: number };
+      };
       toast.success("Directory imported", {
-        description: `${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated.`,
+        description:
+          `${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated.` +
+          (matched && matched.people > 0
+            ? ` ${matched.scans} earlier scan(s) attached to ${matched.people} of them.`
+            : ""),
       });
       setPreview(null);
       setFile(null);
       setConfirmDeactivations(false);
       if (fileInput.current) fileInput.current.value = "";
       void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-tutors"] });
+      void queryClient.invalidateQueries({ queryKey: ["unknown-enrollments"] });
+      void queryClient.invalidateQueries({ queryKey: ["register"] });
+      void queryClient.invalidateQueries({ queryKey: ["summary"] });
     },
   });
 

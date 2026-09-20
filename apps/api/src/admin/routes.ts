@@ -240,7 +240,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     // Scans that arrived under this number before anyone knew who it was
     // belong to them now, exactly as when a name is given under Unknown
     // IDs. Adding a person by hand must not leave their morning orphaned.
-    const daysRecomputed = await claimScans(db, processor, row!.id, row!.enrollNo);
+    const daysRecomputed = await processor.claimScansFor(row!.id, row!.enrollNo);
 
     await writeAudit(db, req.log, {
       action: "person_created",
@@ -285,7 +285,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       // back claims it, the same as being added would.
       const reactivated = !before.isActive && after!.isActive;
       const daysRecomputed = reactivated
-        ? await claimScans(db, processor, after!.id, after!.enrollNo)
+        ? await processor.claimScansFor(after!.id, after!.enrollNo)
         : 0;
 
       await writeAudit(db, req.log, {
@@ -425,7 +425,11 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       });
 
       if (outcome.ok) {
-        return reply.send({ result: outcome.result });
+        // The readers have usually been sending for days by the time the
+        // spreadsheet arrives: everything stored under a number that now
+        // has a name is claimed for them straight away.
+        const matched = await processor.matchUnknownToDirectory();
+        return reply.send({ result: outcome.result, matched });
       }
       if (outcome.reason === "invalid") {
         return reply.code(422).send({
@@ -499,6 +503,26 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         limit,
         total: total?.n ?? 0,
       });
+    },
+  );
+
+  app.post(
+    "/api/admin/unknown-enrollments/match",
+    { preHandler },
+    async (req, reply) => {
+      const matched = await processor.matchUnknownToDirectory();
+      if (matched.people > 0) {
+        await writeAudit(db, req.log, {
+          action: "unknown_matched",
+          userId: req.auth!.userId,
+          entity: "unknown_enrollment",
+          entityId: null,
+          after: matched,
+          ip: req.ip || null,
+          userAgent: req.headers["user-agent"] ?? null,
+        });
+      }
+      return reply.send({ matched });
     },
   );
 
@@ -601,7 +625,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
 
       // Claim the scans already recorded against this number, then redo the
       // days they fall in so the register reflects them immediately.
-      const daysRecomputed = await claimScans(db, processor, personId, enrollNo);
+      const daysRecomputed = await processor.claimScansFor(personId, enrollNo);
 
       return reply.send({ personId, daysRecomputed });
     },
@@ -1031,28 +1055,4 @@ function summarise(plan: ImportPlan) {
       updates: Math.max(0, plan.updates.length - SAMPLE),
     },
   };
-}
-
-/**
- * Gives a person every scan stored under their number that nobody holds,
- * takes the number off the unknown list, and recomputes the days involved
- * so the register shows them at once. One path for the three ways a number
- * comes to belong to someone: added by hand, named under Unknown IDs, or
- * reactivated.
- */
-async function claimScans(
-  db: Db,
-  processor: ScanProcessor,
-  personId: string,
-  enrollNo: string,
-): Promise<number> {
-  await db
-    .update(scans)
-    .set({ personId })
-    .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
-  await db
-    .update(unknownEnrollments)
-    .set({ resolvedPersonId: personId })
-    .where(eq(unknownEnrollments.enrollNo, enrollNo));
-  return processor.recomputeAllDaysFor(enrollNo);
 }

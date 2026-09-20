@@ -196,6 +196,23 @@ describe("CSV import", () => {
     expect(JSON.stringify(summary)).not.toContain("5050");
   });
 
+  it("claims the scans already stored under a number the file names", async () => {
+    await scanBeforeDirectory("11007", "2026-09-16 07:30:00");
+    expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(1);
+
+    const preview = (await upload("/api/admin/people/import", FILE)).json();
+    const res = await upload("/api/admin/people/import/confirm", FILE, {
+      "x-plan-hash": preview.planHash,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().matched).toEqual({ people: 1, scans: 1, days: 1 });
+
+    expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
+    const live = (await get("/api/register/live?date=2026-09-16")).json();
+    const ann = live.rows.find((r: { enrollNo: string }) => r.enrollNo === "11007");
+    expect(ann?.firstIn).toBeTruthy();
+  });
+
   it("creates the tutors named in the file", async () => {
     const preview = (await upload("/api/admin/people/import", FILE)).json();
     await upload("/api/admin/people/import/confirm", FILE, {
@@ -374,6 +391,20 @@ describe("CSV import", () => {
     expect(actions.filter((a) => a === "person_created")).toHaveLength(3);
   });
 });
+
+/** A reader posting before the directory exists. */
+async function scanBeforeDirectory(enrollNo: string, attTime: string) {
+  await h.app.server.inject({
+    method: "POST",
+    url: `/ingest/${INGEST_TOKEN}/raw`,
+    headers: { "content-type": "application/json" },
+    payload: JSON.stringify([
+      { EmpId: enrollNo, AttTime: attTime, CheckingStatus: "0", DeviceID: "GATE-1" },
+    ]),
+  });
+  await h.app.whenIdle();
+  await h.app.processor.processPending();
+}
 
 describe("people endpoints", () => {
   beforeEach(async () => {
@@ -641,6 +672,30 @@ describe("unknown enrolment numbers", () => {
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().message).toMatch(/already has enrolment number 11007/);
+  });
+
+  it("matches the whole list against the directory on request, and audits it", async () => {
+    await scanFromUnknown("11007", "2026-09-16 07:30:00");
+    await scanFromUnknown("11008", "2026-09-16 07:35:00");
+    // The directory arrives by another route: straight into the table.
+    const [group] = await h.db.db.select().from(groups).where(eq(groups.branch, "student"));
+    await h.db.db.insert(people).values([
+      { enrollNo: "11007", fullName: "Ann", groupId: group!.id },
+      { enrollNo: "11008", fullName: "Ben", groupId: group!.id },
+    ]);
+    expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(2);
+
+    const res = await post("/api/admin/unknown-enrollments/match", {});
+    expect(res.statusCode).toBe(200);
+    expect(res.json().matched).toEqual({ people: 2, scans: 2, days: 2 });
+    expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
+    const entries = await h.db.db.select().from(auditLog);
+    expect(entries.some((e) => e.action === "unknown_matched")).toBe(true);
+
+    // Nothing left to match is not an event.
+    const again = await post("/api/admin/unknown-enrollments/match", {});
+    expect(again.json().matched.people).toBe(0);
+    expect((await h.db.db.select().from(auditLog)).filter((e) => e.action === "unknown_matched")).toHaveLength(1);
   });
 
   it("404s for a number that was never seen", async () => {

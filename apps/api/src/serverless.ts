@@ -70,6 +70,7 @@ function sweepIfDue(app: App): void {
   const work = (async () => {
     await app.store.drainSpool();
     await app.processor.processPending();
+    await app.processor.matchUnknownToDirectory();
     await app.processor.markAbsencesForToday();
   })().catch((err: unknown) => {
     // A failed sweep is retried by the next one; it must never take the
