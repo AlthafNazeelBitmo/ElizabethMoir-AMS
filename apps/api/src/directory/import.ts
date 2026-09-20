@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
-import { writeAudit, type AuditEntry } from "../audit.js";
+import { writeAudit, writeAudits, type AuditEntry } from "../audit.js";
 import type { Db } from "../db/client.js";
 import { groups, people, tutors } from "../db/schema/index.js";
 import type { CsvProblem } from "./csv.js";
@@ -125,32 +125,41 @@ export class DirectoryImporter {
       const tutorIds = await this.tutorIdsByInitials(tx);
       const now = new Date();
 
-      for (const create of plan.creates) {
-        const [row] = await tx
+      // A whole school at once, in a few statements: one row at a time is
+      // hundreds of round trips, more than a serverless request is allowed.
+      const BATCH = 200;
+      for (let i = 0; i < plan.creates.length; i += BATCH) {
+        const slice = plan.creates.slice(i, i + BATCH);
+        const rows = await tx
           .insert(people)
-          .values({
-            enrollNo: create.record.enrollNo,
-            fullName: create.record.fullName,
-            groupId: create.record.groupName
-              ? (groupIds.get(normalise(create.record.groupName)) ?? null)
-              : null,
-            tutorId: create.record.tutorInitials
-              ? (tutorIds.get(create.record.tutorInitials.toLowerCase()) ??
-                null)
-              : null,
-            admissionNo: create.record.admissionNo,
-          })
-          .returning({ id: people.id });
-        audits.push({
-          action: "person_created",
-          userId: options.userId,
-          entity: "person",
-          entityId: row?.id ?? create.record.enrollNo,
-          after: create.record,
-          ip: options.ip,
-          userAgent: options.userAgent,
-          createdAt: now,
-        });
+          .values(
+            slice.map((create) => ({
+              enrollNo: create.record.enrollNo,
+              fullName: create.record.fullName,
+              groupId: create.record.groupName
+                ? (groupIds.get(normalise(create.record.groupName)) ?? null)
+                : null,
+              tutorId: create.record.tutorInitials
+                ? (tutorIds.get(create.record.tutorInitials.toLowerCase()) ??
+                  null)
+                : null,
+              admissionNo: create.record.admissionNo,
+            })),
+          )
+          .returning({ id: people.id, enrollNo: people.enrollNo });
+        const idByEnroll = new Map(rows.map((r) => [r.enrollNo, r.id]));
+        for (const create of slice) {
+          audits.push({
+            action: "person_created",
+            userId: options.userId,
+            entity: "person",
+            entityId: idByEnroll.get(create.record.enrollNo) ?? create.record.enrollNo,
+            after: create.record,
+            ip: options.ip,
+            userAgent: options.userAgent,
+            createdAt: now,
+          });
+        }
       }
 
       for (const update of plan.updates) {
@@ -235,7 +244,7 @@ export class DirectoryImporter {
       ip: options.ip,
       userAgent: options.userAgent,
     });
-    for (const entry of audits) await writeAudit(this.db, this.log, entry);
+    await writeAudits(this.db, this.log, audits);
 
     return result;
   }

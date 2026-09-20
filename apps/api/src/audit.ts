@@ -68,27 +68,47 @@ export async function writeAudit(
   log: FastifyBaseLogger,
   entry: AuditEntry,
 ): Promise<void> {
-  try {
-    await db.insert(auditLog).values({
-      action: entry.action,
-      userId: entry.userId ?? null,
-      entity: entry.entity ?? null,
-      entityId: entry.entityId ?? null,
-      before: entry.before ?? null,
-      after: entry.after ?? null,
-      // inet rejects anything that is not an address; a proxy can present
-      // junk, and that must not break the request being audited.
-      ip: entry.ip && isIP(entry.ip) ? entry.ip : null,
-      userAgent: entry.userAgent?.slice(0, 500) ?? null,
-      ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
-    });
-  } catch (err) {
-    log.error(
-      {
-        action: entry.action,
-        err: err instanceof Error ? err.message : String(err),
-      },
-      "audit write failed",
-    );
+  await writeAudits(db, log, [entry]);
+}
+
+/**
+ * Writes many entries in a few statements rather than one each. An import
+ * of a whole school is hundreds of entries, and a serverless host allows a
+ * request only seconds.
+ */
+export async function writeAudits(
+  db: Db,
+  log: FastifyBaseLogger,
+  entries: readonly AuditEntry[],
+): Promise<void> {
+  const BATCH = 200;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const slice = entries.slice(i, i + BATCH);
+    try {
+      await db.insert(auditLog).values(
+        slice.map((entry) => ({
+          action: entry.action,
+          userId: entry.userId ?? null,
+          entity: entry.entity ?? null,
+          entityId: entry.entityId ?? null,
+          before: entry.before ?? null,
+          after: entry.after ?? null,
+          // inet rejects anything that is not an address; a proxy can
+          // present junk, and that must not break the request being audited.
+          ip: entry.ip && isIP(entry.ip) ? entry.ip : null,
+          userAgent: entry.userAgent?.slice(0, 500) ?? null,
+          ...(entry.createdAt ? { createdAt: entry.createdAt } : {}),
+        })),
+      );
+    } catch (err) {
+      log.error(
+        {
+          actions: [...new Set(slice.map((e) => e.action))],
+          count: slice.length,
+          err: err instanceof Error ? err.message : String(err),
+        },
+        "audit write failed",
+      );
+    }
   }
 }
