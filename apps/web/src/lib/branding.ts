@@ -18,4 +18,6 @@ export const BRAND = {
   monogram: "/branding/monogram.png",
   /** The monogram in white, for the sign-in field. */
   monogramOnDark: "/branding/monogram-white.png",
+  /** Behind the sign-in card: the crest's colours out of focus, the mark faint. */
+  signInBackdrop: "/branding/sign-in.jpg",
 } as const;

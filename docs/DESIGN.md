@@ -86,12 +86,15 @@ The one page seen before there is a session, and the one place the brand
 is allowed to be loud. One card, two panels: on the left the *field* —
 `.crest-field`, the crest's colours as layered radial gradients (the deep
 blue under the white monogram, the cyan brightening into a mist, the
-banner's red as a single glow), with the school's name and one line about
-what this is; on the right the form, which asks for an email and a
-password and says plainly that accounts come from the office. On a phone
-the field is a band across the top. The field's slow drift is the only
+banner's red as a single glow), with the white monogram — the only mark on
+the page — the school's name and one line about what this is; on the right
+the form, which asks for an email and a password and says plainly that
+accounts come from the office. On a phone the field is a band across the
+top. Behind the card is `branding/sign-in.jpg`, made for this page: the
+crest's colours out of focus and the monogram faint in them, veiled in
+dark mode so the card still leads. The field's slow drift is the only
 motion, and `prefers-reduced-motion` stops it. No sign-up, no "continue
-with", no photograph.
+with", no photograph of somewhere else.
 
 ## Type
 

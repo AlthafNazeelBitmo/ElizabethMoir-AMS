@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useId, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BrandMark } from "@/components/shell/BrandMark.js";
 import { Button } from "@/components/ui/button.js";
 import { Input } from "@/components/ui/input.js";
 import { api, ApiError, type CurrentUser } from "@/lib/api.js";
@@ -16,6 +15,8 @@ import { BRAND } from "@/lib/branding.js";
  * asks for exactly two things and nothing else. There is no sign-up and no
  * "continue with": accounts are made by the office, and the page says so
  * rather than leaving a visitor looking for a button that is not there.
+ * Behind the card, the crest's colours out of focus with the mark faint in
+ * them: a backdrop made for this page, not a photograph of somewhere else.
  *
  * On a phone the field becomes a band across the top, so the crest is
  * still the first thing seen and the form is still reachable without
@@ -57,15 +58,26 @@ export function LoginPage() {
 
   return (
     <div className="relative flex h-full items-center justify-center overflow-y-auto bg-[color-mix(in_oklch,var(--crest-mist)_45%,var(--background))] p-3 sm:p-6 dark:bg-background">
-      <div className="grid w-full max-w-[64rem] overflow-hidden rounded-[1.75rem] border bg-card shadow-2xl shadow-[color-mix(in_oklch,var(--crest-deep)_18%,transparent)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 md:min-h-[36rem] md:grid-cols-[1.08fr_1fr] md:p-4">
+      {/* The backdrop, and in the dark a veil over it so the card still
+          leads. Both fixed to the frame, not the scrolling content. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url(${BRAND.signInBackdrop})` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 dark:bg-background/80"
+      />
+      <div className="relative grid w-full max-w-[64rem] overflow-hidden rounded-[1.75rem] border border-white/60 bg-card shadow-2xl shadow-[color-mix(in_oklch,var(--crest-deep)_22%,transparent)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 md:min-h-[36rem] md:grid-cols-[1.08fr_1fr] md:p-4 dark:border-border">
         {/* The field */}
         <aside className="crest-field relative flex flex-col justify-between overflow-hidden p-6 text-white md:rounded-[1.25rem] md:p-9">
           <img
             src={BRAND.monogramOnDark}
             alt=""
-            width={195}
-            height={195}
-            className="relative size-14 md:size-[4.5rem]"
+            width={179}
+            height={179}
+            className="relative size-16 md:size-24"
             draggable={false}
           />
           <div className="relative mt-10 max-w-sm md:mt-0">
@@ -84,14 +96,9 @@ export function LoginPage() {
             mutation.mutate();
           }}
         >
-          <BrandMark size="lg" className="hidden size-12 rounded-none md:flex" />
-          <h1 className="text-[1.75rem]/[1.15] font-semibold tracking-tight md:mt-5">
+          <h1 className="text-[1.75rem]/[1.15] font-semibold tracking-tight">
             Sign in
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground text-pretty">
-            The live register, reports and administration for the school — in
-            one place, from anywhere.
-          </p>
 
           <div className="mt-8 space-y-5">
             <div className="flex flex-col gap-2">
