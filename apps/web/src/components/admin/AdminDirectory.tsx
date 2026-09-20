@@ -249,13 +249,16 @@ export function AdminDirectory() {
     onSuccess: (data) => {
       const { result, matched } = data as {
         result: { created: number; updated: number; deactivated: number };
-        matched?: { people: number; scans: number; days: number };
+        matched?: { people: number; scans: number; days: number; remaining: number };
       };
       toast.success("Directory imported", {
         description:
           `${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated.` +
           (matched && matched.people > 0
             ? ` ${matched.scans} earlier scan(s) attached to ${matched.people} of them.`
+            : "") +
+          (matched && matched.remaining > 0
+            ? ` ${matched.remaining} more are matched over the next few minutes, or at once under Unknown IDs.`
             : ""),
       });
       setPreview(null);

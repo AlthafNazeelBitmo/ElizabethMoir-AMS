@@ -251,11 +251,12 @@ describe("unknown enrollment numbers", () => {
       people: 0,
       scans: 0,
       days: 0,
+      remaining: 0,
     });
 
     const person = await addPerson("11007", "Named Later");
     const matched = await h.app.processor.matchUnknownToDirectory();
-    expect(matched).toEqual({ people: 1, scans: 2, days: 1 });
+    expect(matched).toEqual({ people: 1, scans: 2, days: 1, remaining: 0 });
 
     const own = await h.db.db
       .select()
@@ -277,7 +278,27 @@ describe("unknown enrollment numbers", () => {
       people: 0,
       scans: 0,
       days: 0,
+      remaining: 0,
     });
+  });
+
+  it("works through a large arrival in batches, saying how many are left", async () => {
+    await deliver([
+      event("11001", "2026-09-16 07:30:00"),
+      event("11002", "2026-09-16 07:31:00"),
+      event("11003", "2026-09-16 07:32:00"),
+    ]);
+    await h.app.whenIdle();
+    await h.app.processor.processPending();
+    for (const n of ["11001", "11002", "11003"]) await addPerson(n, `Person ${n}`);
+
+    const first = await h.app.processor.matchUnknownToDirectory(2);
+    expect(first).toMatchObject({ people: 2, remaining: 1 });
+    const second = await h.app.processor.matchUnknownToDirectory(2);
+    expect(second).toMatchObject({ people: 1, remaining: 0 });
+    expect(
+      (await h.db.db.select().from(scans)).every((s) => s.personId !== null),
+    ).toBe(true);
   });
 
   it("treats a deactivated person's number as nobody's", async () => {

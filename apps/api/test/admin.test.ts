@@ -205,7 +205,7 @@ describe("CSV import", () => {
       "x-plan-hash": preview.planHash,
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().matched).toEqual({ people: 1, scans: 1, days: 1 });
+    expect(res.json().matched).toEqual({ people: 1, scans: 1, days: 1, remaining: 0 });
 
     expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
     const live = (await get("/api/register/live?date=2026-09-16")).json();
@@ -687,7 +687,7 @@ describe("unknown enrolment numbers", () => {
 
     const res = await post("/api/admin/unknown-enrollments/match", {});
     expect(res.statusCode).toBe(200);
-    expect(res.json().matched).toEqual({ people: 2, scans: 2, days: 2 });
+    expect(res.json().matched).toEqual({ people: 2, scans: 2, days: 2, remaining: 0 });
     expect((await get("/api/admin/unknown-enrollments")).json().total).toBe(0);
     const entries = await h.db.db.select().from(auditLog);
     expect(entries.some((e) => e.action === "unknown_matched")).toBe(true);

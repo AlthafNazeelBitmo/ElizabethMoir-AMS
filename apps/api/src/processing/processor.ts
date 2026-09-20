@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import type { Db } from "../db/client.js";
 import {
@@ -236,16 +236,21 @@ export class ScanProcessor {
    * comes to belong to someone: added by hand, named under Unknown IDs,
    * reactivated, or imported after the scans had already arrived.
    */
-  async claimScansFor(personId: string, enrollNo: string): Promise<number> {
-    await this.db
+  async claimScansFor(
+    personId: string,
+    enrollNo: string,
+  ): Promise<{ scans: number; days: number }> {
+    const claimed = await this.db
       .update(scans)
       .set({ personId })
-      .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
+      .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)))
+      .returning({ id: scans.id });
     await this.db
       .update(unknownEnrollments)
       .set({ resolvedPersonId: personId })
       .where(eq(unknownEnrollments.enrollNo, enrollNo));
-    return this.recomputeAllDaysFor(enrollNo);
+    const days = await this.recomputeAllDaysFor(enrollNo);
+    return { scans: claimed.length, days };
   }
 
   /**
@@ -258,11 +263,17 @@ export class ScanProcessor {
    * to do, so the scheduled sweep runs it as well as the import and the
    * button under Unknown IDs: the register heals itself without anyone
    * having to remember.
+   *
+   * Bounded per call: a whole school arriving at once is hundreds of
+   * numbers, each with days to recompute, and a serverless host allows a
+   * request only seconds. `remaining` says how many are left for the next
+   * call, which every caller either makes or leaves to the sweep.
    */
-  async matchUnknownToDirectory(): Promise<{
+  async matchUnknownToDirectory(limit = 100): Promise<{
     people: number;
     scans: number;
     days: number;
+    remaining: number;
   }> {
     // Numbers with unattached scans, or still on the unknown list, that an
     // active person now holds.
@@ -288,23 +299,24 @@ export class ScanProcessor {
 
     const byNumber = new Map<string, string>();
     for (const row of [...orphaned, ...listed]) byNumber.set(row.enrollNo, row.personId);
-    if (byNumber.size === 0) return { people: 0, scans: 0, days: 0 };
+    if (byNumber.size === 0) return { people: 0, scans: 0, days: 0, remaining: 0 };
 
+    const batch = [...byNumber].slice(0, limit);
     let claimedScans = 0;
     let days = 0;
-    for (const [enrollNo, personId] of byNumber) {
-      const [n] = await this.db
-        .select({ n: count() })
-        .from(scans)
-        .where(and(eq(scans.enrollNo, enrollNo), isNull(scans.personId)));
-      claimedScans += n?.n ?? 0;
-      days += await this.claimScansFor(personId, enrollNo);
+    for (const [enrollNo, personId] of batch) {
+      const claimed = await this.claimScansFor(personId, enrollNo);
+      claimedScans += claimed.scans;
+      days += claimed.days;
     }
-    this.log.info(
-      { people: byNumber.size, scans: claimedScans, days },
-      "matched unknown numbers to the directory",
-    );
-    return { people: byNumber.size, scans: claimedScans, days };
+    const result = {
+      people: batch.length,
+      scans: claimedScans,
+      days,
+      remaining: byNumber.size - batch.length,
+    };
+    this.log.info(result, "matched unknown numbers to the directory");
+    return result;
   }
 
   /**

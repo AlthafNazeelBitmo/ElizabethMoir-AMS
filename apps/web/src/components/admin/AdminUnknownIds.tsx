@@ -94,11 +94,21 @@ export function AdminUnknownIds() {
   });
 
   const match = useMutation({
-    mutationFn: () =>
-      api.post<{ matched: { people: number; scans: number; days: number } }>(
-        "/api/admin/unknown-enrollments/match",
-        {},
-      ),
+    // One request handles a batch; a whole school arriving at once takes a
+    // few, and the button sees them all through.
+    mutationFn: async () => {
+      const matched = { people: 0, scans: 0, days: 0 };
+      for (let round = 0; round < 40; round++) {
+        const { matched: batch } = await api.post<{
+          matched: { people: number; scans: number; days: number; remaining: number };
+        }>("/api/admin/unknown-enrollments/match", {});
+        matched.people += batch.people;
+        matched.scans += batch.scans;
+        matched.days += batch.days;
+        if (batch.remaining === 0 || batch.people === 0) break;
+      }
+      return { matched };
+    },
     onSuccess: ({ matched }) => {
       if (matched.people === 0) {
         toast.message("Nothing to match", {

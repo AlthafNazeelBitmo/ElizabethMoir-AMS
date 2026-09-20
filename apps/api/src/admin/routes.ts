@@ -240,7 +240,10 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     // Scans that arrived under this number before anyone knew who it was
     // belong to them now, exactly as when a name is given under Unknown
     // IDs. Adding a person by hand must not leave their morning orphaned.
-    const daysRecomputed = await processor.claimScansFor(row!.id, row!.enrollNo);
+    const { days: daysRecomputed } = await processor.claimScansFor(
+      row!.id,
+      row!.enrollNo,
+    );
 
     await writeAudit(db, req.log, {
       action: "person_created",
@@ -285,7 +288,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       // back claims it, the same as being added would.
       const reactivated = !before.isActive && after!.isActive;
       const daysRecomputed = reactivated
-        ? await processor.claimScansFor(after!.id, after!.enrollNo)
+        ? (await processor.claimScansFor(after!.id, after!.enrollNo)).days
         : 0;
 
       await writeAudit(db, req.log, {
@@ -625,7 +628,10 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
 
       // Claim the scans already recorded against this number, then redo the
       // days they fall in so the register reflects them immediately.
-      const daysRecomputed = await processor.claimScansFor(personId, enrollNo);
+      const { days: daysRecomputed } = await processor.claimScansFor(
+        personId,
+        enrollNo,
+      );
 
       return reply.send({ personId, daysRecomputed });
     },
