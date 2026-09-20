@@ -317,6 +317,26 @@ describe("CSV import", () => {
       expect(active).toHaveLength(1);
     });
 
+    it("applies a partial file without touching the people it is silent about", async () => {
+      // The staff list, say: a part of the school. Its changes go in; the
+      // students it never mentions stay exactly as they were.
+      await importFull();
+      const staffOnly = `${HEADER},display_order
+2001,Cal Fernando,staff,Junior Staff,,,1`;
+      const preview = (await upload("/api/admin/people/import", staffOnly)).json();
+      expect(preview.preview.counts.deactivate).toBe(2);
+      const res = await upload("/api/admin/people/import/confirm", staffOnly, {
+        "x-plan-hash": preview.planHash,
+        "x-confirm-deactivations": "skip",
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().result).toMatchObject({ updated: 1, deactivated: 0 });
+      const active = await h.db.db.select().from(people).where(eq(people.isActive, true));
+      expect(active).toHaveLength(3);
+      const [cal] = await h.db.db.select().from(people).where(eq(people.enrollNo, "2001"));
+      expect(cal?.displayOrder).toBe(1);
+    });
+
     it("lists everyone who would be deactivated, not a sample", async () => {
       await importFull();
       const shorter = `${HEADER}\n11007,Ann Perera,student,Form 1,AP,2024/001`;

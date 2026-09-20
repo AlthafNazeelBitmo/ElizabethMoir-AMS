@@ -69,6 +69,12 @@ export const people = pgTable(
     tutorId: integer("tutor_id").references(() => tutors.id),
     /** The school's own reference, distinct from the reader's number. */
     admissionNo: text("admission_no"),
+    /**
+     * The person's place in their group's list, as the school orders it —
+     * head of school first, not alphabetically. Null for those with none,
+     * who follow the ordered ones, by name.
+     */
+    displayOrder: integer("display_order"),
     photoUrl: text("photo_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -79,6 +85,7 @@ export const people = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index("people_group_display_order_idx").on(t.groupId, t.displayOrder),
     index("people_group_active_idx")
       .on(t.groupId)
       .where(sql`${t.isActive}`),

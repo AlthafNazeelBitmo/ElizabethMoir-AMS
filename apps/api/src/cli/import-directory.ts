@@ -50,6 +50,7 @@ async function main(): Promise<void> {
 
   const confirm = args.includes("--confirm");
   const confirmDeactivations = args.includes("--confirm-deactivations");
+  const skipDeactivations = args.includes("--skip-deactivations");
   const asIndex = args.indexOf("--as");
   const asEmail = asIndex >= 0 ? args[asIndex + 1] : undefined;
 
@@ -103,7 +104,11 @@ async function main(): Promise<void> {
     }
 
     const outcome = await importer.apply(csvText, plan.hash, {
-      confirmDeactivations,
+      deactivations: confirmDeactivations
+        ? "confirm"
+        : skipDeactivations
+          ? "skip"
+          : "ask",
       userId: actor[0]!.id,
       ip: null,
       userAgent: "import-directory cli",

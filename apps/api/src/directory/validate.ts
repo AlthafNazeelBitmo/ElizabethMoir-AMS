@@ -57,6 +57,7 @@ export function validateDirectoryCsv(
     const groupName = row.values.group;
     const tutorInitials = row.values.tutor_initials;
     const admissionNo = row.values.admission_no;
+    const displayOrderRaw = row.values.display_order;
 
     let rowOk = true;
     const fail = (column: CsvProblem["column"], message: string) => {
@@ -135,6 +136,17 @@ export function validateDirectoryCsv(
     if (admissionNo !== "" && admissionNo.length > 64) {
       fail("admission_no", "admission_no is longer than 64 characters.");
     }
+    let displayOrder: number | null = null;
+    if (displayOrderRaw !== "") {
+      if (!/^\d{1,6}$/.test(displayOrderRaw)) {
+        fail(
+          "display_order",
+          `display_order "${displayOrderRaw}" is not a whole number. It is the person's place in their group's list.`,
+        );
+      } else {
+        displayOrder = Number(displayOrderRaw);
+      }
+    }
 
     if (!rowOk) continue;
 
@@ -145,6 +157,7 @@ export function validateDirectoryCsv(
       groupName: group ? group.name : null,
       tutorInitials: tutorInitials === "" ? null : tutorInitials,
       admissionNo: admissionNo === "" ? null : admissionNo,
+      displayOrder,
     });
   }
 

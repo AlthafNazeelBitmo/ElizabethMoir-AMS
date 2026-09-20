@@ -32,6 +32,7 @@ export interface PersonRecord {
   admissionNo: string | null;
   groupId: number | null;
   tutorId: number | null;
+  displayOrder: number | null;
   isActive: boolean;
 }
 
@@ -99,6 +100,11 @@ function PersonForm({
     person?.tutorId ? String(person.tutorId) : "",
   );
   const [admissionNo, setAdmissionNo] = useState(person?.admissionNo ?? "");
+  const [displayOrder, setDisplayOrder] = useState(
+    person?.displayOrder === null || person?.displayOrder === undefined
+      ? ""
+      : String(person.displayOrder),
+  );
 
   const groups = useQuery({
     queryKey: ["admin-groups"],
@@ -116,6 +122,7 @@ function PersonForm({
         groupId: groupId ? Number(groupId) : null,
         tutorId: tutorId ? Number(tutorId) : null,
         admissionNo: admissionNo.trim() || null,
+        displayOrder: displayOrder.trim() === "" ? null : Number(displayOrder),
       };
       return editing
         ? api.patch(`/api/admin/people/${person.id}`, body)
@@ -231,15 +238,25 @@ function PersonForm({
           </NativeSelect>
         </Field>
 
-        <Field
-          label="Admission number"
-          hint="Optional."
-          className="sm:col-span-2"
-        >
+        <Field label="Admission number" hint="Optional.">
           <Input
             value={admissionNo}
             onChange={(e) => setAdmissionNo(e.target.value)}
             maxLength={64}
+            className="tabular"
+          />
+        </Field>
+
+        <Field
+          label="Place in list"
+          hint="Optional. Their position in the school's list: 1 comes first. Those without one follow, by name."
+        >
+          <Input
+            type="number"
+            min={0}
+            max={999999}
+            value={displayOrder}
+            onChange={(e) => setDisplayOrder(e.target.value)}
             className="tabular"
           />
         </Field>

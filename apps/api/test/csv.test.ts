@@ -136,6 +136,7 @@ describe("validateDirectoryCsv", () => {
       groupName: "Form 1",
       tutorInitials: "AP",
       admissionNo: "2024/001",
+      displayOrder: null,
     });
     expect(records[1]?.tutorInitials).toBeNull();
   });
@@ -255,6 +256,7 @@ describe("planImport", () => {
       groupName: "Form 1",
       tutorInitials: "AP",
       admissionNo: "2024/001",
+      displayOrder: null,
     };
   }
   const existing = (
@@ -267,6 +269,7 @@ describe("planImport", () => {
     groupName: "Form 1",
     tutorInitials: "AP",
     admissionNo: "2024/001",
+    displayOrder: null,
     isActive: true,
     ...over,
   });
@@ -308,6 +311,42 @@ describe("planImport", () => {
     expect(plan.unchangedCount).toBe(1);
     expect(plan.updates).toHaveLength(0);
     expect(plan.ungroupedCount).toBe(1);
+  });
+
+  it("reads a place in the list, and leaves one alone when the file has none", () => {
+    const { records, problems } = validateDirectoryCsv(
+      `${HEADER},display_order
+11007,Ann,student,Form 1,,,3
+11008,Ben,student,Form 1,,,`,
+      GROUPS,
+    );
+    expect(problems).toEqual([]);
+    expect(records.map((r) => r.displayOrder)).toEqual([3, null]);
+
+    const kept = planImport(
+      [record("11007", { displayOrder: null })],
+      [existing("11007", { displayOrder: 7 })],
+      ["AP"],
+    );
+    expect(kept.unchangedCount).toBe(1);
+
+    const moved = planImport(
+      [record("11007", { displayOrder: 2 })],
+      [existing("11007", { displayOrder: 7 })],
+      ["AP"],
+    );
+    expect(moved.updates[0]?.changes).toEqual([
+      { field: "display_order", before: "7", after: "2" },
+    ]);
+  });
+
+  it("refuses a place that is not a whole number", () => {
+    const { problems } = validateDirectoryCsv(
+      `${HEADER},display_order
+11007,Ann,student,Form 1,,,first`,
+      GROUPS,
+    );
+    expect(problems[0]?.column).toBe("display_order");
   });
 
   it("still changes a group the file names differently", () => {

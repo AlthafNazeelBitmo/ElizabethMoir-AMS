@@ -71,6 +71,19 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    until the office places them: filter People by _No group_. A blank
    group or tutor in the file never clears one the office has set by hand;
    clearing is done on the person's edit form.
+
+   **The school's order.** Every list — the register, the reports — runs
+   students before staff, groups in the order set under Admin → Groups,
+   and within a group each person's _place in list_ if they have one (1
+   first), then the rest by name. The staff are placed from the school's
+   own list: give the file a `display_order` column with the place, or set
+   it on a person's edit form. Students have no places and stay
+   alphabetical within their form.
+
+   **A file that is a part of the school** — one branch, the staff list —
+   is imported without touching anyone it does not mention: the preview
+   asks whether the file is the whole school or a part, and nothing is
+   deactivated unless you say it is the whole.
 4. **Name the readers.** Admin → Devices. If a reader is mounted so that
    everyone passing it is arriving, set it to _Entry only_ — that makes
    every direction from it certain instead of inferred.

@@ -96,7 +96,13 @@ interface DailyReport {
   }>;
 }
 
+/**
+ * "school" is the order the rows arrive in: the school's own — group,
+ * then each person's place in it, then name. It is the resting sort, and
+ * the Name heading returns to it after its two directions.
+ */
 type SortKey =
+  | "school"
   | "fullName"
   | "enrollNo"
   | "groupName"
@@ -118,7 +124,7 @@ export function ReportsPage() {
 
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>(
     {
-      key: "fullName",
+      key: "school",
       direction: "asc",
     },
   );
@@ -164,6 +170,7 @@ export function ReportsPage() {
   const sorted = useMemo(() => {
     const rows = [...(report.data?.rows ?? [])];
     const { key, direction } = sort;
+    if (key === "school") return rows;
     rows.sort((a, b) => {
       const left = a[key];
       const right = b[key];
@@ -182,15 +189,19 @@ export function ReportsPage() {
   }, [report.data, sort]);
 
   const toggleSort = (key: SortKey) => {
-    setSort((current) =>
-      current.key === key
-        ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
-        : {
-            key,
-            direction:
-              key === "fullName" || key === "groupName" ? "asc" : "desc",
-          },
-    );
+    setSort((current) => {
+      // Name: the school's order → A–Z → Z–A → the school's order again.
+      if (key === "fullName" && current.key === "fullName")
+        return current.direction === "asc"
+          ? { key, direction: "desc" }
+          : { key: "school", direction: "asc" };
+      if (current.key === key)
+        return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+      return {
+        key,
+        direction: key === "fullName" || key === "groupName" ? "asc" : "desc",
+      };
+    });
   };
 
   const exportUrl = `/api/reports/attendance?${query}&format=csv`;

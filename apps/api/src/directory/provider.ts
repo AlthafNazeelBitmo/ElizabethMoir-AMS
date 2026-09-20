@@ -28,6 +28,8 @@ export interface DirectoryRecord {
   groupName: string | null;
   tutorInitials: string | null;
   admissionNo: string | null;
+  /** The place in the group's list, as the school orders it. */
+  displayOrder: number | null;
 }
 
 export interface PersonDirectoryProvider {

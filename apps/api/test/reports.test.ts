@@ -221,6 +221,28 @@ describe("GET /api/reports/attendance", () => {
     expect(byBranch.rows.map((r) => r.enrollNo)).toEqual(["2001"]);
   });
 
+  it("lists people in the school's order: group, then place in it, then name", async () => {
+    // The head of school first, whatever the alphabet says; the staff with
+    // no place follow by name; the students, who have no places, stay
+    // alphabetical within their form, and the forms come before the staff.
+    await h.db.db.insert(people).values([
+      { enrollNo: "2002", fullName: "Zara Head", groupId: staffGroupId, displayOrder: 1 },
+      { enrollNo: "2003", fullName: "Mark Deputy", groupId: staffGroupId, displayOrder: 2 },
+      { enrollNo: "2004", fullName: "Alan Unplaced", groupId: staffGroupId },
+    ]);
+    const report: AttendanceReport = (
+      await get(`/api/reports/attendance?from=${FROM}&to=${TO}`)
+    ).json();
+    expect(report.rows.map((r) => r.fullName)).toEqual([
+      "Ann Perera",
+      "Ben Silva",
+      "Zara Head",
+      "Mark Deputy",
+      "Alan Unplaced",
+      "Cal Fernando",
+    ]);
+  });
+
   it("rejects a reversed range and one that is absurdly long", async () => {
     expect(
       (await get(`/api/reports/attendance?from=${TO}&to=${FROM}`)).statusCode,

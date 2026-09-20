@@ -91,6 +91,8 @@ const createPerson = z.object({
   groupId: z.number().int().nullable().optional(),
   tutorId: z.number().int().nullable().optional(),
   admissionNo: z.string().trim().max(64).nullable().optional(),
+  /** The place in the group's list, as the school orders it. */
+  displayOrder: z.number().int().min(0).max(999999).nullable().optional(),
 });
 
 const patchPerson = createPerson.partial().extend({
@@ -188,6 +190,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         enrollNo: people.enrollNo,
         fullName: people.fullName,
         admissionNo: people.admissionNo,
+        displayOrder: people.displayOrder,
         isActive: people.isActive,
         groupId: people.groupId,
         groupName: groups.name,
@@ -409,8 +412,12 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
     { preHandler },
     async (req, reply) => {
       const planHash = headerOrField(req, "x-plan-hash");
-      const confirmDeactivations =
-        headerOrField(req, "x-confirm-deactivations") === "true";
+      // "true" deactivates whoever is missing from the file; "skip" keeps
+      // them, for a file that is a part of the school; nothing at all is
+      // refused while there is anyone to decide about.
+      const confirm = headerOrField(req, "x-confirm-deactivations");
+      const deactivations =
+        confirm === "true" ? "confirm" : confirm === "skip" ? "skip" : "ask";
       const text = await readUpload(req, maxUploadBytes);
 
       if (text === null || text === TOO_LARGE || !planHash) {
@@ -421,7 +428,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       }
 
       const outcome = await importer.apply(text, planHash, {
-        confirmDeactivations,
+        deactivations,
         userId: req.auth!.userId,
         ip: req.ip || null,
         userAgent: req.headers["user-agent"] ?? null,

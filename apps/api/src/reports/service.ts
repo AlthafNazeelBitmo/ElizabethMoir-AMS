@@ -10,6 +10,7 @@ import {
   type Branch,
   type UserRole,
 } from "../db/schema/index.js";
+import { GROUP_ORDER, PERSON_ORDER } from "../register/service.js";
 import type { SettingsService } from "../settings/service.js";
 
 /**
@@ -143,9 +144,12 @@ export class ReportService {
         people.fullName,
         groups.name,
         groups.branch,
+        groups.displayOrder,
+        people.displayOrder,
         tutors.initials,
       )
-      .orderBy(asc(people.fullName));
+      // The school's order: group, then place in the group, then name.
+      .orderBy(GROUP_ORDER, PERSON_ORDER, asc(people.fullName));
 
     const shaped: PersonReportRow[] = rows.map((row) => {
       const daysPresent = Number(row.daysPresent ?? 0);

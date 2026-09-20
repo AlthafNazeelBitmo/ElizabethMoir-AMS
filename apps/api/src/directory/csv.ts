@@ -87,7 +87,11 @@ export const REQUIRED_COLUMNS = [
   "branch",
   "group",
 ] as const;
-export const OPTIONAL_COLUMNS = ["tutor_initials", "admission_no"] as const;
+export const OPTIONAL_COLUMNS = [
+  "tutor_initials",
+  "admission_no",
+  "display_order",
+] as const;
 export const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS] as const;
 
 export type ColumnName = (typeof ALL_COLUMNS)[number];

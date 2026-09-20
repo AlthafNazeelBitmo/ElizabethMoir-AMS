@@ -17,6 +17,7 @@ export interface ExistingPerson {
   groupName: string | null;
   tutorInitials: string | null;
   admissionNo: string | null;
+  displayOrder: number | null;
   isActive: boolean;
 }
 
@@ -88,6 +89,7 @@ export function planImport(
       ...given,
       groupName: given.groupName ?? current.groupName,
       tutorInitials: given.tutorInitials ?? current.tutorInitials,
+      displayOrder: given.displayOrder ?? current.displayOrder,
     };
 
     const changes = diff(current, record);
@@ -170,6 +172,7 @@ function describeRecord(r: DirectoryRecord): string {
     r.groupName ?? "",
     r.tutorInitials ?? "",
     r.admissionNo ?? "",
+    r.displayOrder ?? "",
   ]);
 }
 
@@ -191,6 +194,11 @@ function diff(
   compare("group", current.groupName, record.groupName);
   compare("tutor_initials", current.tutorInitials, record.tutorInitials);
   compare("admission_no", current.admissionNo, record.admissionNo);
+  compare(
+    "display_order",
+    current.displayOrder === null ? null : String(current.displayOrder),
+    record.displayOrder === null ? null : String(record.displayOrder),
+  );
   // Re-importing someone who had been deactivated brings them back.
   if (!current.isActive)
     changes.push({ field: "is_active", before: "false", after: "true" });

@@ -159,6 +159,12 @@ seen before it is read; everyone, the students and the staff are three
 parts ruled apart by full-width bands. `RegisterTable` is virtualised and
 updates a row in place from the stream; a changed row flashes once.
 
+**Every list of people is in the school's order** — students before
+staff, groups as the school ordered them, then each person's place in
+their group if they have one, then name. The register reads that order
+from the server and never re-sorts; the report rests on it and the Name
+heading cycles school order → A–Z → Z–A → school order.
+
 **The numbers agree with each other.** "Expected" on the tiles is the
 people expected today — a group that expects attendance, on a school day
 — and is nobody on a Sunday. "N of M people" under the search is the roll

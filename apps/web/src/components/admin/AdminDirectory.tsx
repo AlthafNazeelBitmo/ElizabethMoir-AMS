@@ -117,7 +117,9 @@ export function AdminDirectory() {
     preview: ImportPreview;
     planHash: string;
   } | null>(null);
-  const [confirmDeactivations, setConfirmDeactivations] = useState(false);
+  // What to do about the people the file is silent about: nothing until
+  // the person importing says whether the file is the whole school.
+  const [deactivations, setDeactivations] = useState<"ask" | "confirm" | "skip">("ask");
   const fileInput = useRef<HTMLInputElement>(null);
 
   const people = useQuery({
@@ -244,7 +246,11 @@ export function AdminDirectory() {
     mutationFn: () =>
       upload("/api/admin/people/import/confirm", {
         "x-plan-hash": preview!.planHash,
-        ...(confirmDeactivations ? { "x-confirm-deactivations": "true" } : {}),
+        ...(deactivations === "confirm"
+          ? { "x-confirm-deactivations": "true" }
+          : deactivations === "skip"
+            ? { "x-confirm-deactivations": "skip" }
+            : {}),
       }),
     onSuccess: (data) => {
       const { result, matched } = data as {
@@ -263,7 +269,7 @@ export function AdminDirectory() {
       });
       setPreview(null);
       setFile(null);
-      setConfirmDeactivations(false);
+      setDeactivations("ask");
       if (fileInput.current) fileInput.current.value = "";
       void queryClient.invalidateQueries({ queryKey: ["admin-people"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-tutors"] });
@@ -406,30 +412,56 @@ export function AdminDirectory() {
               </div>
 
               {preview.preview.deactivates.length > 0 && (
-                <div className="rounded-md border border-status-absent/30 bg-status-absent-bg p-3">
-                  <p className="text-sm font-medium text-status-absent">
-                    These {preview.preview.deactivates.length} people are not in
-                    the file and would be deactivated:
+                <div className="rounded-md border p-3">
+                  <p className="text-sm font-medium">
+                    {preview.preview.deactivates.length}{" "}
+                    {preview.preview.deactivates.length === 1
+                      ? "person is"
+                      : "people are"}{" "}
+                    in the directory but not in this file.
                   </p>
-                  <ul className="mt-1 max-h-40 overflow-auto text-sm text-status-absent">
-                    {preview.preview.deactivates.map((d) => (
-                      <li key={d.enrollNo}>
-                        {d.fullName}{" "}
-                        <span className="tabular opacity-70">
-                          ({d.enrollNo})
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <label className="mt-2 flex items-center gap-2 text-sm text-status-absent">
-                    <Checkbox
-                      checked={confirmDeactivations}
-                      onCheckedChange={(checked) =>
-                        setConfirmDeactivations(checked === true)
-                      }
-                    />
-                    Yes, deactivate these people
-                  </label>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Is this file the whole school, or a part of it — one
+                    branch, one list? Nothing is imported until you say.
+                  </p>
+                  <div className="mt-2 flex flex-col gap-1.5 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="deactivations"
+                        className="accent-primary"
+                        checked={deactivations === "skip"}
+                        onChange={() => setDeactivations("skip")}
+                      />
+                      A part of the school — keep everyone else as they are
+                    </label>
+                    <label className="flex items-center gap-2 text-status-absent">
+                      <input
+                        type="radio"
+                        name="deactivations"
+                        className="accent-[var(--status-absent)]"
+                        checked={deactivations === "confirm"}
+                        onChange={() => setDeactivations("confirm")}
+                      />
+                      The whole school — deactivate these{" "}
+                      {preview.preview.deactivates.length} people
+                    </label>
+                  </div>
+                  <details className="mt-2 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer select-none">
+                      Who they are
+                    </summary>
+                    <ul className="mt-1 max-h-40 overflow-auto">
+                      {preview.preview.deactivates.map((d) => (
+                        <li key={d.enrollNo}>
+                          {d.fullName}{" "}
+                          <span className="tabular opacity-70">
+                            ({d.enrollNo})
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 </div>
               )}
 
@@ -438,7 +470,7 @@ export function AdminDirectory() {
                   disabled={
                     doConfirm.isPending ||
                     (preview.preview.deactivates.length > 0 &&
-                      !confirmDeactivations)
+                      deactivations === "ask")
                   }
                   onClick={() => doConfirm.mutate()}
                 >

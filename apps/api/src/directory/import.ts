@@ -26,8 +26,15 @@ export interface BuildPlanResult {
 }
 
 export interface ApplyOptions {
-  /** Required before anyone is deactivated (specification §6). */
-  confirmDeactivations: boolean;
+  /**
+   * What to do about people who are active but absent from the file.
+   * "confirm": deactivate them — the file is the whole school, and this is
+   * the explicit consent the specification requires (§6). "skip": leave
+   * them — the file is a part of the school, the staff list say, and its
+   * silence about everyone else means nothing. "ask" (the default): refuse
+   * until one of the two is said.
+   */
+  deactivations: "ask" | "confirm" | "skip";
   userId: string;
   ip: string | null;
   userAgent: string | null;
@@ -96,11 +103,16 @@ export class DirectoryImporter {
     if (plan.hash !== expectedHash) {
       return { ok: false, reason: "stale", plan, problems: [] };
     }
-    if (plan.deactivates.length > 0 && !options.confirmDeactivations) {
+    if (plan.deactivates.length > 0 && options.deactivations === "ask") {
       return { ok: false, reason: "needs_deactivation_confirmation", plan };
     }
 
-    const result = await this.applyPlan(plan, options);
+    // A partial file: the plan as previewed, minus the people it was silent
+    // about. The fingerprint was checked against the whole plan above, so
+    // what is applied is still exactly what was shown.
+    const applied =
+      options.deactivations === "skip" ? { ...plan, deactivates: [] } : plan;
+    const result = await this.applyPlan(applied, options);
     return { ok: true, result, plan };
   }
 
@@ -144,6 +156,7 @@ export class DirectoryImporter {
                   null)
                 : null,
               admissionNo: create.record.admissionNo,
+              displayOrder: create.record.displayOrder,
             })),
           )
           .returning({ id: people.id, enrollNo: people.enrollNo });
@@ -175,6 +188,7 @@ export class DirectoryImporter {
                 null)
               : null,
             admissionNo: update.record.admissionNo,
+            displayOrder: update.record.displayOrder,
             isActive: true,
             updatedAt: now,
           })
@@ -265,6 +279,7 @@ export class DirectoryImporter {
         groupName: groups.name,
         tutorInitials: tutors.initials,
         admissionNo: people.admissionNo,
+        displayOrder: people.displayOrder,
         isActive: people.isActive,
       })
       .from(people)

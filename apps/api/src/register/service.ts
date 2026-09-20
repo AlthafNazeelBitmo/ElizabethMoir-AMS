@@ -125,6 +125,8 @@ export class RegisterService {
         branch: groups.branch,
         groupId: people.groupId,
         groupName: groups.name,
+        groupOrder: GROUP_ORDER,
+        personOrder: PERSON_ORDER,
         expectsAttendance: groups.expectsAttendance,
         groupLateThreshold: groups.lateThreshold,
         tutorInitials: tutors.initials,
@@ -147,7 +149,7 @@ export class RegisterService {
         ),
       )
       .where(where)
-      .orderBy(asc(people.fullName), asc(people.id))
+      .orderBy(GROUP_ORDER, PERSON_ORDER, asc(people.fullName), asc(people.id))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -170,7 +172,14 @@ export class RegisterService {
     return {
       rows: mapped,
       nextCursor:
-        hasMore && last ? encodeCursor(last.fullName, last.personId) : null,
+        hasMore && last
+          ? encodeCursor({
+              groupOrder: last.groupOrder,
+              personOrder: last.personOrder,
+              fullName: last.fullName,
+              personId: last.personId,
+            })
+          : null,
       total: total?.n ?? 0,
     };
   }
@@ -191,6 +200,8 @@ export class RegisterService {
         branch: groups.branch,
         groupId: people.groupId,
         groupName: groups.name,
+        groupOrder: GROUP_ORDER,
+        personOrder: PERSON_ORDER,
         expectsAttendance: groups.expectsAttendance,
         groupLateThreshold: groups.lateThreshold,
         tutorInitials: tutors.initials,
@@ -469,12 +480,26 @@ export class RegisterService {
             ilike(people.enrollNo, `%${filters.q}%`),
           )
         : undefined,
+      // Keyset pagination along the same order the rows are read in:
+      // group, then place in the group, then name, then id.
       decoded
         ? or(
-            gt(people.fullName, decoded.fullName),
+            gt(GROUP_ORDER, decoded.groupOrder),
             and(
-              eq(people.fullName, decoded.fullName),
-              gt(people.id, decoded.personId),
+              eq(GROUP_ORDER, decoded.groupOrder),
+              or(
+                gt(PERSON_ORDER, decoded.personOrder),
+                and(
+                  eq(PERSON_ORDER, decoded.personOrder),
+                  or(
+                    gt(people.fullName, decoded.fullName),
+                    and(
+                      eq(people.fullName, decoded.fullName),
+                      gt(people.id, decoded.personId),
+                    ),
+                  ),
+                ),
+              ),
             ),
           )
         : undefined,
@@ -582,25 +607,57 @@ export class RegisterService {
   }
 }
 
-export function encodeCursor(fullName: string, personId: string): string {
-  return Buffer.from(JSON.stringify([fullName, personId]), "utf8").toString(
-    "base64url",
-  );
+/**
+ * The order every list of people is read in: the school's.
+ *
+ * The students before the staff; within a branch the groups in the order
+ * the school put them (Form 1 before Form 2); within a group the place
+ * the school gave each person — head of school first, not alphabetically
+ * — then name, then id. A person with no place follows the placed ones; a
+ * person in no group follows every group. Each key is one integer with
+ * the nulls folded in as large numbers, so the cursor can compare them
+ * like any other value.
+ */
+export const GROUP_ORDER = sql<number>`(case when ${groups.branch} = 'student' then 0 when ${groups.branch} = 'staff' then 1000000 else 2000000 end) + coalesce(${groups.displayOrder}, 999999)`;
+export const PERSON_ORDER = sql<number>`coalesce(${people.displayOrder}, 2147483647)`;
+
+export interface Cursor {
+  groupOrder: number;
+  personOrder: number;
+  fullName: string;
+  personId: string;
 }
 
-export function decodeCursor(
-  cursor: string,
-): { fullName: string; personId: string } | null {
+export function encodeCursor(cursor: Cursor): string {
+  return Buffer.from(
+    JSON.stringify([
+      cursor.groupOrder,
+      cursor.personOrder,
+      cursor.fullName,
+      cursor.personId,
+    ]),
+    "utf8",
+  ).toString("base64url");
+}
+
+export function decodeCursor(cursor: string): Cursor | null {
   try {
     const parsed: unknown = JSON.parse(
       Buffer.from(cursor, "base64url").toString("utf8"),
     );
     if (
       Array.isArray(parsed) &&
-      typeof parsed[0] === "string" &&
-      typeof parsed[1] === "string"
+      typeof parsed[0] === "number" &&
+      typeof parsed[1] === "number" &&
+      typeof parsed[2] === "string" &&
+      typeof parsed[3] === "string"
     ) {
-      return { fullName: parsed[0], personId: parsed[1] };
+      return {
+        groupOrder: parsed[0],
+        personOrder: parsed[1],
+        fullName: parsed[2],
+        personId: parsed[3],
+      };
     }
   } catch {
     // A malformed cursor is treated as no cursor rather than an error: it

@@ -193,6 +193,40 @@ describe("GET /api/register/live", () => {
     expect(onSite.rows[0].enrollNo).toBe("11007");
   });
 
+  it("lists people in the school's order, and pages along it", async () => {
+    // Staff placed by the school come first among the staff, in that
+    // order, whatever the alphabet says; the forms come before them.
+    const [staff] = await h.db.db.select().from(groups).where(eq(groups.name, "Junior Staff"));
+    await h.db.db.insert(people).values([
+      { enrollNo: "2002", fullName: "Zara Head", groupId: staff!.id, displayOrder: 1 },
+      { enrollNo: "2003", fullName: "Mark Deputy", groupId: staff!.id, displayOrder: 2 },
+    ]);
+    const all = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(all.rows.map((r: { fullName: string }) => r.fullName)).toEqual([
+      "Ann Perera",
+      "Ben Silva",
+      "Zara Head",
+      "Mark Deputy",
+      "Cal Fernando",
+    ]);
+
+    // The same order two at a time, without a gap or a repeat.
+    const names: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 5; page++) {
+      const body: { rows: Array<{ fullName: string }>; nextCursor: string | null } = (
+        await get(
+          `/api/register/live?date=${DATE}&limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+          full,
+        )
+      ).json();
+      names.push(...body.rows.map((r: { fullName: string }) => r.fullName));
+      cursor = body.nextCursor;
+      if (!cursor) break;
+    }
+    expect(names).toEqual(["Ann Perera", "Ben Silva", "Zara Head", "Mark Deputy", "Cal Fernando"]);
+  });
+
   it("pages with a stable cursor", async () => {
     const first = (
       await get(`/api/register/live?date=${DATE}&limit=2`, full)
@@ -734,11 +768,18 @@ describe("the broadcaster", () => {
 
 describe("cursors", () => {
   it("round-trip", () => {
-    const encoded = encodeCursor("Ann Perera", "abc-123");
-    expect(decodeCursor(encoded)).toEqual({
+    const cursor = {
+      groupOrder: 1,
+      personOrder: 2147483647,
       fullName: "Ann Perera",
       personId: "abc-123",
-    });
+    };
+    expect(decodeCursor(encodeCursor(cursor))).toEqual(cursor);
+  });
+
+  it("treats a cursor from before the school's order as no cursor", () => {
+    const old = Buffer.from(JSON.stringify(["Ann Perera", "abc-123"])).toString("base64url");
+    expect(decodeCursor(old)).toBeNull();
   });
 
   it("treats a malformed cursor as no cursor, since it is usually a stale bookmark", () => {
