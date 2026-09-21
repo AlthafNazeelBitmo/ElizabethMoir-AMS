@@ -64,16 +64,18 @@ export function RegisterTable({
     onScrolledTo();
   }, [scrollToPersonId, rows, virtualiser, onScrolledTo]);
 
-  // The group column also carries the category tag, so its floor is set
-  // where "Senior Staff" and "Extra-Curricular" fit side by side on a
-  // laptop, where every column sits at its floor.
+  // Every column has a floor and a share of whatever is left: on a laptop
+  // they all sit at their floors, and on a wide screen the room is spread
+  // across the row rather than piling up behind the group while the times
+  // and the status huddle at the right edge. The group's floor is where
+  // "Senior Staff" and "Extra-Curricular" fit side by side.
   const gridTemplate = compact
     ? showTutor
-      ? "minmax(10rem,2fr) 4.5rem minmax(9.5rem,1.3fr) 3rem 4.25rem 4.25rem minmax(8rem,auto)"
-      : "minmax(10rem,2fr) 4.5rem minmax(9.5rem,1.3fr) 4.25rem 4.25rem minmax(8rem,auto)"
+      ? "minmax(10rem,2fr) minmax(4.5rem,0.6fr) minmax(9.5rem,1.3fr) minmax(3rem,0.5fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(8rem,1fr)"
+      : "minmax(10rem,2fr) minmax(4.5rem,0.6fr) minmax(9.5rem,1.3fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(8rem,1fr)"
     : showTutor
-      ? "minmax(12rem,2fr) 5.5rem minmax(11rem,1.4fr) 4rem 5rem 5rem minmax(8.5rem,auto)"
-      : "minmax(12rem,2fr) 5.5rem minmax(11rem,1.4fr) 5rem 5rem minmax(8.5rem,auto)";
+      ? "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(4rem,0.5fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(8.5rem,1fr)"
+      : "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(8.5rem,1fr)";
 
   return (
     <div
@@ -94,10 +96,10 @@ export function RegisterTable({
         <span role="columnheader">ID</span>
         <span role="columnheader">Group</span>
         {showTutor && <span role="columnheader">Tutor</span>}
-        <span role="columnheader" className="text-right">
+        <span role="columnheader" className="text-center">
           First in
         </span>
-        <span role="columnheader" className="text-right">
+        <span role="columnheader" className="text-center">
           Last out
         </span>
         <span role="columnheader">Status</span>
@@ -175,10 +177,14 @@ export function RegisterTable({
                     {row.tutorInitials ?? "—"}
                   </span>
                 )}
+                {/* Centred: "HH:MM" is always the same width, so the times
+                    still line up, and on a wide screen the column's room
+                    falls on both sides rather than pushing the time up
+                    against the status. */}
                 <span
                   role="cell"
                   className={cn(
-                    "tabular text-right",
+                    "tabular text-center",
                     !row.firstIn && "text-muted-foreground/60",
                   )}
                 >
@@ -187,7 +193,7 @@ export function RegisterTable({
                 <span
                   role="cell"
                   className={cn(
-                    "tabular text-right",
+                    "tabular text-center",
                     !row.lastOut && "text-muted-foreground/60",
                   )}
                 >
