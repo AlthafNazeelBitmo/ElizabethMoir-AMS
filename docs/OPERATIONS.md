@@ -72,13 +72,16 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    group or tutor in the file never clears one the office has set by hand;
    clearing is done on the person's edit form.
 
-   **The school's order.** Every list — the register, the reports — runs
-   students before staff, groups in the order set under Admin → Groups,
-   and within a group each person's _place in list_ if they have one (1
-   first), then the rest by name. The staff are placed from the school's
-   own list: give the file a `display_order` column with the place, or set
-   it on a person's edit form. Students have no places and stay
-   alphabetical within their form.
+   **The school's order.** The reports, and the register when its _Order_
+   is set to "School order", run students before staff, groups in the
+   order set under Admin → Groups, and within a group each person's
+   _place in list_ if they have one (1 first), then the rest by name. The
+   staff are placed from the school's own list: give the file a
+   `display_order` column with the place, or set it on a person's edit
+   form. Students have no places and stay alphabetical within their form.
+   The live register itself opens latest first — the last person through
+   a reader at the top — with the people who have not moved yet below, in
+   the school's order.
 
    **Categories.** The school's staff list also puts each member of staff
    in a category — HOD, Teaching, Extra-Curricular, Admin, Service,

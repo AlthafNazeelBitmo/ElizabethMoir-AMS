@@ -128,6 +128,33 @@ describe("GET /api/register/live", () => {
     expect(ann.firstIn).toBe("2026-09-16T02:00:00.000Z");
   });
 
+  it("says when each person last moved, for the register to put the latest first", async () => {
+    // In, out at lunch, back: last_out is cleared by the return, so the
+    // last movement is carried on its own. It travels on the stream too.
+    const seen: Array<string | null> = [];
+    h.app.broadcaster.subscribe("full", (p) => {
+      if (p.event.type === "scan") seen.push(p.event.lastMovementAt);
+    });
+    await scan("11007", "2026-09-16 07:30:00");
+    await scan("11007", "2026-09-16 12:00:00");
+    await scan("11007", "2026-09-16 13:00:00");
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const ann = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "11007",
+    );
+    expect(ann).toMatchObject({
+      status: "on_site",
+      firstIn: "2026-09-16T02:00:00.000Z",
+      lastOut: null,
+      lastMovementAt: "2026-09-16T07:30:00.000Z",
+    });
+    expect(seen.at(-1)).toBe("2026-09-16T07:30:00.000Z");
+    const ben = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "11008",
+    );
+    expect(ben.lastMovementAt).toBeNull();
+  });
+
   it("shows someone with no scans as absent once the day has started", async () => {
     const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
     expect(
@@ -662,6 +689,8 @@ describe("manual adjustment", () => {
       lastOut: "2026-09-16T09:30:00.000Z",
       status: "departed",
       hasManualEdit: true,
+      // A time set by hand takes its place in the order as a scan would.
+      lastMovementAt: "2026-09-16T09:30:00.000Z",
     });
   });
 });
@@ -766,6 +795,7 @@ describe("the broadcaster", () => {
       date: DATE,
       firstIn: null,
       lastOut: null,
+      lastMovementAt: null,
       status: "on_site" as const,
       isLate: false,
       hasManualEdit: false,

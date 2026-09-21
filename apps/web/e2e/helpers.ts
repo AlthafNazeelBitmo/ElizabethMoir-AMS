@@ -16,6 +16,8 @@ export const DEMO = {
   /** Left untouched by the correction test, so its day reads as seeded. */
   reportStudent: "11002",
   unscannedStudent: "11060",
+  /** Another with no scans, for a second test in the same file to move. */
+  unscannedStudent2: "11061",
 } as const;
 
 export async function signIn(

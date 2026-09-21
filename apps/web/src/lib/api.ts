@@ -116,6 +116,8 @@ export interface RegisterRow {
   dayRecordId: number | null;
   firstIn: string | null;
   lastOut: string | null;
+  /** When they last moved through a reader today; the register's order. */
+  lastMovementAt: string | null;
   status: RegisterStatus;
   isLate: boolean;
   hasManualEdit: boolean;

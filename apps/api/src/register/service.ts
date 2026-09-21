@@ -62,6 +62,8 @@ export interface RegisterRow {
   dayRecordId: number | null;
   firstIn: string | null;
   lastOut: string | null;
+  /** When they last moved through a reader today; the register's order. */
+  lastMovementAt: string | null;
   status: RegisterStatus;
   isLate: boolean;
   hasManualEdit: boolean;
@@ -136,6 +138,7 @@ export class RegisterService {
         dayRecordId: dayRecords.id,
         firstIn: dayRecords.firstIn,
         lastOut: dayRecords.lastOut,
+        lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
         hasManualEdit: dayRecords.hasManualEdit,
@@ -212,6 +215,7 @@ export class RegisterService {
         dayRecordId: dayRecords.id,
         firstIn: dayRecords.firstIn,
         lastOut: dayRecords.lastOut,
+        lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
         hasManualEdit: dayRecords.hasManualEdit,
@@ -305,6 +309,7 @@ export class RegisterService {
         dayRecordId: dayRecords.id,
         firstIn: dayRecords.firstIn,
         lastOut: dayRecords.lastOut,
+        lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
         hasManualEdit: dayRecords.hasManualEdit,
@@ -558,6 +563,7 @@ export class RegisterService {
       dayRecordId: number | null;
       firstIn: Date | null;
       lastOut: Date | null;
+      lastMovementAt: Date | null;
       status: DayStatus | null;
       isLate: boolean | null;
       hasManualEdit: boolean | null;
@@ -583,6 +589,7 @@ export class RegisterService {
         dayRecordId: raw.dayRecordId,
         firstIn: raw.firstIn?.toISOString() ?? null,
         lastOut: raw.lastOut?.toISOString() ?? null,
+        lastMovementAt: raw.lastMovementAt?.toISOString() ?? null,
         status: raw.status,
         isLate: raw.isLate ?? false,
         hasManualEdit: raw.hasManualEdit ?? false,
@@ -604,6 +611,7 @@ export class RegisterService {
       dayRecordId: null,
       firstIn: null,
       lastOut: null,
+      lastMovementAt: null,
       // Null means they are expected and the day has not reached the point
       // where absence is meaningful: they have not arrived yet, and that is
       // all that can be said.

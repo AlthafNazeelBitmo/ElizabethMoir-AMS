@@ -35,6 +35,7 @@ export interface ScanEvent {
   date: string;
   firstIn: string | null;
   lastOut: string | null;
+  lastMovementAt: string | null;
   status: DayStatus;
   isLate: boolean;
   hasManualEdit: boolean;

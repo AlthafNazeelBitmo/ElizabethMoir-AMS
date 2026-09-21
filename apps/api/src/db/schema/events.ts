@@ -127,6 +127,16 @@ export const dayRecords = pgTable(
 
     firstIn: timestamp("first_in", { withTimezone: true, mode: "date" }),
     lastOut: timestamp("last_out", { withTimezone: true, mode: "date" }),
+    /**
+     * When they last moved through a reader that day, in or out: the last
+     * scan that counted. The register lists the latest first. Neither of
+     * the two times above says this alone — someone back from lunch has
+     * no last_out — so it is kept.
+     */
+    lastMovementAt: timestamp("last_movement_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
 
     status: text("status").$type<DayStatus>().notNull(),
     /** Separate from status so "late" can combine with on_site or departed. */

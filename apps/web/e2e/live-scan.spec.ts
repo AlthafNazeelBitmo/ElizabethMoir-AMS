@@ -68,3 +68,44 @@ test("a posted scan reaches the open register through the stream", async ({
   await expect(row).toContainText(time.slice(0, 5));
   expect(registerFetches).toBe(fetchesBeforeScan);
 });
+
+test("the last person through the door is at the top of the register", async ({
+  page,
+}) => {
+  test.skip(
+    Number(schoolNow().time.slice(0, 2)) < 3,
+    `It is ${schoolNow().time} at the school: a scan now belongs to yesterday's day.`,
+  );
+
+  await signIn(page, "full");
+  await expect(page.getByText("Live", { exact: true })).toBeVisible();
+  const table = page.getByRole("table", { name: "Register" });
+  const firstRow = table.getByRole("row").nth(1); // after the header
+  await expect(firstRow).toBeVisible();
+  await expect(firstRow).not.toContainText(DEMO.unscannedStudent2);
+
+  // Stamped now, not at the start of the test: the previous test's scan
+  // was seconds ago, and two movements in the same second tie.
+  const { date, time } = schoolNow();
+  const response = await page.request.post(DEMO.ingestPath, {
+    data: [
+      {
+        EmpId: DEMO.unscannedStudent2,
+        AttTime: `${date} ${time}`,
+        CheckingStatus: "0",
+        VerifyType: "1",
+        DeviceID: DEMO.device,
+      },
+    ],
+  });
+  expect(response.status()).toBe(200);
+
+  // Latest first: the scan takes them to the top, through the stream.
+  await expect(firstRow).toContainText(DEMO.unscannedStudent2);
+  await expect(firstRow).toContainText("Present");
+
+  // In the school's order they sit where the school lists them.
+  await page.getByLabel("Order").selectOption("school");
+  await expect(firstRow).not.toContainText(DEMO.unscannedStudent2);
+  await expect(page).toHaveURL(/sort=school/);
+});

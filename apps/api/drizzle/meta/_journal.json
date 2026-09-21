@@ -43,6 +43,13 @@
       "when": 1789984054468,
       "tag": "0005_person_category",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789987419997,
+      "tag": "0006_day_record_last_movement",
+      "breakpoints": true
     }
   ]
 }

@@ -565,6 +565,7 @@ export class ScanProcessor {
         date: day.date,
         firstIn: computed.firstIn,
         lastOut: computed.lastOut,
+        lastMovementAt: computed.lastMovementAt,
         status: computed.status,
         isLate: computed.isLate,
         scanCount: computed.scanCount,
@@ -575,6 +576,7 @@ export class ScanProcessor {
         set: {
           firstIn: computed.firstIn,
           lastOut: computed.lastOut,
+          lastMovementAt: computed.lastMovementAt,
           status: computed.status,
           isLate: computed.isLate,
           scanCount: computed.scanCount,
@@ -597,7 +599,14 @@ export class ScanProcessor {
   private async announce(
     personId: string,
     date: string,
-    computed: { status: DayStatus; isLate: boolean; firstIn: Date | null; lastOut: Date | null; scanCount: number },
+    computed: {
+      status: DayStatus;
+      isLate: boolean;
+      firstIn: Date | null;
+      lastOut: Date | null;
+      lastMovementAt: Date | null;
+      scanCount: number;
+    },
   ): Promise<void> {
     if (!this.broadcaster) return;
     try {
@@ -634,6 +643,7 @@ export class ScanProcessor {
         date,
         firstIn: computed.firstIn?.toISOString() ?? null,
         lastOut: computed.lastOut?.toISOString() ?? null,
+        lastMovementAt: computed.lastMovementAt?.toISOString() ?? null,
         status: computed.status,
         isLate: computed.isLate,
         hasManualEdit: row.hasManualEdit ?? false,

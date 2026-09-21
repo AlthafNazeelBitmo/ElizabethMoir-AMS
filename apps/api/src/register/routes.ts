@@ -341,6 +341,19 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
           .send({ error: "invalid_request", message: "Nothing to change." });
       }
 
+      // A time set by hand is a movement the readers missed: it takes its
+      // place in the register's order as a scan at that time would.
+      const movement = [
+        before.lastMovementAt,
+        patch["firstIn"] instanceof Date ? patch["firstIn"] : null,
+        patch["lastOut"] instanceof Date ? patch["lastOut"] : null,
+      ].filter((d): d is Date => d instanceof Date);
+      if (movement.length > 0) {
+        patch["lastMovementAt"] = new Date(
+          Math.max(...movement.map((d) => d.getTime())),
+        );
+      }
+
       const [after] = await db
         .update(dayRecords)
         .set(patch)

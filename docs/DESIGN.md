@@ -165,13 +165,24 @@ is the rail with a bar under each group — the accent, fading with the
 share, never amber — so the half-empty form is seen before it is read;
 everyone, the students and the staff are three parts ruled apart by
 full-width bands, inside a rounded frame that clips its own scrollbar. `RegisterTable` is virtualised and
-updates a row in place from the stream; a changed row flashes once.
+updates a row from the stream without a fetch; a changed row flashes once.
 
-**Every list of people is in the school's order** — students before
+**The register is a feed of the door.** At rest it is latest first: the
+last person to come in or go out is at the top, and a scan moves its row
+there. That needs a fact neither `first_in` nor `last_out` gives — the
+one who left at lunch and came back has no `last_out` — so each day
+carries `last_movement_at`, the last scan that counted, and the stream
+carries it too; a time set by hand takes its place as a scan would. The
+rows are sorted in the browser, like the status filter and the search.
+An _Order_ select gives the school's order instead, and in that order a
+scan changes the row where it stands and off-screen changes are counted.
+
+**Every other list of people is in the school's order** — students before
 staff, groups as the school ordered them, then each person's place in
 their group if they have one, then name. The register reads that order
-from the server and never re-sorts; the report rests on it and the Name
-heading cycles school order → A–Z → Z–A → school order.
+from the server and it is what "School order" and the untouched rows
+show; the report rests on it and the Name heading cycles school order →
+A–Z → Z–A → school order.
 
 **The numbers agree with each other.** "Expected" on the tiles is the
 people expected today — a group that expects attendance, on a school day

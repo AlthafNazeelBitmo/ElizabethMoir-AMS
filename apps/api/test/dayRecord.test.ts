@@ -33,6 +33,43 @@ function ctx(overrides: Partial<DayContext> = {}): DayContext {
   };
 }
 
+describe("last movement", () => {
+  it("is the last scan that counted, in or out", () => {
+    const r = computeDayRecord([scan(2, "in"), scan(9, "out")], ctx());
+    expect(r?.lastMovementAt).toEqual(utc(9));
+  });
+
+  it("is the return, which first_in and last_out between them do not say", () => {
+    // Out at lunch and back: last_out is cleared by the return, first_in
+    // is the morning. The movement is the return.
+    const r = computeDayRecord(
+      [scan(2, "in"), scan(6, "out"), scan(7, "in")],
+      ctx(),
+    );
+    expect(r?.lastOut).toBeNull();
+    expect(r?.lastMovementAt).toEqual(utc(7));
+  });
+
+  it("is not moved by a duplicate tap", () => {
+    const r = computeDayRecord(
+      [scan(2, "in"), scan(3, "in", true)],
+      ctx(),
+    );
+    expect(r?.lastMovementAt).toEqual(utc(2));
+  });
+
+  it("is nothing for someone who was not seen", () => {
+    const r = computeDayRecord([], ctx());
+    expect(r?.status).toBe("absent");
+    expect(r?.lastMovementAt).toBeNull();
+  });
+
+  it("is kept on a day nobody was expected, as the times are", () => {
+    const r = computeDayRecord([scan(2, "in")], ctx({ isSchoolDay: false }));
+    expect(r?.lastMovementAt).toEqual(utc(2));
+  });
+});
+
 describe("not_expected", () => {
   it("applies to a group that does not expect attendance, such as contractors", () => {
     const r = computeDayRecord(

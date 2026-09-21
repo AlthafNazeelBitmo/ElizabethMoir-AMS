@@ -38,6 +38,11 @@ export interface DayRecordComputation {
   isLate: boolean;
   firstIn: Date | null;
   lastOut: Date | null;
+  /**
+   * The last scan that counted, whichever way it went: when they last
+   * moved. Null when nothing was seen. Duplicate taps do not move it.
+   */
+  lastMovementAt: Date | null;
   scanCount: number;
   /** Scans whose direction could not be determined. A data-quality signal. */
   unknownDirectionCount: number;
@@ -62,9 +67,11 @@ export function computeDayRecord(
     (s) => s.direction === "unknown",
   ).length;
 
+  const lastMovementAt = counted.at(-1)?.attTime ?? null;
   const empty = {
     firstIn: null,
     lastOut: null,
+    lastMovementAt,
     scanCount,
     unknownDirectionCount,
     isLate: false,
@@ -97,7 +104,15 @@ export function computeDayRecord(
   const isLate = ctx.lateThreshold !== null && firstIn > ctx.lateThreshold;
   const status: DayStatus = lastOut === null ? "on_site" : "departed";
 
-  return { status, isLate, firstIn, lastOut, scanCount, unknownDirectionCount };
+  return {
+    status,
+    isLate,
+    firstIn,
+    lastOut,
+    lastMovementAt,
+    scanCount,
+    unknownDirectionCount,
+  };
 }
 
 /**

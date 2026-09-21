@@ -38,13 +38,16 @@ import {
   type SummaryResponse,
 } from "@/lib/api.js";
 import {
+  DEFAULT_SORT,
   DEFAULT_STATUS,
   filtersFromSearch,
   hasActiveFilters,
   matchesStatus,
+  orderRows,
   queryFromFilters,
   searchFromFilters,
   type RegisterFilters,
+  type SortOrder,
   type StatusFilter,
 } from "@/lib/filters.js";
 import { formatDate, formatTime, schoolToday } from "@/lib/format.js";
@@ -54,9 +57,13 @@ import { cn } from "@/lib/utils.js";
  * The live register.
  *
  * This is what somebody has open on a monitor all day, so the rules are
- * strict: the page itself never scrolls, a new scan updates its row in
- * place without re-sorting or refetching, and the connection state is
- * always visible. Stale data is never shown as though it were live.
+ * strict: the page itself never scrolls, a new scan updates its row
+ * without refetching, and the connection state is always visible. Stale
+ * data is never shown as though it were live.
+ *
+ * At rest the list is a feed of the door: whoever last came in or went out
+ * is at the top, and a scan moves its row there. In the school's order
+ * the row stays where it is and only its times and status change.
  */
 export function RegisterPage() {
   const user = useOutletContext<CurrentUser>();
@@ -185,15 +192,20 @@ export function RegisterPage() {
         });
       }, 1600);
 
-      setOffscreenUpdates((current) =>
-        current.includes(event.personId)
-          ? current
-          : [...current, event.personId],
-      );
+      // In the school's order a change can land anywhere down the list, so
+      // it is counted and offered. Latest first, it lands at the top.
+      if (filters.sort === "school") {
+        setOffscreenUpdates((current) =>
+          current.includes(event.personId)
+            ? current
+            : [...current, event.personId],
+        );
+      }
       void summary.refetch();
     },
-    [filters.date, summary],
+    [filters.date, filters.sort, summary],
   );
+  useEffect(() => setOffscreenUpdates([]), [filters.sort]);
 
   const stream = useRegisterStream({
     onScan: applyScan,
@@ -207,7 +219,7 @@ export function RegisterPage() {
 
   const visibleRows = useMemo(() => {
     const needle = filters.q.trim().toLowerCase();
-    return rows.filter((row) => {
+    const shown = rows.filter((row) => {
       if (!matchesStatus(row, filters.status)) return false;
       if (!needle) return true;
       return (
@@ -215,7 +227,8 @@ export function RegisterPage() {
         row.enrollNo.toLowerCase().includes(needle)
       );
     });
-  }, [rows, filters.status, filters.q]);
+    return orderRows(shown, filters.sort);
+  }, [rows, filters.status, filters.sort, filters.q]);
 
   // The tutor initials are kept off the register for now: the office
   // asked for the screen without them.
@@ -413,6 +426,17 @@ export function RegisterPage() {
               <option value="not_expected">Not expected</option>
             </NativeSelect>
 
+            <NativeSelect
+              aria-label="Order"
+              value={filters.sort}
+              onChange={(e) =>
+                setFilters({ sort: e.target.value as SortOrder })
+              }
+            >
+              <option value="latest">Latest first</option>
+              <option value="school">School order</option>
+            </NativeSelect>
+
             {hasActiveFilters(filters) && (
               <Button
                 variant="ghost"
@@ -583,6 +607,7 @@ function toRow(event: ScanEventPayload): Partial<RegisterRow> {
   return {
     firstIn: event.firstIn,
     lastOut: event.lastOut,
+    lastMovementAt: event.lastMovementAt,
     status: event.status,
     isLate: event.isLate,
     hasManualEdit: event.hasManualEdit,
@@ -597,6 +622,7 @@ function blankFilters(today: string): RegisterFilters {
     group: null,
     tutor: null,
     status: DEFAULT_STATUS,
+    sort: DEFAULT_SORT,
     q: "",
   };
 }
