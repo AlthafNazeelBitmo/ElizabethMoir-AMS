@@ -43,10 +43,13 @@ export function GroupsPanel({
     <nav
       aria-label="Groups"
       className={cn(
-        "flex min-h-0 flex-col overflow-y-auto rounded-xl border bg-card p-1.5 shadow-xs",
+        // The frame clips; the scrolling happens inside it, so the scrollbar
+        // stays within the rounded corners instead of poking out of them.
+        "flex min-h-0 flex-col overflow-hidden rounded-xl border bg-card shadow-xs",
         className,
       )}
     >
+      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2">
       <GroupItem
         label="Everyone"
         {...sum([...groups, ungrouped])}
@@ -112,6 +115,7 @@ export function GroupsPanel({
           />
         </>
       )}
+      </div>
     </nav>
   );
 }
@@ -119,7 +123,7 @@ export function GroupsPanel({
 function SectionLabel({ children }: { children: string }) {
   return (
     // A band the full width of the rail, so the three parts read as parts.
-    <div className="-mx-1.5 mt-2 mb-1 border-y bg-muted/50 px-3.5 py-1.5 text-[0.6875rem] font-semibold tracking-wide text-muted-foreground uppercase">
+    <div className="-mx-2 mt-2 mb-1 border-y bg-muted/50 px-4 py-1.5 text-[0.6875rem] font-semibold tracking-wide text-muted-foreground uppercase">
       {children}
     </div>
   );
@@ -147,7 +151,7 @@ function GroupItem({
       onClick={onClick}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "flex w-full flex-col gap-1 rounded-md px-2 py-1.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
+        "flex w-full flex-col gap-1.5 rounded-md px-2.5 py-2 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
         active ? "bg-accent text-accent-foreground" : "hover:bg-muted/70",
       )}
     >
@@ -173,10 +177,10 @@ function GroupItem({
           className={cn(
             "block h-full rounded-full transition-[width] duration-500",
             share >= 90
-              ? "bg-status-onsite"
+              ? "bg-primary"
               : share >= 60
-                ? "bg-status-onsite/70"
-                : "bg-status-late",
+                ? "bg-primary/70"
+                : "bg-primary/40",
           )}
           style={{ width: `${share}%` }}
         />

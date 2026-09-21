@@ -161,9 +161,10 @@ fifteen seconds are never mentioned. `StatCards` are the counts in one strip, ea
 and a click that filters.
 `ArrivalsSparkline` is the morning's arrivals in ten-minute slots, computed
 from the rows already on screen — nothing is fetched for it. `GroupsPanel`
-is the rail with an on-site bar under each group so the half-empty form is
-seen before it is read; everyone, the students and the staff are three
-parts ruled apart by full-width bands. `RegisterTable` is virtualised and
+is the rail with a bar under each group — the accent, fading with the
+share, never amber — so the half-empty form is seen before it is read;
+everyone, the students and the staff are three parts ruled apart by
+full-width bands, inside a rounded frame that clips its own scrollbar. `RegisterTable` is virtualised and
 updates a row in place from the stream; a changed row flashes once.
 
 **Every list of people is in the school's order** — students before
