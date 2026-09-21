@@ -49,7 +49,10 @@ export function GroupsPanel({
         className,
       )}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2">
+      {/* The scroller sits a little inside the frame top and bottom, so the
+          scrollbar's thumb ends where the sides are straight, short of the
+          curved corners, rather than running into them. */}
+      <div className="my-2.5 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2">
       <GroupItem
         label="Everyone"
         {...sum([...groups, ungrouped])}
