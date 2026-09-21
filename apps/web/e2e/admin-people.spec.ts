@@ -21,18 +21,21 @@ test("a person can be added by hand, edited, and deactivated", async ({
   await dialog.getByLabel("Enrolment number").fill(enrollNo);
   await dialog.getByLabel("Full name").fill(name);
   await dialog.getByLabel("Group").selectOption({ label: "Form 1" });
+  await dialog.getByLabel("Category").fill("Exchange");
   await dialog.getByRole("button", { name: "Add person" }).click();
   await expect(dialog).toBeHidden();
 
-  // In the directory, with the group.
+  // In the directory, with the group and the category.
   await page.getByLabel("Search people").fill(enrollNo);
   const listed = rowFor(page, enrollNo);
   await expect(listed).toContainText(name);
   await expect(listed).toContainText("Form 1");
+  await expect(listed).toContainText("Exchange");
 
-  // And on the register, where it counts.
+  // And on the register, where it counts, the category beside the group.
   await page.goto(`/register?q=${enrollNo}&status=any`);
   await expect(rowFor(page, enrollNo)).toContainText(name);
+  await expect(rowFor(page, enrollNo)).toContainText("Exchange");
 
   // Edited in place; the number cannot be changed.
   await page.goto("/admin/people");

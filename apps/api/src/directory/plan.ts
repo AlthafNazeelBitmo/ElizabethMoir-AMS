@@ -18,6 +18,7 @@ export interface ExistingPerson {
   tutorInitials: string | null;
   admissionNo: string | null;
   displayOrder: number | null;
+  category: string | null;
   isActive: boolean;
 }
 
@@ -80,16 +81,17 @@ export function planImport(
       continue;
     }
 
-    // A blank group or tutor in the file means the source does not know,
-    // not that there is none: an export from the readers carries no
-    // classification for many people, and a re-import must not undo what
-    // the office has since set by hand. Clearing is done on the person's
-    // own edit form, deliberately.
+    // A blank group, tutor, place or category in the file means the source
+    // does not know, not that there is none: an export from the readers
+    // carries no classification for many people, and a re-import must not
+    // undo what the office has since set by hand. Clearing is done on the
+    // person's own edit form, deliberately.
     const record: DirectoryRecord = {
       ...given,
       groupName: given.groupName ?? current.groupName,
       tutorInitials: given.tutorInitials ?? current.tutorInitials,
       displayOrder: given.displayOrder ?? current.displayOrder,
+      category: given.category ?? current.category,
     };
 
     const changes = diff(current, record);
@@ -173,6 +175,7 @@ function describeRecord(r: DirectoryRecord): string {
     r.tutorInitials ?? "",
     r.admissionNo ?? "",
     r.displayOrder ?? "",
+    r.category ?? "",
   ]);
 }
 
@@ -199,6 +202,7 @@ function diff(
     current.displayOrder === null ? null : String(current.displayOrder),
     record.displayOrder === null ? null : String(record.displayOrder),
   );
+  compare("category", current.category, record.category);
   // Re-importing someone who had been deactivated brings them back.
   if (!current.isActive)
     changes.push({ field: "is_active", before: "false", after: "true" });

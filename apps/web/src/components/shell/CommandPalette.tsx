@@ -109,6 +109,7 @@ export function CommandPalette({
                 <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
                   <StatusShape status={row.status} />
                   {row.groupName}
+                  {row.category && ` · ${row.category}`}
                 </span>
               </CommandItem>
             ))}

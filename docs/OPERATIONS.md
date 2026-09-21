@@ -80,6 +80,14 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    it on a person's edit form. Students have no places and stay
    alphabetical within their form.
 
+   **Categories.** The school's staff list also puts each member of staff
+   in a category — HOD, Teaching, Extra-Curricular, Admin, Service,
+   Part-Time — and it is shown beside their group on the register, in the
+   reports and their CSV export, and in the directory. It comes in from a
+   `category` column in the file, or is set on the edit form, which offers
+   the categories already in use so spellings stay consistent. It is free
+   text: a new category needs no deploy. A blank never clears one.
+
    **A file that is a part of the school** — one branch, the staff list —
    is imported without touching anyone it does not mention: the preview
    asks whether the file is the whole school or a part, and nothing is

@@ -157,6 +157,7 @@ export class DirectoryImporter {
                 : null,
               admissionNo: create.record.admissionNo,
               displayOrder: create.record.displayOrder,
+              category: create.record.category,
             })),
           )
           .returning({ id: people.id, enrollNo: people.enrollNo });
@@ -189,6 +190,7 @@ export class DirectoryImporter {
               : null,
             admissionNo: update.record.admissionNo,
             displayOrder: update.record.displayOrder,
+            category: update.record.category,
             isActive: true,
             updatedAt: now,
           })
@@ -280,6 +282,7 @@ export class DirectoryImporter {
         tutorInitials: tutors.initials,
         admissionNo: people.admissionNo,
         displayOrder: people.displayOrder,
+        category: people.category,
         isActive: people.isActive,
       })
       .from(people)

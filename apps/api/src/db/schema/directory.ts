@@ -75,6 +75,13 @@ export const people = pgTable(
      * who follow the ordered ones, by name.
      */
     displayOrder: integer("display_order"),
+    /**
+     * The school's own category for a member of staff — HOD, Teaching,
+     * Admin, Service … — as its staff list writes it. Shown beside the
+     * group wherever they are listed. Free text: a new category is a word
+     * in the spreadsheet, not a deploy. Null for students.
+     */
+    category: text("category"),
     photoUrl: text("photo_url"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })

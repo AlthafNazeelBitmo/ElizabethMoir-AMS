@@ -30,6 +30,8 @@ export interface DirectoryRecord {
   admissionNo: string | null;
   /** The place in the group's list, as the school orders it. */
   displayOrder: number | null;
+  /** The school's category for a member of staff, as its list writes it. */
+  category: string | null;
 }
 
 export interface PersonDirectoryProvider {

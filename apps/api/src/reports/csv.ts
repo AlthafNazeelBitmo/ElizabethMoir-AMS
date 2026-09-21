@@ -57,6 +57,7 @@ export function attendanceReportToCsv(
       "Name",
       "ID",
       "Group",
+      "Category",
       "Tutor",
       "Days present",
       "Days absent",
@@ -71,6 +72,7 @@ export function attendanceReportToCsv(
   lines.push(
     csvRow([
       `All ${report.totals.people} people`,
+      "",
       "",
       "",
       "",
@@ -89,6 +91,7 @@ export function attendanceReportToCsv(
         row.fullName,
         row.enrollNo,
         row.groupName ?? "",
+        row.category ?? "",
         row.tutorInitials ?? "",
         row.daysPresent,
         row.daysAbsent,
@@ -120,7 +123,11 @@ export function personReportToCsv(
   lines.push(csvRow([person.fullName, person.enrollNo]));
   lines.push(
     csvRow([
-      [person.groupName, person.tutorInitials && `Tutor ${person.tutorInitials}`]
+      [
+        person.groupName,
+        person.category,
+        person.tutorInitials && `Tutor ${person.tutorInitials}`,
+      ]
         .filter(Boolean)
         .join(" · "),
     ]),

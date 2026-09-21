@@ -56,6 +56,8 @@ export interface RegisterRow {
   branch: Branch | null;
   groupId: number | null;
   groupName: string | null;
+  /** The school's category for a member of staff; null for students. */
+  category: string | null;
   tutorInitials: string | null;
   dayRecordId: number | null;
   firstIn: string | null;
@@ -125,6 +127,7 @@ export class RegisterService {
         branch: groups.branch,
         groupId: people.groupId,
         groupName: groups.name,
+        category: people.category,
         groupOrder: GROUP_ORDER,
         personOrder: PERSON_ORDER,
         expectsAttendance: groups.expectsAttendance,
@@ -200,6 +203,7 @@ export class RegisterService {
         branch: groups.branch,
         groupId: people.groupId,
         groupName: groups.name,
+        category: people.category,
         groupOrder: GROUP_ORDER,
         personOrder: PERSON_ORDER,
         expectsAttendance: groups.expectsAttendance,
@@ -292,6 +296,7 @@ export class RegisterService {
         branch: groups.branch,
         groupId: groups.id,
         groupName: groups.name,
+        category: people.category,
         groupOrder: groups.displayOrder,
         groupActive: groups.isActive,
         expectsAttendance: groups.expectsAttendance,
@@ -399,6 +404,7 @@ export class RegisterService {
         branch: groups.branch,
         groupId: groups.id,
         groupName: groups.name,
+        category: people.category,
         tutorInitials: tutors.initials,
       })
       .from(people)
@@ -545,6 +551,7 @@ export class RegisterService {
       branch: Branch | null;
       groupId: number | null;
       groupName: string | null;
+      category: string | null;
       expectsAttendance: boolean | null;
       groupLateThreshold: string | null;
       tutorInitials: string | null;
@@ -566,6 +573,7 @@ export class RegisterService {
       branch: raw.branch,
       groupId: raw.groupId,
       groupName: raw.groupName,
+      category: raw.category,
       tutorInitials: raw.tutorInitials,
     };
 

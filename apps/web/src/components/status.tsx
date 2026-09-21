@@ -7,6 +7,30 @@ import { cn } from "@/lib/utils.js";
  * someone with deuteranopia, and at a glance from a few metres away.
  */
 /**
+ * The school's category for a member of staff — HOD, Teaching, Admin —
+ * as a small tag beside their group. Quiet, because it is context rather
+ * than status, and absent for students, who have none.
+ */
+export function CategoryTag({
+  category,
+  className,
+}: {
+  category: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-sm border border-border/70 bg-muted/60 px-1.5 py-px text-[0.6875rem] font-medium leading-4 text-muted-foreground print:border-black/30 print:bg-transparent",
+        className,
+      )}
+    >
+      {category}
+    </span>
+  );
+}
+
+/**
  * The late flag is not shown as a tag beside the status, at the school's
  * request; it is still counted on the Late tile and in the reports.
  */

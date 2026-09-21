@@ -25,6 +25,7 @@ export interface ValidationResult {
 
 const MAX_NAME = 200;
 const MAX_ENROLL = 64;
+const MAX_CATEGORY = 60;
 
 export function validateDirectoryCsv(
   text: string,
@@ -58,6 +59,7 @@ export function validateDirectoryCsv(
     const tutorInitials = row.values.tutor_initials;
     const admissionNo = row.values.admission_no;
     const displayOrderRaw = row.values.display_order;
+    const category = row.values.category;
 
     let rowOk = true;
     const fail = (column: CsvProblem["column"], message: string) => {
@@ -148,6 +150,10 @@ export function validateDirectoryCsv(
       }
     }
 
+    if (category.length > MAX_CATEGORY) {
+      fail("category", `category is longer than ${MAX_CATEGORY} characters.`);
+    }
+
     if (!rowOk) continue;
 
     records.push({
@@ -158,6 +164,7 @@ export function validateDirectoryCsv(
       tutorInitials: tutorInitials === "" ? null : tutorInitials,
       admissionNo: admissionNo === "" ? null : admissionNo,
       displayOrder,
+      category: category === "" ? null : category,
     });
   }
 

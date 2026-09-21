@@ -70,6 +70,7 @@ interface PersonReport {
     fullName: string;
     groupName: string | null;
     branch: Branch | null;
+    category: string | null;
     tutorInitials: string | null;
   };
   from: string;
@@ -124,8 +125,8 @@ export function PersonReportPage() {
         lines={[
           person
             ? `${person.enrollNo}${person.groupName ? ` · ${person.groupName}` : ""}${
-                person.tutorInitials ? ` · Tutor ${person.tutorInitials}` : ""
-              }`
+                person.category ? ` · ${person.category}` : ""
+              }${person.tutorInitials ? ` · Tutor ${person.tutorInitials}` : ""}`
             : "",
           `${formatDate(from)} to ${formatDate(to)}${
             report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""
@@ -162,6 +163,7 @@ export function PersonReportPage() {
                 <span className="tabular block text-sm font-normal text-muted-foreground">
                   {person.enrollNo}
                   {person.groupName && ` · ${person.groupName}`}
+                  {person.category && ` · ${person.category}`}
                   {person.tutorInitials && ` · Tutor ${person.tutorInitials}`}
                 </span>
               )}

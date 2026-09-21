@@ -579,6 +579,7 @@ describe("attendanceReportToCsv", () => {
         fullName: "Perera, Ann",
         groupName: "Form 1",
         branch: "student",
+        category: null,
         tutorInitials: "AP",
         daysPresent: 3,
         daysAbsent: 2,
@@ -614,6 +615,18 @@ describe("attendanceReportToCsv", () => {
       generatedAt: new Date(),
     });
     expect(csv).toContain('"Perera, Ann"');
+  });
+
+  it("gives the category its own column, after the group", () => {
+    const csv = attendanceReportToCsv(
+      {
+        ...report,
+        rows: [{ ...report.rows[0]!, groupName: "Senior Staff", category: "HOD" }],
+      },
+      { filtersDescription: "No filters applied", generatedAt: new Date() },
+    );
+    expect(csv).toContain('"Name","ID","Group","Category","Tutor"');
+    expect(csv).toContain('"Senior Staff","HOD","AP"');
   });
 
   it("formats the average arrival as a time", () => {

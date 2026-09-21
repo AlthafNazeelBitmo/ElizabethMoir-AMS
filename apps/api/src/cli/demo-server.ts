@@ -139,6 +139,9 @@ async function main(): Promise<void> {
       enrollNo: String(2000 + i),
       fullName: `${firstNames[(i + 3) % firstNames.length]} ${surnames[(i + 2) % surnames.length]}`,
       groupId: groupId(i === 11 ? "External Staff" : "Junior Staff"),
+      // Categories as the school's staff list gives them.
+      category: i === 11 ? "Part-Time" : i < 2 ? "HOD" : "Teaching",
+      displayOrder: i + 1,
     });
   }
   await db.insert(people).values(rows);

@@ -138,6 +138,8 @@ function PersonBody({
                 {person.data.person.enrollNo}
                 {person.data.person.groupName &&
                   ` · ${person.data.person.groupName}`}
+                {person.data.person.category &&
+                  ` · ${person.data.person.category}`}
               </>
             )}
           </SheetDescription>

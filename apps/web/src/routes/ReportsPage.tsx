@@ -61,6 +61,7 @@ interface PersonReportRow {
   fullName: string;
   groupName: string | null;
   branch: Branch | null;
+  category: string | null;
   tutorInitials: string | null;
   daysPresent: number;
   daysAbsent: number;
@@ -106,6 +107,7 @@ type SortKey =
   | "fullName"
   | "enrollNo"
   | "groupName"
+  | "category"
   | "daysPresent"
   | "daysAbsent"
   | "lateCount"
@@ -199,10 +201,18 @@ export function ReportsPage() {
         return { key, direction: current.direction === "asc" ? "desc" : "asc" };
       return {
         key,
-        direction: key === "fullName" || key === "groupName" ? "asc" : "desc",
+        direction:
+          key === "fullName" || key === "groupName" || key === "category"
+            ? "asc"
+            : "desc",
       };
     });
   };
+
+  // The staff have categories and the students do not: the column is
+  // there when the report has anyone with one, and not a column of dashes
+  // on a form's report.
+  const showCategory = (report.data?.rows ?? []).some((r) => r.category);
 
   const exportUrl = `/api/reports/attendance?${query}&format=csv`;
   const groups = (summary.data?.groups ?? []).filter(
@@ -427,6 +437,14 @@ export function ReportsPage() {
                     sort={sort}
                     onSort={toggleSort}
                   />
+                  {showCategory && (
+                    <SortableHead
+                      label="Category"
+                      sortKey="category"
+                      sort={sort}
+                      onSort={toggleSort}
+                    />
+                  )}
                   <SortableHead
                     label="Present"
                     sortKey="daysPresent"
@@ -471,6 +489,7 @@ export function ReportsPage() {
                   <TableCell>All {report.data.totals.people} people</TableCell>
                   <TableCell />
                   <TableCell />
+                  {showCategory && <TableCell />}
                   <TableCell className="tabular text-right">
                     {report.data.totals.daysPresent}
                   </TableCell>
@@ -510,6 +529,11 @@ export function ReportsPage() {
                     <TableCell className="text-muted-foreground">
                       {row.groupName ?? "—"}
                     </TableCell>
+                    {showCategory && (
+                      <TableCell className="text-muted-foreground">
+                        {row.category ?? "—"}
+                      </TableCell>
+                    )}
                     <TableCell className="tabular text-right">
                       {row.daysPresent}
                     </TableCell>

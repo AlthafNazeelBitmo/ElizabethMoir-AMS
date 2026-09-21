@@ -46,6 +46,7 @@ export interface PersonReportRow {
   fullName: string;
   groupName: string | null;
   branch: Branch | null;
+  category: string | null;
   tutorInitials: string | null;
   daysPresent: number;
   daysAbsent: number;
@@ -125,6 +126,7 @@ export class ReportService {
         fullName: people.fullName,
         groupName: groups.name,
         branch: groups.branch,
+        category: people.category,
         tutorInitials: tutors.initials,
         daysPresent: sql<number>`count(*) filter (
           where ${dayRecords.status} in ('on_site', 'departed')
@@ -146,6 +148,7 @@ export class ReportService {
         groups.branch,
         groups.displayOrder,
         people.displayOrder,
+        people.category,
         tutors.initials,
       )
       // The school's order: group, then place in the group, then name.
@@ -162,6 +165,7 @@ export class ReportService {
         fullName: row.fullName,
         groupName: row.groupName,
         branch: row.branch,
+        category: row.category,
         tutorInitials: row.tutorInitials,
         daysPresent,
         daysAbsent,
@@ -263,6 +267,7 @@ export class ReportService {
         fullName: people.fullName,
         groupName: groups.name,
         branch: groups.branch,
+        category: people.category,
         tutorInitials: tutors.initials,
       })
       .from(people)

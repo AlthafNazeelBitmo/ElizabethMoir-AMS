@@ -6,6 +6,7 @@ import {
   eq,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   ne,
   or,
@@ -93,6 +94,14 @@ const createPerson = z.object({
   admissionNo: z.string().trim().max(64).nullable().optional(),
   /** The place in the group's list, as the school orders it. */
   displayOrder: z.number().int().min(0).max(999999).nullable().optional(),
+  /** The school's category for a member of staff; blank means none. */
+  category: z
+    .string()
+    .trim()
+    .max(60)
+    .nullable()
+    .optional()
+    .transform((v) => (v === "" ? null : v)),
 });
 
 const patchPerson = createPerson.partial().extend({
@@ -191,6 +200,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         fullName: people.fullName,
         admissionNo: people.admissionNo,
         displayOrder: people.displayOrder,
+        category: people.category,
         isActive: people.isActive,
         groupId: people.groupId,
         groupName: groups.name,
@@ -213,6 +223,22 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       .where(where);
 
     return reply.send({ people: rows, page, limit, total: total?.n ?? 0 });
+  });
+
+  /**
+   * The categories in use, for the edit form to offer: the school's list
+   * spells each one way, and a person given a category by hand should end
+   * up in the same one, not a near miss of it.
+   */
+  app.get("/api/admin/people/categories", { preHandler }, async (_req, reply) => {
+    const rows = await db
+      .selectDistinct({ category: people.category })
+      .from(people)
+      .where(isNotNull(people.category))
+      .orderBy(asc(people.category));
+    return reply.send({
+      categories: rows.map((r) => r.category).filter((c): c is string => !!c),
+    });
   });
 
   app.post("/api/admin/people", { preHandler }, async (req, reply) => {

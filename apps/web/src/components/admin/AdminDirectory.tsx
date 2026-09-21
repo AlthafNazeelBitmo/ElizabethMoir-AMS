@@ -282,7 +282,7 @@ export function AdminDirectory() {
   return (
     <Section
       title="People"
-      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, tutor_initials, admission_no — or add one person at a time. A blank group leaves the person unclassified (or, for someone already here, leaves their group as it is)."
+      description="The school directory. Import it from a spreadsheet with the columns enroll_no, full_name, branch, group, and optionally tutor_initials, admission_no, category, display_order — or add one person at a time. A blank group, category or place leaves what the person already has (a new person with a blank group is unclassified)."
       actions={
         <>
           <Button variant="outline" onClick={() => setTutorsOpen(true)}>
@@ -586,6 +586,7 @@ export function AdminDirectory() {
                 <Th>Name</Th>
                 <Th>ID</Th>
                 <Th>Group</Th>
+                <Th>Category</Th>
                 <Th />
               </>
             }
@@ -609,6 +610,9 @@ export function AdminDirectory() {
                 </Td>
                 <Td className="text-muted-foreground">
                   {person.groupName ?? "—"}
+                </Td>
+                <Td className="text-muted-foreground">
+                  {person.category ?? "—"}
                 </Td>
                 <Td className="text-right">
                   <DropdownMenu>

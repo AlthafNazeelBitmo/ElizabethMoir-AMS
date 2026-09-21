@@ -137,6 +137,7 @@ describe("validateDirectoryCsv", () => {
       tutorInitials: "AP",
       admissionNo: "2024/001",
       displayOrder: null,
+      category: null,
     });
     expect(records[1]?.tutorInitials).toBeNull();
   });
@@ -257,6 +258,7 @@ describe("planImport", () => {
       tutorInitials: "AP",
       admissionNo: "2024/001",
       displayOrder: null,
+      category: null,
     };
   }
   const existing = (
@@ -270,6 +272,7 @@ describe("planImport", () => {
     tutorInitials: "AP",
     admissionNo: "2024/001",
     displayOrder: null,
+    category: null,
     isActive: true,
     ...over,
   });
@@ -338,6 +341,44 @@ describe("planImport", () => {
     expect(moved.updates[0]?.changes).toEqual([
       { field: "display_order", before: "7", after: "2" },
     ]);
+  });
+
+  it("reads a category, and leaves one alone when the file has none", () => {
+    // The school's staff list has one for everyone on it: HOD, Teaching,
+    // Admin. The readers' export has none, and must not take them away.
+    const { records, problems } = validateDirectoryCsv(
+      `${HEADER},category
+2001,Ben,staff,Junior Staff,,,HOD
+2002,Cal,staff,Junior Staff,,,`,
+      GROUPS,
+    );
+    expect(problems).toEqual([]);
+    expect(records.map((r) => r.category)).toEqual(["HOD", null]);
+
+    const kept = planImport(
+      [record("2001", { category: null })],
+      [existing("2001", { category: "HOD" })],
+      ["AP"],
+    );
+    expect(kept.unchangedCount).toBe(1);
+
+    const moved = planImport(
+      [record("2001", { category: "Teaching" })],
+      [existing("2001", { category: "HOD" })],
+      ["AP"],
+    );
+    expect(moved.updates[0]?.changes).toEqual([
+      { field: "category", before: "HOD", after: "Teaching" },
+    ]);
+  });
+
+  it("refuses a category too long to be one", () => {
+    const { problems } = validateDirectoryCsv(
+      `${HEADER},category
+2001,Ben,staff,Junior Staff,,,${"x".repeat(61)}`,
+      GROUPS,
+    );
+    expect(problems[0]?.column).toBe("category");
   });
 
   it("refuses a place that is not a whole number", () => {

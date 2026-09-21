@@ -91,6 +91,7 @@ export const OPTIONAL_COLUMNS = [
   "tutor_initials",
   "admission_no",
   "display_order",
+  "category",
 ] as const;
 export const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS] as const;
 

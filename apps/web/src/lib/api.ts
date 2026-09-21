@@ -110,6 +110,8 @@ export interface RegisterRow {
   branch: Branch | null;
   groupId: number | null;
   groupName: string | null;
+  /** The school's category for a member of staff; null for students. */
+  category: string | null;
   tutorInitials: string | null;
   dayRecordId: number | null;
   firstIn: string | null;
@@ -158,6 +160,7 @@ export interface PersonDetail {
   branch: Branch | null;
   groupId: number | null;
   groupName: string | null;
+  category: string | null;
   tutorInitials: string | null;
 }
 

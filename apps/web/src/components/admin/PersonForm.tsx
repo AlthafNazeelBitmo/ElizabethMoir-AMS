@@ -33,6 +33,8 @@ export interface PersonRecord {
   groupId: number | null;
   tutorId: number | null;
   displayOrder: number | null;
+  /** The school's category for a member of staff, as its list writes it. */
+  category: string | null;
   isActive: boolean;
 }
 
@@ -105,6 +107,7 @@ function PersonForm({
       ? ""
       : String(person.displayOrder),
   );
+  const [category, setCategory] = useState(person?.category ?? "");
 
   const groups = useQuery({
     queryKey: ["admin-groups"],
@@ -113,6 +116,13 @@ function PersonForm({
   const tutors = useQuery({
     queryKey: ["admin-tutors"],
     queryFn: () => api.get<{ tutors: Tutor[] }>("/api/admin/tutors"),
+  });
+  // The categories already in use, offered as the field is typed in, so a
+  // category given by hand lands in the same spelling as the list's.
+  const categories = useQuery({
+    queryKey: ["admin-people", "categories"],
+    queryFn: () =>
+      api.get<{ categories: string[] }>("/api/admin/people/categories"),
   });
 
   const save = useMutation({
@@ -123,6 +133,7 @@ function PersonForm({
         tutorId: tutorId ? Number(tutorId) : null,
         admissionNo: admissionNo.trim() || null,
         displayOrder: displayOrder.trim() === "" ? null : Number(displayOrder),
+        category: category.trim() || null,
       };
       return editing
         ? api.patch(`/api/admin/people/${person.id}`, body)
@@ -245,6 +256,24 @@ function PersonForm({
             maxLength={64}
             className="tabular"
           />
+        </Field>
+
+        <Field
+          label="Category"
+          hint="Optional. As on the school's staff list: HOD, Teaching, Admin…"
+        >
+          <Input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            maxLength={60}
+            list="person-categories"
+            autoComplete="off"
+          />
+          <datalist id="person-categories">
+            {(categories.data?.categories ?? []).map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
         </Field>
 
         <Field

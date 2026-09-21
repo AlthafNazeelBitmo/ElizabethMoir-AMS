@@ -447,6 +447,42 @@ describe("people endpoints", () => {
     });
   });
 
+  it("carries a category from the file, by hand, and to the list", async () => {
+    // The staff list's category comes in with the file …
+    const withCategory = `${HEADER},category
+2001,Cal Fernando,staff,Junior Staff,,,HOD`;
+    const preview = (await upload("/api/admin/people/import", withCategory)).json();
+    expect(preview.preview.updates[0]?.changes).toEqual([
+      { field: "category", before: null, after: "HOD" },
+    ]);
+    await upload("/api/admin/people/import/confirm", withCategory, {
+      "x-plan-hash": preview.planHash,
+      "x-confirm-deactivations": "skip",
+    });
+    const listed = (await get("/api/admin/people?branch=staff")).json();
+    expect(listed.people[0]).toMatchObject({ enrollNo: "2001", category: "HOD" });
+
+    // … is offered back for the edit form, and is set by hand the same way.
+    expect((await get("/api/admin/people/categories")).json()).toEqual({
+      categories: ["HOD"],
+    });
+    const cal = listed.people[0];
+    const patched = await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/people/${cal.id}`,
+      payload: { category: "  Teaching " },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(patched.json().person.category).toBe("Teaching");
+    const cleared = await h.app.server.inject({
+      method: "PATCH",
+      url: `/api/admin/people/${cal.id}`,
+      payload: { category: "" },
+      headers: { cookie: admin.cookie, "x-csrf-token": admin.csrfToken },
+    });
+    expect(cleared.json().person.category).toBeNull();
+  });
+
   it("filters by branch", async () => {
     const body = (await get("/api/admin/people?branch=staff")).json();
     expect(body.people).toHaveLength(1);

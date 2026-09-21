@@ -1,7 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PencilLineIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { StatusBadge } from "@/components/status.js";
+import { CategoryTag, StatusBadge } from "@/components/status.js";
 import { Avatar } from "@/components/ui/misc.js";
 import {
   Tooltip,
@@ -64,13 +64,16 @@ export function RegisterTable({
     onScrolledTo();
   }, [scrollToPersonId, rows, virtualiser, onScrolledTo]);
 
+  // The group column also carries the category tag, so its floor is set
+  // where "Senior Staff" and "Extra-Curricular" fit side by side on a
+  // laptop, where every column sits at its floor.
   const gridTemplate = compact
     ? showTutor
-      ? "minmax(10rem,2fr) 4.5rem minmax(5.5rem,1fr) 3rem 4.25rem 4.25rem minmax(8.5rem,auto)"
-      : "minmax(10rem,2fr) 4.5rem minmax(5.5rem,1fr) 4.25rem 4.25rem minmax(8.5rem,auto)"
+      ? "minmax(10rem,2fr) 4.5rem minmax(9.5rem,1.3fr) 3rem 4.25rem 4.25rem minmax(8rem,auto)"
+      : "minmax(10rem,2fr) 4.5rem minmax(9.5rem,1.3fr) 4.25rem 4.25rem minmax(8rem,auto)"
     : showTutor
-      ? "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 4rem 5rem 5rem minmax(9.5rem,auto)"
-      : "minmax(13rem,2fr) 5.5rem minmax(7rem,1fr) 5rem 5rem minmax(9.5rem,auto)";
+      ? "minmax(12rem,2fr) 5.5rem minmax(11rem,1.4fr) 4rem 5rem 5rem minmax(8.5rem,auto)"
+      : "minmax(12rem,2fr) 5.5rem minmax(11rem,1.4fr) 5rem 5rem minmax(8.5rem,auto)";
 
   return (
     <div
@@ -160,8 +163,12 @@ export function RegisterTable({
                 >
                   {row.enrollNo}
                 </span>
-                <span role="cell" className="truncate text-muted-foreground">
-                  {row.groupName ?? "—"}
+                <span
+                  role="cell"
+                  className="flex min-w-0 items-center gap-1.5 text-muted-foreground"
+                >
+                  <span className="truncate">{row.groupName ?? "—"}</span>
+                  {row.category && <CategoryTag category={row.category} />}
                 </span>
                 {showTutor && (
                   <span role="cell" className="truncate text-muted-foreground">
@@ -223,6 +230,7 @@ export function RegisterCards({
                 <p className="truncate font-medium">{row.fullName}</p>
                 <p className="tabular text-xs text-muted-foreground">
                   {row.enrollNo} · {row.groupName ?? "No group"}
+                  {row.category && ` · ${row.category}`}
                 </p>
               </div>
             </div>
