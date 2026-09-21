@@ -76,5 +76,5 @@ test("a deactivated person's scan returns to Unknown IDs and reactivation claims
   await page.goto(`/register?q=${enrollNo}`);
   const row = rowFor(page, enrollNo);
   await expect(row).toContainText(name);
-  await expect(row).toContainText("On site");
+  await expect(row).toContainText("Present");
 });

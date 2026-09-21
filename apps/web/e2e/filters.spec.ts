@@ -39,7 +39,7 @@ test("group, status and search filters live in the URL and survive a reload", as
   const count = await rows.count();
   for (let i = 0; i < count; i++) {
     await expect(rows.nth(i)).toContainText("Form 1");
-    await expect(rows.nth(i)).toContainText("On site");
+    await expect(rows.nth(i)).toContainText("Present");
   }
   expect(await page.getByRole("row").count()).toBe(count + 1); // + header
 
@@ -58,7 +58,7 @@ test("group, status and search filters live in the URL and survive a reload", as
     "aria-current",
     "true",
   );
-  await expect(page.getByRole("button", { name: "On site" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Present" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

@@ -803,22 +803,6 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         });
       }
 
-      if (parsed.data.isActive === false && before.isActive) {
-        // Its people would drop off the rail while staying on the register,
-        // and the rail would no longer add up to the roll. Move them first.
-        const [assigned] = await db
-          .select({ n: count() })
-          .from(people)
-          .where(and(eq(people.groupId, id), eq(people.isActive, true)));
-        if ((assigned?.n ?? 0) > 0) {
-          return reply.code(409).send({
-            error: "in_use",
-            message: `${before.name} still has ${assigned!.n} ${assigned!.n === 1 ? "person" : "people"} in it. Move them to another group before deactivating it.`,
-            peopleCount: assigned!.n,
-          });
-        }
-      }
-
       // Moving a group between branches moves everyone in it across the
       // line a student-only account must never see over. With people in
       // it, that is not a rename; it is a change to who may see whom, and

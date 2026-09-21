@@ -52,7 +52,7 @@ Status colours are deliberate and must not be "tidied":
 
 | Status | Colour | Shape | Token |
 | --- | --- | --- | --- |
-| On site | the cyan | filled dot | `status-onsite` |
+| Present (`on_site`) | the cyan | filled dot | `status-onsite` |
 | Departed | mid neutral | half dot | `status-departed` |
 | Late | amber | hollow ring | `status-late` |
 | Absent | the red, chroma pulled back | cross | `status-absent` |
@@ -61,7 +61,14 @@ Status colours are deliberate and must not be "tidied":
 There is no green anywhere, so red can mean "absent" without a red/green
 pair that one in twelve men cannot separate. `StatusBadge` and
 `StatusShape` in `src/components/status.tsx` are the only places a status
-is drawn.
+is drawn. The late flag is not shown as a tag beside a status, at the
+school's request; it is counted on the Late tile and in the reports.
+
+A **deactivated group** takes its people off the register, the rail, the
+reports and the absence run with it — the school deactivates a group to
+stop tracking it — until it is active again or they are moved. They stay
+in the directory. The Groups screen asks before deactivating a group with
+people in it.
 
 ### The school's mark
 
@@ -172,7 +179,7 @@ in view. The rail's "in / of" is who has checked in out of who there is,
 the same people the list shows when it opens, and "Everyone" on the rail
 is the whole roll: people in no group get a line of their own under
 "Unplaced", and a group cannot be deactivated while it has people, so the
-parts always add up to the total. "On site" and "Departed" — on the tiles
+parts always add up to the total. "Present" and "Departed" — on the tiles
 and as filters — are **presence**, not status: scanned in and not out,
 scanned out. Someone in the building on a day they were not expected, a
 Sunday or a contractor, is counted as here; "Absent" and "Not expected"

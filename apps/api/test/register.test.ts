@@ -432,9 +432,11 @@ describe("GET /api/register/summary", () => {
     ).toBe(false);
   });
 
-  it("keeps a group with people on the rail even if the table says inactive", async () => {
-    // The admin route refuses to deactivate a group with people; were the
-    // flag flipped by other means, the rail still adds up to the roll.
+  it("takes a deactivated group off the register, the rail and the counts, people and all", async () => {
+    // Deactivating a group is how a whole group is taken off the register
+    // until it is active again or its people are moved. They stay in the
+    // directory meanwhile.
+    await scan("11007", "2026-09-16 07:30:00");
     const [form1] = await h.db.db
       .select()
       .from(groups)
@@ -447,13 +449,19 @@ describe("GET /api/register/summary", () => {
     const summary = (
       await get(`/api/register/summary?date=${DATE}`, full)
     ).json();
-    const row = summary.groups.find((g: { name: string }) => g.name === "Form 1");
-    expect(row).toMatchObject({ total: 2 });
+    expect(summary.groups.some((g: { name: string }) => g.name === "Form 1")).toBe(false);
+    expect(summary.counts).toMatchObject({ total: 1, on_site: 0 });
+    const railTotal =
+      summary.groups.reduce((n: number, g: { total: number }) => n + g.total, 0) +
+      summary.ungrouped.total;
+    expect(railTotal).toBe(summary.counts.total);
 
     const live = (await get(`/api/register/live?date=${DATE}`, full)).json();
-    expect(
-      live.rows.some((r: { enrollNo: string }) => r.enrollNo === "11007"),
-    ).toBe(true);
+    expect(live.rows.map((r: { enrollNo: string }) => r.enrollNo)).toEqual(["2001"]);
+
+    // Still in the directory, so they can be moved or the group brought back.
+    const listed = (await get("/api/admin/people?q=11007", full)).json();
+    expect(listed.total).toBe(1);
   });
 
   it("counts the people in no group on their own line, so the rail adds up", async () => {

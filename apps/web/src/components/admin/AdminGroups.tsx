@@ -3,6 +3,14 @@ import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button.js";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog.js";
 import { Input } from "@/components/ui/input.js";
 import { Checkbox, Field, Skeleton } from "@/components/ui/misc.js";
 import { NativeSelect } from "@/components/ui/input.js";
@@ -35,6 +43,9 @@ interface Group {
 export function AdminGroups() {
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
+  // Deactivating a group with people takes them all off the register; that
+  // is asked, not assumed.
+  const [deactivating, setDeactivating] = useState<Group | null>(null);
 
   const groups = useQuery({
     queryKey: ["admin-groups"],
@@ -60,6 +71,15 @@ export function AdminGroups() {
   const rows = groups.data?.groups ?? [];
   const students = rows.filter((g) => g.branch === "student");
   const staff = rows.filter((g) => g.branch === "staff");
+
+  const change = (id: number, body: Record<string, unknown>) => {
+    const group = rows.find((g) => g.id === id);
+    if (body["isActive"] === false && group && group.peopleCount > 0) {
+      setDeactivating(group);
+      return;
+    }
+    update.mutate({ id, body });
+  };
 
   return (
     <Section
@@ -100,15 +120,50 @@ export function AdminGroups() {
 
       {groups.isSuccess && rows.length > 0 && (
         <>
+          <Dialog
+            open={deactivating !== null}
+            onOpenChange={(open) => {
+              if (!open) setDeactivating(null);
+            }}
+          >
+            <DialogContent aria-describedby={undefined}>
+              <DialogHeader>
+                <DialogTitle>Deactivate {deactivating?.name}?</DialogTitle>
+                <DialogDescription>
+                  It has {deactivating?.peopleCount}{" "}
+                  {deactivating?.peopleCount === 1 ? "person" : "people"} in
+                  it. They will come off the live register, the rail and the
+                  reports with it, and nobody in it can be marked absent,
+                  until the group is active again or they are moved to
+                  another group. They stay in the directory meanwhile.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setDeactivating(null)}>
+                  Keep it active
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (deactivating)
+                      update.mutate({ id: deactivating.id, body: { isActive: false } });
+                    setDeactivating(null);
+                  }}
+                >
+                  Deactivate
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <GroupTable
             title="Students"
             groups={students}
-            onChange={(id, body) => update.mutate({ id, body })}
+            onChange={change}
           />
           <GroupTable
             title="Staff"
             groups={staff}
-            onChange={(id, body) => update.mutate({ id, body })}
+            onChange={change}
           />
         </>
       )}

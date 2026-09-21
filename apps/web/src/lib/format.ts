@@ -200,7 +200,7 @@ export interface StatusPresentation {
 
 export const STATUS_PRESENTATION: Record<RegisterStatus, StatusPresentation> = {
   on_site: {
-    label: "On site",
+    label: "Present",
     shape: "filled",
     text: "text-status-onsite",
     bg: "bg-status-onsite-bg",

@@ -34,7 +34,7 @@ const TILES: Array<{
   },
   {
     key: "on_site",
-    label: "On site",
+    label: "Present",
     filter: "on_site",
     accent: "text-status-onsite",
     bar: "bg-status-onsite",

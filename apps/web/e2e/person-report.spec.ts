@@ -44,7 +44,7 @@ test("a person's report is reached from the table and agrees with it", async ({
   await expect(tile("Attendance")).toContainText(attendance!);
 
   // A day-by-day row for today, with the arrival the register shows.
-  await expect(page.getByRole("row").filter({ hasText: "On site" }).first()).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "Present" }).first()).toBeVisible();
 
   // The export carries the same range and is named by enrolment number.
   const href = await page.getByRole("link", { name: "Export CSV" }).getAttribute("href");

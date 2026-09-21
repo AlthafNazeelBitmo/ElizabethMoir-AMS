@@ -64,7 +64,7 @@ test("a posted scan reaches the open register through the stream", async ({
 
   // The scan brings them on to the screen, through the stream alone.
   await expect(row).toBeVisible();
-  await expect(row).toContainText("On site");
+  await expect(row).toContainText("Present");
   await expect(row).toContainText(time.slice(0, 5));
   expect(registerFetches).toBe(fetchesBeforeScan);
 });

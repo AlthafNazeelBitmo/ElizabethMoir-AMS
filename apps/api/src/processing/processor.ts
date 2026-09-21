@@ -194,6 +194,7 @@ export class ScanProcessor {
       .where(
         and(
           eq(people.isActive, true),
+          eq(groups.isActive, true),
           eq(groups.expectsAttendance, true),
           isNull(dayRecords.id),
         ),

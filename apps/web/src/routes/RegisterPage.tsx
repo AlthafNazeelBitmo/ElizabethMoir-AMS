@@ -405,7 +405,7 @@ export function RegisterPage() {
             >
               <option value="checked_in">Checked in</option>
               <option value="any">Everyone</option>
-              <option value="on_site">On site</option>
+              <option value="on_site">Present</option>
               <option value="departed">Departed</option>
               <option value="late">Late</option>
               <option value="pending">Not arrived yet</option>

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, or, type SQL } from "drizzle-orm";
 import {
   groups,
   people,
@@ -51,3 +51,17 @@ export const peopleGroupJoin = {
   table: groups,
   on: eq(groups.id, people.groupId),
 } as const;
+
+/**
+ * Who is on the register and in the reports: an active person who is in
+ * no group, or in an active one. A group the school has deactivated takes
+ * its people out of every list with it — the register, the rail, the
+ * reports, the absence run — until it is active again or they are moved.
+ * They stay in the directory, where the office can do either.
+ */
+export function listedPeople(): SQL {
+  return and(
+    eq(people.isActive, true),
+    or(isNull(people.groupId), eq(groups.isActive, true)),
+  )!;
+}

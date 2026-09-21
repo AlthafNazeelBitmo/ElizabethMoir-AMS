@@ -143,7 +143,7 @@ function PersonBody({
           </SheetDescription>
           {today && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <StatusBadge status={today.status} isLate={today.isLate} />
+              <StatusBadge status={today.status} />
               <span className="tabular text-xs text-muted-foreground">
                 In {formatTime(today.firstIn)} · Out{" "}
                 {today.lastOut ? formatTime(today.lastOut) : NO_TIME}
@@ -478,7 +478,7 @@ function ManualAdjustment({
               value={status}
               onChange={(e) => setStatus(e.target.value as DayStatus)}
             >
-              <option value="on_site">On site</option>
+              <option value="on_site">Present</option>
               <option value="departed">Departed</option>
               <option value="absent">Absent</option>
               <option value="not_expected">Not expected</option>

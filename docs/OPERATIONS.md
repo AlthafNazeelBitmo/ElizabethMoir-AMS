@@ -139,6 +139,13 @@ deduplicate on the way back in.
 
 ## When something looks wrong
 
+**A whole group should not be on the register.** Admin → Groups → untick
+_Active_. Its people come off the register, the rail and the reports with
+it, and nobody in it is marked absent, until it is active again or they are
+moved to another group; they stay in the directory meanwhile. (A group
+that should be on the register but not expected to attend — contractors —
+is a different thing: leave it active and untick _Expects attendance_.)
+
 **The register is empty.** It shows who has checked in; before the first
 scan of the day it says so, and _Show everyone_ (or the status filter set
 to _Everyone_) lists the whole roll. If the roll itself is empty, check

@@ -187,7 +187,7 @@ export function RegisterTable({
                   {row.lastOut ? formatTime(row.lastOut) : NO_TIME}
                 </span>
                 <span role="cell">
-                  <StatusBadge status={row.status} isLate={row.isLate} />
+                  <StatusBadge status={row.status} />
                 </span>
               </div>
             );
@@ -226,7 +226,7 @@ export function RegisterCards({
                 </p>
               </div>
             </div>
-            <StatusBadge status={row.status} isLate={row.isLate} size="sm" />
+            <StatusBadge status={row.status} size="sm" />
           </div>
           <div className="tabular mt-2 flex gap-4 text-xs text-muted-foreground">
             <span>In {formatTime(row.firstIn)}</span>

@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, lte, sql, type SQL } from "drizzle-orm";
-import { branchFilter } from "../auth/scope.js";
+import { branchFilter, listedPeople } from "../auth/scope.js";
 import type { Db } from "../db/client.js";
 import {
   calendarDays,
@@ -92,7 +92,7 @@ export class ReportService {
 
     const conditions: Array<SQL | undefined> = [
       branchFilter(role),
-      eq(people.isActive, true),
+      listedPeople(),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
@@ -215,7 +215,7 @@ export class ReportService {
   > {
     const conditions: Array<SQL | undefined> = [
       branchFilter(role),
-      eq(people.isActive, true),
+      listedPeople(),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,

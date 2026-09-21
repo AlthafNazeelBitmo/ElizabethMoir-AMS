@@ -19,7 +19,7 @@ test("correcting a day writes an audit entry that the admin screen shows", async
 
   await page.getByLabel("Search by name or ID").fill(DEMO.seededStudent);
   const row = rowFor(page, DEMO.seededStudent);
-  await expect(row).toContainText("On site");
+  await expect(row).toContainText("Present");
   await expect(row.getByLabel("Corrected by hand")).toHaveCount(0);
 
   await row.click();

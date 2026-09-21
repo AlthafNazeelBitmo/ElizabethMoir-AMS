@@ -270,10 +270,7 @@ export function PersonReportPage() {
                       <TableRow key={day.id}>
                         <TableCell>{formatDate(day.date)}</TableCell>
                         <TableCell>
-                          <StatusBadge
-                            status={day.status}
-                            isLate={day.isLate}
-                          />
+                          <StatusBadge status={day.status} />
                         </TableCell>
                         <TableCell
                           className={cn(

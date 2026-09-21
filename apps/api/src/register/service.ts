@@ -13,7 +13,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { branchFilter, visibleBranches } from "../auth/scope.js";
+import { branchFilter, listedPeople, visibleBranches } from "../auth/scope.js";
 import type { Db } from "../db/client.js";
 import {
   calendarDays,
@@ -312,7 +312,7 @@ export class RegisterService {
         dayRecords,
         and(eq(dayRecords.personId, people.id), eq(dayRecords.date, date)),
       )
-      .where(and(branchFilter(role), eq(people.isActive, true)));
+      .where(and(branchFilter(role), listedPeople()));
 
     const byGroup = new Map<
       number,
@@ -364,8 +364,8 @@ export class RegisterService {
         if (checkedIn) ungrouped.checkedIn += 1;
         continue;
       }
-      // A group is never deactivated while it has people (the admin route
-      // refuses), so every grouped person has a line on the rail.
+      // Rows from a deactivated group never arrive here (listedPeople), so
+      // every grouped person has a line on the rail.
       const entry = byGroup.get(raw.groupId) ?? {
         groupId: raw.groupId,
         name: raw.groupName,
@@ -466,7 +466,7 @@ export class RegisterService {
     const decoded = cursor ? decodeCursor(cursor) : null;
     const conditions: Array<SQL | undefined> = [
       branchFilter(role),
-      eq(people.isActive, true),
+      listedPeople(),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId === "none"
         ? isNull(people.groupId)
