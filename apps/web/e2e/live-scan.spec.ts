@@ -72,9 +72,10 @@ test("a posted scan reaches the open register through the stream", async ({
 test("the last person through the door is at the top of the register", async ({
   page,
 }) => {
+  const { date, time } = schoolNow();
   test.skip(
-    Number(schoolNow().time.slice(0, 2)) < 3,
-    `It is ${schoolNow().time} at the school: a scan now belongs to yesterday's day.`,
+    Number(time.slice(0, 2)) < 3,
+    `It is ${time} at the school: a scan now belongs to yesterday's day.`,
   );
 
   await signIn(page, "full");
@@ -82,30 +83,34 @@ test("the last person through the door is at the top of the register", async ({
   const table = page.getByRole("table", { name: "Register" });
   const firstRow = table.getByRole("row").nth(1); // after the header
   await expect(firstRow).toBeVisible();
-  await expect(firstRow).not.toContainText(DEMO.unscannedStudent2);
 
-  // Stamped now, not at the start of the test: the previous test's scan
-  // was seconds ago, and two movements in the same second tie.
-  const { date, time } = schoolNow();
-  const response = await page.request.post(DEMO.ingestPath, {
-    data: [
-      {
-        EmpId: DEMO.unscannedStudent2,
-        AttTime: `${date} ${time}`,
-        CheckingStatus: "0",
-        VerifyType: "1",
-        DeviceID: DEMO.device,
-      },
-    ],
-  });
-  expect(response.status()).toBe(200);
+  // Two movements at the end of the day, so they are the latest whatever
+  // the hour the test runs at: the seed's arrivals run to 08:50 and the
+  // correction test writes 15:05, both later than "now" in the morning.
+  const post = (enrollNo: string, at: string) =>
+    page.request.post(DEMO.ingestPath, {
+      data: [
+        {
+          EmpId: enrollNo,
+          AttTime: `${date} ${at}`,
+          CheckingStatus: "0",
+          VerifyType: "1",
+          DeviceID: DEMO.device,
+        },
+      ],
+    });
 
-  // Latest first: the scan takes them to the top, through the stream.
+  expect((await post(DEMO.unscannedStudent2, "23:50:00")).status()).toBe(200);
   await expect(firstRow).toContainText(DEMO.unscannedStudent2);
   await expect(firstRow).toContainText("Present");
 
+  // The next one through the door takes the top from them.
+  expect((await post(DEMO.unscannedStudent3, "23:51:00")).status()).toBe(200);
+  await expect(firstRow).toContainText(DEMO.unscannedStudent3);
+  await expect(table.getByRole("row").nth(2)).toContainText(DEMO.unscannedStudent2);
+
   // In the school's order they sit where the school lists them.
   await page.getByLabel("Order").selectOption("school");
-  await expect(firstRow).not.toContainText(DEMO.unscannedStudent2);
+  await expect(firstRow).not.toContainText(DEMO.unscannedStudent3);
   await expect(page).toHaveURL(/sort=school/);
 });
