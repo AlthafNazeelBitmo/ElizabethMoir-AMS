@@ -145,7 +145,7 @@ function PersonBody({
           </SheetDescription>
           {today && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <StatusBadge status={today.status} />
+              <StatusBadge status={today.status} isLate={today.isLate} />
               <span className="tabular text-xs text-muted-foreground">
                 In {formatTime(today.firstIn)} · Out{" "}
                 {today.lastOut ? formatTime(today.lastOut) : NO_TIME}

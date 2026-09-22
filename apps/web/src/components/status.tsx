@@ -31,14 +31,16 @@ export function CategoryTag({
 }
 
 /**
- * The late flag is not shown as a tag beside the status, at the school's
- * request; it is still counted on the Late tile and in the reports.
+ * The late flag sits beside the status as its own small tag when asked
+ * for: "Present · Late" is one fact and a second, not a third status.
  */
 export function StatusBadge({
   status,
+  isLate = false,
   size = "default",
 }: {
   status: RegisterStatus;
+  isLate?: boolean;
   size?: "sm" | "default";
 }) {
   const p = STATUS_PRESENTATION[status];
@@ -59,6 +61,18 @@ export function StatusBadge({
         <StatusShape status={status} />
         {p.label}
       </span>
+      {isLate && status !== "late" && (
+        <span
+          className={cn(
+            "rounded-full font-medium text-status-late bg-status-late-bg",
+            size === "sm"
+              ? "px-1.5 py-px text-[0.6875rem]"
+              : "px-1.5 py-0.5 text-xs",
+          )}
+        >
+          Late
+        </span>
+      )}
     </span>
   );
 }
