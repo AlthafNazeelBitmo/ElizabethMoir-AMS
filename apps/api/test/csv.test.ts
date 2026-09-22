@@ -372,6 +372,41 @@ describe("planImport", () => {
     ]);
   });
 
+  it("clears a tutor or a category with a lone dash, where a blank keeps it", () => {
+    // The first export filed a code as a tutor that turned out to be a
+    // category. A blank would keep the mistake; "-" is the file saying
+    // there is none.
+    const { records, problems } = validateDirectoryCsv(
+      `${HEADER},category
+11007,Ann,student,Form 1,-,,DG
+11008,Ben,student,Form 1,,,-`,
+      GROUPS,
+    );
+    expect(problems).toEqual([]);
+    expect(records[0]).toMatchObject({
+      tutorInitials: null,
+      category: "DG",
+      clears: ["tutor_initials"],
+    });
+    expect(records[1]).toMatchObject({ category: null, clears: ["category"] });
+
+    const plan = planImport(
+      [
+        record("11007", { tutorInitials: null, category: "DG", clears: ["tutor_initials"] }),
+        record("11008", { category: null, clears: ["category"] }),
+      ],
+      [existing("11007"), existing("11008", { category: "HP" })],
+      ["AP"],
+    );
+    expect(plan.updates.map((u) => u.changes)).toEqual([
+      [
+        { field: "tutor_initials", before: "AP", after: null },
+        { field: "category", before: null, after: "DG" },
+      ],
+      [{ field: "category", before: "HP", after: null }],
+    ]);
+  });
+
   it("refuses a category too long to be one", () => {
     const { problems } = validateDirectoryCsv(
       `${HEADER},category

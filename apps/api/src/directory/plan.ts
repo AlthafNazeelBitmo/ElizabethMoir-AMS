@@ -85,13 +85,18 @@ export function planImport(
     // does not know, not that there is none: an export from the readers
     // carries no classification for many people, and a re-import must not
     // undo what the office has since set by hand. Clearing is done on the
-    // person's own edit form, deliberately.
+    // person's own edit form, or by a file that says "-" and means it.
+    const clears = new Set(given.clears ?? []);
     const record: DirectoryRecord = {
       ...given,
       groupName: given.groupName ?? current.groupName,
-      tutorInitials: given.tutorInitials ?? current.tutorInitials,
+      tutorInitials: clears.has("tutor_initials")
+        ? null
+        : (given.tutorInitials ?? current.tutorInitials),
       displayOrder: given.displayOrder ?? current.displayOrder,
-      category: given.category ?? current.category,
+      category: clears.has("category")
+        ? null
+        : (given.category ?? current.category),
     };
 
     const changes = diff(current, record);

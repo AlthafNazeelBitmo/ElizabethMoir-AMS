@@ -32,7 +32,16 @@ export interface DirectoryRecord {
   displayOrder: number | null;
   /** The school's category for a member of staff, as its list writes it. */
   category: string | null;
+  /**
+   * Fields the source says are empty, as opposed to unknown. A blank in
+   * the file keeps what the directory has; a lone "-" clears it, and is
+   * recorded here, since the field itself is null either way.
+   */
+  clears?: readonly ClearableField[];
 }
+
+/** The fields a file may clear with a lone "-". */
+export type ClearableField = "tutor_initials" | "category";
 
 export interface PersonDirectoryProvider {
   readonly name: string;

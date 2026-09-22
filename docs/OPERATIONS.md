@@ -89,7 +89,8 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    reports and their CSV export, and in the directory. It comes in from a
    `category` column in the file, or is set on the edit form, which offers
    the categories already in use so spellings stay consistent. It is free
-   text: a new category needs no deploy. A blank never clears one.
+   text: a new category needs no deploy. A blank never clears one; a lone
+   `-` in the `category` or `tutor_initials` column does, deliberately.
 
    **A file that is a part of the school** — one branch, the staff list —
    is imported without touching anyone it does not mention: the preview

@@ -1,6 +1,6 @@
 import { BRANCHES, type Branch } from "../db/schema/index.js";
 import { readDirectoryCsv, type CsvProblem } from "./csv.js";
-import type { DirectoryRecord } from "./provider.js";
+import type { ClearableField, DirectoryRecord } from "./provider.js";
 
 /**
  * Turning a spreadsheet into directory records, or into a list of problems
@@ -56,10 +56,13 @@ export function validateDirectoryCsv(
     const fullName = row.values.full_name;
     const branchRaw = row.values.branch.toLowerCase();
     const groupName = row.values.group;
-    const tutorInitials = row.values.tutor_initials;
     const admissionNo = row.values.admission_no;
     const displayOrderRaw = row.values.display_order;
-    const category = row.values.category;
+    // A blank keeps what the directory has, so a file that does not know
+    // cannot undo the office; a lone "-" is the file saying "none".
+    const clears: ClearableField[] = [];
+    const tutorInitials = clearing(row.values.tutor_initials, "tutor_initials", clears);
+    const category = clearing(row.values.category, "category", clears);
 
     let rowOk = true;
     const fail = (column: CsvProblem["column"], message: string) => {
@@ -165,10 +168,22 @@ export function validateDirectoryCsv(
       admissionNo: admissionNo === "" ? null : admissionNo,
       displayOrder,
       category: category === "" ? null : category,
+      ...(clears.length > 0 ? { clears } : {}),
     });
   }
 
   return { records, problems };
+}
+
+/** "-" is recorded as a clear and read as blank; anything else is itself. */
+function clearing(
+  value: string,
+  field: ClearableField,
+  clears: ClearableField[],
+): string {
+  if (value !== "-") return value;
+  clears.push(field);
+  return "";
 }
 
 function isBranch(v: string): v is Branch {
