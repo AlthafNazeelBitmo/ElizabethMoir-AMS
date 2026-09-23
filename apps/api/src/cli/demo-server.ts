@@ -124,14 +124,22 @@ async function main(): Promise<void> {
   ];
 
   const studentGroups = ["Form 1", "Form 2", "Upper 6"];
+  // The school's codes within a form, two to a form and its own.
+  const formCategories: Record<string, [string, string]> = {
+    "Form 1": ["DG", "HP"],
+    "Form 2": ["LG", "LDS"],
+    "Upper 6": ["KR", "KT"],
+  };
   const rows: Array<typeof people.$inferInsert> = [];
   for (let i = 0; i < 90; i++) {
+    const group = studentGroups[i % studentGroups.length]!;
     rows.push({
       enrollNo: String(11000 + i),
       fullName: `${firstNames[i % firstNames.length]} ${surnames[Math.floor(i / firstNames.length) % surnames.length]}`,
-      groupId: groupId(studentGroups[i % studentGroups.length]!),
+      groupId: groupId(group),
       tutorId: tutorRows[i % tutorRows.length]!.id,
       admissionNo: `2024/${String(i + 1).padStart(3, "0")}`,
+      category: formCategories[group]![i % 2],
     });
   }
   for (let i = 0; i < 12; i++) {

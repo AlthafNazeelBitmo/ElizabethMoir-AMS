@@ -7,6 +7,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lte,
   or,
@@ -75,6 +76,11 @@ export interface RegisterFilters {
   branch?: Branch | undefined;
   /** A group's id, or "none" for the people who are in no group. */
   groupId?: number | "none" | undefined;
+  /**
+   * The school's category — a form's DG or HP, a staff HOD or Service.
+   * Each form has its own set, so this narrows within a group.
+   */
+  category?: string | undefined;
   tutorId?: number | undefined;
   status?: RegisterStatus | undefined;
   q?: string | undefined;
@@ -484,6 +490,7 @@ export class RegisterService {
         : filters.groupId
           ? eq(people.groupId, filters.groupId)
           : undefined,
+      filters.category ? eq(people.category, filters.category) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
       filters.q
         ? or(
@@ -517,6 +524,35 @@ export class RegisterService {
     ];
     const present = conditions.filter((c): c is SQL => c !== undefined);
     return present.length > 0 ? and(...present) : undefined;
+  }
+
+  /**
+   * The categories in the view as it stands, whichever one is chosen.
+   *
+   * The select that offers them must not collapse to the one already
+   * picked, so the category filter itself is left out of the question —
+   * but the branch, the group and the search are not: each form has its
+   * own codes, and offering Form 2's inside Form 1 would be noise.
+   */
+  async categories(role: UserRole, filters: RegisterFilters): Promise<string[]> {
+    const rows = await this.db
+      .selectDistinct({ category: people.category })
+      .from(people)
+      .leftJoin(groups, eq(groups.id, people.groupId))
+      .where(
+        and(
+          await this.buildWhere(
+            role,
+            { ...filters, category: undefined, status: undefined },
+            null,
+          ),
+          isNotNull(people.category),
+        ),
+      )
+      .orderBy(asc(people.category));
+    return rows
+      .map((r) => r.category)
+      .filter((c): c is string => c !== null && c !== "");
   }
 
   /** Whether this date is a school day, and when absence becomes meaningful. */

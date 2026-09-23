@@ -117,3 +117,48 @@ test("a date in the URL is honoured and survives a reload", async ({
   await expect(page.getByText("Not live", { exact: true })).toBeVisible();
   await expect(page.getByText("Live", { exact: true })).toHaveCount(0);
 });
+
+test("a form is narrowed to one of its own categories", async ({ page }) => {
+  await signIn(page, "full");
+  await page.goto("/register?status=any");
+
+  const rail = page.getByRole("navigation", { name: "Groups" });
+  const category = page.getByLabel("Category");
+  // "30 people", or "8 of 30 people" when something is filtered locally.
+  // A span: the printed header, which is in the document but not on the
+  // screen, says the same thing in a div.
+  const shown = page
+    .locator("span")
+    .filter({ hasText: /^\d[\d,]*( of [\d,]+)? (person|people)$/ });
+
+  await rail.getByRole("button", { name: /^Form 1\b/ }).click();
+  const whole = await shown.textContent();
+
+  // The choices are the form's own; Form 2's are not offered here.
+  await expect(category).toBeVisible();
+  await expect(category.locator("option")).toHaveText([
+    "All categories",
+    "DG",
+    "HP",
+  ]);
+
+  await category.selectOption("DG");
+  await expect(page).toHaveURL(/category=DG/);
+  await expect(shown).not.toHaveText(whole!);
+
+  // The list is DG alone, and the figures above it agree.
+  const rows = page.getByRole("table", { name: "Register" }).getByRole("row");
+  const listed = (await rows.count()) - 1; // the header
+  expect(listed).toBeGreaterThan(0);
+  const expected = page.getByRole("button").filter({ hasText: "Expected" });
+  await expect(expected).toContainText(String(listed));
+
+  // Moving to another form drops a code that means nothing there.
+  await rail.getByRole("button", { name: /^Form 2\b/ }).click();
+  await expect(page).not.toHaveURL(/category=/);
+  await expect(category.locator("option")).toHaveText([
+    "All categories",
+    "LDS",
+    "LG",
+  ]);
+});

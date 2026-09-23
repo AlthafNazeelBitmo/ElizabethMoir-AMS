@@ -37,6 +37,11 @@ export interface RegisterFilters {
   date: string;
   branch: Branch | null;
   group: GroupFilter | null;
+  /**
+   * The school's category — a form's DG or HP. Each form has its own, so
+   * this narrows within a group rather than across the school.
+   */
+  category: string | null;
   tutor: number | null;
   status: StatusFilter;
   sort: SortOrder;
@@ -56,6 +61,7 @@ export function filtersFromSearch(params: URLSearchParams, today: string): Regis
     date: /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : today,
     branch: branch === "student" || branch === "staff" ? branch : null,
     group: params.get("group") === "none" ? "none" : num("group"),
+    category: params.get("category")?.trim() || null,
     tutor: num("tutor"),
     status: status === "any" || isStatus(status) ? status : DEFAULT_STATUS,
     sort:
@@ -71,6 +77,7 @@ export function searchFromFilters(filters: RegisterFilters, today: string): URLS
   if (filters.date !== today) params.set("date", filters.date);
   if (filters.branch) params.set("branch", filters.branch);
   if (filters.group !== null) params.set("group", String(filters.group));
+  if (filters.category) params.set("category", filters.category);
   if (filters.tutor !== null) params.set("tutor", String(filters.tutor));
   if (filters.status !== DEFAULT_STATUS) params.set("status", filters.status);
   if (filters.sort !== DEFAULT_SORT) params.set("sort", filters.sort);
@@ -83,6 +90,7 @@ export function queryFromFilters(filters: RegisterFilters): URLSearchParams {
   const params = new URLSearchParams({ date: filters.date });
   if (filters.branch) params.set("branch", filters.branch);
   if (filters.group !== null) params.set("group", String(filters.group));
+  if (filters.category) params.set("category", filters.category);
   if (filters.tutor !== null) params.set("tutor", String(filters.tutor));
   // Status, free text and the order are applied in the browser: the rows
   // are already here, and sorting and filtering them locally keeps typing
@@ -95,6 +103,7 @@ export function hasActiveFilters(filters: RegisterFilters): boolean {
   return (
     filters.branch !== null ||
     filters.group !== null ||
+    filters.category !== null ||
     filters.tutor !== null ||
     filters.status !== DEFAULT_STATUS ||
     filters.q.trim() !== ""

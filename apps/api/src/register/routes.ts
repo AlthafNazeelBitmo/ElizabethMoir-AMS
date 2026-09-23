@@ -45,10 +45,13 @@ const groupParam = z
   .union([z.literal("none"), z.coerce.number().int()])
   .optional();
 
+const categoryParam = z.string().trim().min(1).max(60).optional();
+
 const liveQuery = z.object({
   date: dateString,
   branch: z.enum(BRANCHES).optional(),
   group: groupParam,
+  category: categoryParam,
   tutor: z.coerce.number().int().optional(),
   status: z.enum([...DAY_STATUSES, "pending"]).optional(),
   q: z.string().trim().max(200).optional(),
@@ -60,6 +63,7 @@ const summaryQuery = z.object({
   date: dateString,
   branch: z.enum(BRANCHES).optional(),
   group: groupParam,
+  category: categoryParam,
   tutor: z.coerce.number().int().optional(),
   q: z.string().trim().max(200).optional(),
 });
@@ -96,11 +100,11 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
         ),
       });
     }
-    const { date, branch, group, tutor, status, q, limit, cursor } =
+    const { date, branch, group, category, tutor, status, q, limit, cursor } =
       parsed.data;
     const page = await register.live(
       req.auth!.role,
-      { date, branch, groupId: group, tutorId: tutor, status, q },
+      { date, branch, groupId: group, category, tutorId: tutor, status, q },
       limit,
       cursor ?? null,
     );
@@ -117,18 +121,19 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
           message: "Check the date and filters.",
         });
     }
-    const { date, branch, group, tutor, q } = parsed.data;
-    const [counts, rail] = await Promise.all([
-      register.summary(req.auth!.role, {
-        date,
-        branch,
-        groupId: group,
-        tutorId: tutor,
-        q,
-      }),
+    const { date, branch, group, category, tutor, q } = parsed.data;
+    const scope = { date, branch, groupId: group, tutorId: tutor, q };
+    const [counts, rail, categories] = await Promise.all([
+      register.summary(req.auth!.role, { ...scope, category }),
       register.groupCounts(req.auth!.role, date),
+      register.categories(req.auth!.role, scope),
     ]);
-    return reply.send({ counts, groups: rail.groups, ungrouped: rail.ungrouped });
+    return reply.send({
+      counts,
+      groups: rail.groups,
+      ungrouped: rail.ungrouped,
+      categories,
+    });
   });
 
   // ── The live stream ─────────────────────────────────────────────────────

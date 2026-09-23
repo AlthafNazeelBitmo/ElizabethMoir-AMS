@@ -176,6 +176,15 @@ set aside. It follows that a name the school files under a particle or a
 compound — de Soysa, Weerasinghe Don — sits under its last word here;
 the school was shown this and chose the simpler rule.
 
+**A form is narrowed by its own codes.** The school groups a form by a
+category — Form 1's DG and HP, Form 2's LG and LDS — and the register
+has a select for it beside the group. The choices are whatever the view
+holds, asked of the server without the category itself so the select
+cannot collapse to the one already chosen; and moving to another group
+drops a code that would find nobody there. The filter is on the server,
+like the group and unlike the status: the tiles and the printed sheet
+have to agree with the list they head.
+
 **The day goes on paper from the register itself.** _Download PDF_ opens
 the browser's print dialogue, where the destination is "Save as PDF".
 What it prints is not the screen: the table is virtualised, so

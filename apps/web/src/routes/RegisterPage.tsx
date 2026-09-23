@@ -123,7 +123,15 @@ export function RegisterPage() {
   const setFilters = useCallback(
     (next: Partial<RegisterFilters>) => {
       updateSearch((current) => {
-        const merged = { ...filtersFromSearch(current, today), ...next };
+        const before = filtersFromSearch(current, today);
+        const merged = { ...before, ...next };
+        // A form's codes are its own — DG is Form 1's, LG is Form 2's —
+        // so moving to another group or branch drops a category that
+        // would find nobody there, rather than emptying the screen.
+        const movedGroup =
+          ("group" in next && next.group !== before.group) ||
+          ("branch" in next && next.branch !== before.branch);
+        if (movedGroup && next.category === undefined) merged.category = null;
         const params = searchFromFilters(merged, today);
         const person = current.get("person");
         if (person) params.set("person", person);
@@ -259,6 +267,7 @@ export function RegisterPage() {
     else if (filters.branch)
       parts.push(filters.branch === "student" ? "Students" : "Staff");
     else parts.push("Everyone");
+    if (filters.category) parts.push(filters.category);
     parts.push(
       filters.status === "any"
         ? "every status"
@@ -270,6 +279,7 @@ export function RegisterPage() {
     return parts.join(" · ");
   }, [
     filters.branch,
+    filters.category,
     filters.group,
     filters.q,
     filters.status,
@@ -475,6 +485,25 @@ export function RegisterPage() {
                 </>
               )}
             </NativeSelect>
+
+            {/* Each form has its own codes, so the choices are whatever
+                the view holds; on a view with none, no select at all. */}
+            {(summary.data?.categories ?? []).length > 0 && (
+              <NativeSelect
+                aria-label="Category"
+                value={filters.category ?? ""}
+                onChange={(e) =>
+                  setFilters({ category: e.target.value || null })
+                }
+              >
+                <option value="">All categories</option>
+                {(summary.data?.categories ?? []).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
 
             <NativeSelect
               aria-label="Status"
@@ -688,6 +717,7 @@ function blankFilters(today: string): RegisterFilters {
     date: today,
     branch: null,
     group: null,
+    category: null,
     tutor: null,
     status: DEFAULT_STATUS,
     sort: DEFAULT_SORT,

@@ -67,12 +67,15 @@ beforeEach(async () => {
       fullName: "Ann Perera",
       groupId: formOneId,
       tutorId: tutor!.id,
+      // The school's code within the form: each form has its own pair.
+      category: "DG",
     },
     {
       enrollNo: "11008",
       fullName: "Ben Silva",
       groupId: formOneId,
       tutorId: tutor!.id,
+      category: "HP",
     },
     { enrollNo: "2001", fullName: "Cal Fernando", groupId: staffGroupId },
   ]);
@@ -175,6 +178,36 @@ describe("GET /api/register/live", () => {
     // And the filter finds them.
     const waiting = (await get(`/api/register/live?date=${DATE}&status=pending`, full)).json();
     expect(waiting.rows).toHaveLength(3);
+  });
+
+  it("filters within a form by category, and says which are there to choose", async () => {
+    const dg = (
+      await get(
+        `/api/register/live?date=${DATE}&group=${formOneId}&category=DG`,
+        full,
+      )
+    ).json();
+    expect(dg.rows.map((r: { enrollNo: string }) => r.enrollNo)).toEqual([
+      "11007",
+    ]);
+
+    // The figures above the list follow it, so a printed sheet agrees
+    // with itself.
+    const summary = (
+      await get(
+        `/api/register/summary?date=${DATE}&group=${formOneId}&category=DG`,
+        full,
+      )
+    ).json();
+    expect(summary.counts).toMatchObject({ total: 1, expected: 1 });
+
+    // The choices are the form's own, and do not collapse to the one
+    // already chosen.
+    expect(summary.categories).toEqual(["DG", "HP"]);
+    const staffSide = (
+      await get(`/api/register/summary?date=${DATE}&branch=staff`, full)
+    ).json();
+    expect(staffSide.categories).toEqual([]);
   });
 
   it("carries the group and tutor for each row", async () => {
