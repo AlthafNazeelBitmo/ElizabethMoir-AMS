@@ -150,8 +150,11 @@ export interface SummaryResponse {
   groups: GroupCount[];
   /** The people in no group, so the rail adds up to the roll. */
   ungrouped: { checkedIn: number; total: number };
-  /** The categories in this view, for the filter to offer. */
-  categories: string[];
+  /**
+   * The categories in this view, under the group they belong to and in
+   * the school's order: Form 1's codes, then Form 2's, then the staff.
+   */
+  categories: Array<{ group: string | null; categories: string[] }>;
 }
 
 export interface PersonDetail {

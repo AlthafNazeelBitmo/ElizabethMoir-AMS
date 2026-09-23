@@ -286,6 +286,16 @@ export function RegisterPage() {
     summary.data?.groups,
   ]);
 
+  /**
+   * The categories to offer, under their group. Guarded: a server older
+   * than this page sends a flat list of names, and a filter is not worth
+   * a blank screen.
+   */
+  const categoryBuckets = (summary.data?.categories ?? []).filter(
+    (bucket): bucket is { group: string | null; categories: string[] } =>
+      Array.isArray(bucket?.categories),
+  );
+
   const showTutor = false;
   const isNarrow = useIsNarrow();
   const isCompact = useMediaQuery("(max-width: 1023px)");
@@ -488,7 +498,7 @@ export function RegisterPage() {
 
             {/* Each form has its own codes, so the choices are whatever
                 the view holds; on a view with none, no select at all. */}
-            {(summary.data?.categories ?? []).length > 0 && (
+            {categoryBuckets.length > 0 && (
               <NativeSelect
                 aria-label="Category"
                 value={filters.category ?? ""}
@@ -497,10 +507,17 @@ export function RegisterPage() {
                 }
               >
                 <option value="">All categories</option>
-                {(summary.data?.categories ?? []).map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {categoryBuckets.map((bucket) => (
+                  <optgroup
+                    key={bucket.group ?? "none"}
+                    label={bucket.group ?? "No group"}
+                  >
+                    {bucket.categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </NativeSelect>
             )}

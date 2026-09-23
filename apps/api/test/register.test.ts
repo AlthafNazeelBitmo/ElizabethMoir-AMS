@@ -203,11 +203,27 @@ describe("GET /api/register/live", () => {
 
     // The choices are the form's own, and do not collapse to the one
     // already chosen.
-    expect(summary.categories).toEqual(["DG", "HP"]);
+    expect(summary.categories).toEqual([
+      { group: "Form 1", categories: ["DG", "HP"] },
+    ]);
     const staffSide = (
       await get(`/api/register/summary?date=${DATE}&branch=staff`, full)
     ).json();
     expect(staffSide.categories).toEqual([]);
+  });
+
+  it("offers the categories under their group, in the school's order", async () => {
+    // Alphabetically "Service" would come before Form 1's codes; the
+    // school reads its forms first, then its staff.
+    await h.db.db
+      .update(people)
+      .set({ category: "Service" })
+      .where(eq(people.enrollNo, "2001"));
+    const body = (await get(`/api/register/summary?date=${DATE}`, full)).json();
+    expect(body.categories).toEqual([
+      { group: "Form 1", categories: ["DG", "HP"] },
+      { group: "Junior Staff", categories: ["Service"] },
+    ]);
   });
 
   it("carries the group and tutor for each row", async () => {

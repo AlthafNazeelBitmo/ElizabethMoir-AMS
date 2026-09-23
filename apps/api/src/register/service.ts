@@ -527,16 +527,31 @@ export class RegisterService {
   }
 
   /**
-   * The categories in the view as it stands, whichever one is chosen.
+   * The categories in the view as it stands, under the group they belong
+   * to and in the school's order: Form 1's codes, then Form 2's, then the
+   * staff groups'. Alphabetical across the whole school would put Form
+   * 3's SE between Senior Admin's Service and Form 5's JS, which is a
+   * list nobody can read.
    *
    * The select that offers them must not collapse to the one already
    * picked, so the category filter itself is left out of the question —
    * but the branch, the group and the search are not: each form has its
    * own codes, and offering Form 2's inside Form 1 would be noise.
+   *
+   * A category in more than one group is listed once, under the first
+   * group that has it: choosing it filters by the category alone, so
+   * offering it twice would suggest two different filters.
    */
-  async categories(role: UserRole, filters: RegisterFilters): Promise<string[]> {
+  async categories(
+    role: UserRole,
+    filters: RegisterFilters,
+  ): Promise<Array<{ group: string | null; categories: string[] }>> {
     const rows = await this.db
-      .selectDistinct({ category: people.category })
+      .selectDistinct({
+        category: people.category,
+        group: groups.name,
+        groupOrder: GROUP_ORDER,
+      })
       .from(people)
       .leftJoin(groups, eq(groups.id, people.groupId))
       .where(
@@ -549,10 +564,19 @@ export class RegisterService {
           isNotNull(people.category),
         ),
       )
-      .orderBy(asc(people.category));
-    return rows
-      .map((r) => r.category)
-      .filter((c): c is string => c !== null && c !== "");
+      .orderBy(GROUP_ORDER, asc(groups.name), asc(people.category));
+
+    const seen = new Set<string>();
+    const out: Array<{ group: string | null; categories: string[] }> = [];
+    for (const row of rows) {
+      const category = row.category;
+      if (!category || seen.has(category)) continue;
+      seen.add(category);
+      const last = out.at(-1);
+      if (last && last.group === row.group) last.categories.push(category);
+      else out.push({ group: row.group, categories: [category] });
+    }
+    return out;
   }
 
   /** Whether this date is a school day, and when absence becomes meaningful. */

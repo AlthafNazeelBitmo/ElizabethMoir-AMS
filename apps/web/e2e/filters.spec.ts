@@ -131,6 +131,26 @@ test("a form is narrowed to one of its own categories", async ({ page }) => {
     .locator("span")
     .filter({ hasText: /^\d[\d,]*( of [\d,]+)? (person|people)$/ });
 
+  // Everyone: the forms' codes in the school's order, then the staff's —
+  // never alphabetically across the school, where Form 3's SE would land
+  // among the staff categories.
+  await expect(category.locator("option")).toHaveText([
+    "All categories",
+    "DG",
+    "HP",
+    "LDS",
+    "LG",
+    "KR",
+    "KT",
+    "HOD",
+    "Teaching",
+    "Part-Time",
+  ]);
+  await expect(category.locator("optgroup").first()).toHaveAttribute(
+    "label",
+    "Form 1",
+  );
+
   await rail.getByRole("button", { name: /^Form 1\b/ }).click();
   const whole = await shown.textContent();
 

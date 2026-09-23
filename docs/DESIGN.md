@@ -181,7 +181,12 @@ category — Form 1's DG and HP, Form 2's LG and LDS — and the register
 has a select for it beside the group. The choices are whatever the view
 holds, asked of the server without the category itself so the select
 cannot collapse to the one already chosen; and moving to another group
-drops a code that would find nobody there. The filter is on the server,
+drops a code that would find nobody there. They are listed under their
+group and in the school's order, Form 1's before Form 2's before the
+staff groups': alphabetically across the school, Form 3's SE would sit
+among Senior Admin's Service, which is a list nobody can read. A code
+two groups share is listed once, under the first, since choosing it
+filters by the code alone. The filter is on the server,
 like the group and unlike the status: the tiles and the printed sheet
 have to agree with the list they head.
 
