@@ -81,8 +81,10 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    form. Students have no places and stay alphabetical within their form.
    **Within a form.** The register's _Category_ select narrows a form to
    one of its own codes (Form 1 → DG or HP), and the figures and the PDF
-   follow it. The codes come from the directory's _Category_ field, so
-   they are set by the import file or a person's edit form.
+   follow it. The report screen has the same select for a range of days,
+   and its CSV says which category it covers. The codes come from the
+   directory's _Category_ field, so they are set by the import file or a
+   person's edit form.
 
    **Today on paper.** Live register → _Download PDF_ prints the day as
    it is filtered, with the figures and a header saying what it covers;

@@ -26,6 +26,7 @@ const attendanceQuery = z
     to: dateString,
     branch: z.enum(BRANCHES).optional(),
     group: z.coerce.number().int().optional(),
+    category: z.string().trim().min(1).max(60).optional(),
     tutor: z.coerce.number().int().optional(),
     format: z.enum(["json", "csv"]).default("json"),
   })
@@ -65,7 +66,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
         ),
       });
     }
-    const { from, to, branch, group, tutor, format } = parsed.data;
+    const { from, to, branch, group, category, tutor, format } = parsed.data;
 
     if (daysBetween(from, to) > MAX_RANGE_DAYS) {
       return reply.code(400).send({
@@ -79,6 +80,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
       to,
       branch,
       groupId: group,
+      category,
       tutorId: tutor,
     });
 
@@ -89,13 +91,26 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
       action: "report_export",
       userId: req.auth!.userId,
       entity: "attendance_report",
-      after: { from, to, branch, group, tutor, rows: report.rows.length },
+      after: {
+        from,
+        to,
+        branch,
+        group,
+        category,
+        tutor,
+        rows: report.rows.length,
+      },
       ip: req.ip || null,
       userAgent: req.headers["user-agent"] ?? null,
     });
 
     const csv = attendanceReportToCsv(report, {
-      filtersDescription: await describeFilters(db, { branch, group, tutor }),
+      filtersDescription: await describeFilters(db, {
+        branch,
+        group,
+        category,
+        tutor,
+      }),
       generatedAt: new Date(),
     });
 
@@ -121,7 +136,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
         ),
       });
     }
-    const { from, to, branch, group, tutor } = parsed.data;
+    const { from, to, branch, group, category, tutor } = parsed.data;
     if (daysBetween(from, to) > MAX_RANGE_DAYS) {
       return reply.code(400).send({
         error: "range_too_long",
@@ -133,6 +148,7 @@ export const reportRoutes: FastifyPluginAsync<ReportRoutesOptions> = async (
       to,
       branch,
       groupId: group,
+      category,
       tutorId: tutor,
     });
     return reply.send({ from, to, days });
@@ -207,6 +223,7 @@ async function describeFilters(
   filters: {
     branch?: string | undefined;
     group?: number | undefined;
+    category?: string | undefined;
     tutor?: number | undefined;
   },
 ): Promise<string> {
@@ -221,6 +238,7 @@ async function describeFilters(
       .limit(1);
     parts.push(`Group: ${row?.name ?? `#${filters.group}`}`);
   }
+  if (filters.category) parts.push(`Category: ${filters.category}`);
   if (filters.tutor !== undefined) {
     const [row] = await db
       .select({ initials: tutors.initials })

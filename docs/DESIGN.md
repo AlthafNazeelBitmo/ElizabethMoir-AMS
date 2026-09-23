@@ -188,7 +188,9 @@ among Senior Admin's Service, which is a list nobody can read. A code
 two groups share is listed once, under the first, since choosing it
 filters by the code alone. The filter is on the server,
 like the group and unlike the status: the tiles and the printed sheet
-have to agree with the list they head.
+have to agree with the list they head. The report carries the same
+select over its range, narrowed to the group in view, and names the
+category in its printed header and in its CSV preamble.
 
 **The day goes on paper from the register itself.** _Download PDF_ opens
 the browser's print dialogue, where the destination is "Save as PDF".

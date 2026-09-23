@@ -35,6 +35,8 @@ export interface ReportFilters {
   to: string;
   branch?: Branch | undefined;
   groupId?: number | undefined;
+  /** The school's category — a form's DG, a staff HOD. */
+  category?: string | undefined;
   tutorId?: number | undefined;
   /** One person only — the per-person report, computed by the same rules. */
   personId?: string | undefined;
@@ -96,6 +98,7 @@ export class ReportService {
       listedPeople(),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
+      filters.category ? eq(people.category, filters.category) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
       filters.personId ? eq(people.id, filters.personId) : undefined,
     ];
@@ -222,6 +225,7 @@ export class ReportService {
       listedPeople(),
       filters.branch ? eq(groups.branch, filters.branch) : undefined,
       filters.groupId ? eq(people.groupId, filters.groupId) : undefined,
+      filters.category ? eq(people.category, filters.category) : undefined,
       filters.tutorId ? eq(people.tutorId, filters.tutorId) : undefined,
       filters.personId ? eq(people.id, filters.personId) : undefined,
       gte(dayRecords.date, filters.from),

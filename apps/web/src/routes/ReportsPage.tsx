@@ -123,6 +123,7 @@ export function ReportsPage() {
   const to = searchParams.get("to") ?? today;
   const branch = (searchParams.get("branch") as Branch | null) ?? null;
   const group = searchParams.get("group");
+  const category = searchParams.get("category");
 
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>(
     {
@@ -144,8 +145,9 @@ export function ReportsPage() {
     const params = new URLSearchParams({ from, to });
     if (branch) params.set("branch", branch);
     if (group) params.set("group", group);
+    if (category) params.set("category", category);
     return params.toString();
-  }, [from, to, branch, group]);
+  }, [from, to, branch, group, category]);
 
   // The browser's own print header, and the PDF's file name.
   usePrintSetup(
@@ -218,6 +220,25 @@ export function ReportsPage() {
   const groups = (summary.data?.groups ?? []).filter(
     (g) => user.role === "full" || g.branch === "student",
   );
+
+  /**
+   * The categories to offer, under their group and in the school's order.
+   * Narrowed to the group in view, since each form has its own codes.
+   * Guarded: a server older than this page sends a flat list of names.
+   */
+  const groupName = group
+    ? (groups.find((g) => String(g.groupId) === group)?.name ?? null)
+    : null;
+  const categoryBuckets = (summary.data?.categories ?? [])
+    .filter(
+      (bucket): bucket is { group: string | null; categories: string[] } =>
+        Array.isArray(bucket?.categories),
+    )
+    .filter((bucket) => {
+      if (groupName) return bucket.group === groupName;
+      if (branch) return groups.some((g) => g.name === bucket.group);
+      return true;
+    });
   const totals = report.data?.totals;
 
   return (
@@ -229,7 +250,7 @@ export function ReportsPage() {
           `${formatDate(from)} to ${formatDate(to)}${
             report.data ? ` · ${report.data.schoolDaysInRange} school days` : ""
           }`,
-          describeFilters(branch, group, groups),
+          describeFilters(branch, group, category, groups),
         ]}
         preparedBy={user.fullName}
       />
@@ -323,7 +344,11 @@ export function ReportsPage() {
           <Field label="Group">
             <NativeSelect
               value={group ?? ""}
-              onChange={(e) => setParams({ group: e.target.value || null })}
+              onChange={(e) =>
+                // A form's codes are its own, so changing the group drops
+                // a category that would find nobody in the new one.
+                setParams({ group: e.target.value || null, category: null })
+              }
             >
               <option value="">All groups</option>
               {groups.map((g) => (
@@ -333,6 +358,31 @@ export function ReportsPage() {
               ))}
             </NativeSelect>
           </Field>
+
+          {categoryBuckets.length > 0 && (
+            <Field label="Category">
+              <NativeSelect
+                value={category ?? ""}
+                onChange={(e) =>
+                  setParams({ category: e.target.value || null })
+                }
+              >
+                <option value="">All categories</option>
+                {categoryBuckets.map((bucket) => (
+                  <optgroup
+                    key={bucket.group ?? "none"}
+                    label={bucket.group ?? "No group"}
+                  >
+                    {bucket.categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </NativeSelect>
+            </Field>
+          )}
         </div>
       </div>
 
@@ -690,6 +740,7 @@ function formatArrival(seconds: number | null): string {
 function describeFilters(
   branch: Branch | null,
   group: string | null,
+  category: string | null,
   groups: GroupCount[],
 ): string {
   const parts: string[] = [];
@@ -698,6 +749,7 @@ function describeFilters(
     const found = groups.find((g) => String(g.groupId) === group);
     parts.push(`Group: ${found?.name ?? group}`);
   }
+  if (category) parts.push(`Category: ${category}`);
   return parts.length > 0
     ? `Filters — ${parts.join("; ")}`
     : "No filters applied";

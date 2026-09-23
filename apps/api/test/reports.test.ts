@@ -80,6 +80,8 @@ beforeEach(async () => {
       fullName: "Ann Perera",
       groupId: formOneId,
       tutorId: tutor!.id,
+      // The school's code within the form.
+      category: "DG",
     },
     {
       enrollNo: "11008",
@@ -204,6 +206,32 @@ describe("GET /api/reports/attendance", () => {
     expect(report.totals.attendancePercentage).toBe(53.3);
     // Ann averaged 08:00 over 3 days, Ben 07:50 over 5 — weighted 07:53:45.
     expect(formatArrival(report.totals.averageArrivalSeconds)).toBe("07:54");
+  });
+
+  it("filters by category, and says so on the export", async () => {
+    await seedAWeek();
+    const report: AttendanceReport = (
+      await get(
+        `/api/reports/attendance?from=${FROM}&to=${TO}&group=${formOneId}&category=DG`,
+      )
+    ).json();
+    expect(report.rows.map((r) => r.enrollNo)).toEqual(["11007"]);
+    expect(report.totals.people).toBe(1);
+
+    // The day-by-day figures behind the chart follow the same filter.
+    const daily = (
+      await get(`/api/reports/daily?from=${FROM}&to=${TO}&category=DG`)
+    ).json();
+    expect(
+      daily.days.every((d: { expected: number }) => d.expected <= 1),
+    ).toBe(true);
+
+    // A sheet that leaves the building says what it left out.
+    const csv = await get(
+      `/api/reports/attendance?from=${FROM}&to=${TO}&category=DG&format=csv`,
+    );
+    expect(csv.body).toContain("Category: DG");
+    expect(csv.body).not.toContain("Ben Silva");
   });
 
   it("filters by group, branch and tutor", async () => {
