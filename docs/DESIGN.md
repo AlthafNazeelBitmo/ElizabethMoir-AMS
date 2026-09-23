@@ -176,6 +176,15 @@ set aside. It follows that a name the school files under a particle or a
 compound — de Soysa, Weerasinghe Don — sits under its last word here;
 the school was shown this and chose the simpler rule.
 
+**The day goes on paper from the register itself.** _Download PDF_ opens
+the browser's print dialogue, where the destination is "Save as PDF".
+What it prints is not the screen: the table is virtualised, so
+`RegisterPrintSheet` is a second, plain table of every row in view, with
+the day's figures above it and a `PrintHeader` that says the date, the
+filter and how many people — a sheet on a desk cannot be mistaken for
+the whole school. The report screen keeps its own Print and CSV for a
+range.
+
 **Late is a student's tag.** A member of staff's row carries no _Late_
 beside its status, at the school's request, and neither do their days in
 the person panel. The flag itself is unchanged: it is still computed

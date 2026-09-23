@@ -4,13 +4,16 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  DownloadIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
+import { PrintHeader } from "@/components/PrintHeader.js";
 import { AttentionStrip } from "@/components/register/AttentionStrip.js";
 import { GroupsPanel } from "@/components/register/GroupsPanel.js";
+import { RegisterPrintSheet } from "@/components/register/RegisterPrintSheet.js";
 import { PersonSheet } from "@/components/register/PersonSheet.js";
 import {
   RegisterCards,
@@ -50,7 +53,14 @@ import {
   type SortOrder,
   type StatusFilter,
 } from "@/lib/filters.js";
-import { formatDate, formatTime, schoolToday } from "@/lib/format.js";
+import {
+  formatDate,
+  formatTime,
+  schoolName,
+  schoolToday,
+  STATUS_PRESENTATION,
+} from "@/lib/format.js";
+import { usePrintSetup } from "@/lib/print.js";
 import { cn } from "@/lib/utils.js";
 
 /**
@@ -233,6 +243,39 @@ export function RegisterPage() {
 
   // The tutor initials are kept off the register for now: the office
   // asked for the screen without them.
+  // Print-to-PDF names the file after the document's title.
+  usePrintSetup(
+    `${schoolName()} — Live register — ${formatDate(filters.date)}`,
+  );
+
+  /** What the printed sheet says it covers, so it cannot be mistaken. */
+  const printedFilters = useMemo(() => {
+    const parts: string[] = [];
+    const group = (summary.data?.groups ?? []).find(
+      (g) => g.groupId === filters.group,
+    );
+    if (group) parts.push(group.name);
+    else if (filters.group === "none") parts.push("No group");
+    else if (filters.branch)
+      parts.push(filters.branch === "student" ? "Students" : "Staff");
+    else parts.push("Everyone");
+    parts.push(
+      filters.status === "any"
+        ? "every status"
+        : filters.status === "checked_in"
+          ? "checked in"
+          : STATUS_PRESENTATION[filters.status].label.toLowerCase(),
+    );
+    if (filters.q.trim()) parts.push(`matching “${filters.q.trim()}”`);
+    return parts.join(" · ");
+  }, [
+    filters.branch,
+    filters.group,
+    filters.q,
+    filters.status,
+    summary.data?.groups,
+  ]);
+
   const showTutor = false;
   const isNarrow = useIsNarrow();
   const isCompact = useMediaQuery("(max-width: 1023px)");
@@ -249,8 +292,22 @@ export function RegisterPage() {
     // On a desk the page never scrolls and the table has its own scroll; on a
     // phone the page scrolls and the list is just a list. A trapped list
     // showing one card at a time is the worst of both.
-    <div className="flex flex-col gap-4 overflow-y-auto p-4 md:h-full md:min-h-0 md:overflow-hidden lg:p-5">
+    <div className="flex flex-col gap-4 overflow-y-auto p-4 md:h-full md:min-h-0 md:overflow-hidden lg:p-5 print:h-auto print:gap-3 print:overflow-visible print:p-0">
+      {/* On paper the screen gives way to a sheet that explains itself:
+          the header, the day's figures, and every row in view. */}
+      <PrintHeader
+        title="Live register"
+        lines={[
+          `${formatDate(filters.date)}${isToday ? " · today" : " · settled day"}`,
+          printedFilters,
+          `${visibleRows.length} ${visibleRows.length === 1 ? "person" : "people"}`,
+        ]}
+        preparedBy={user.fullName}
+      />
+      <RegisterPrintSheet rows={visibleRows} counts={summary.data?.counts} />
+
       <PageHeader
+        className="print:hidden"
         title="Live register"
         description={
           <span className="flex items-center gap-2">
@@ -311,6 +368,12 @@ export function RegisterPage() {
                 Today
               </Button>
             )}
+            {/* The browser's own print dialogue, where "Save as PDF" is
+                the destination. The sheet it prints is this day's list,
+                as filtered, not the dozen rows the table has in view. */}
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <DownloadIcon /> Download PDF
+            </Button>
           </>
         }
       />
@@ -320,7 +383,7 @@ export function RegisterPage() {
       {stream.shown === "reconnecting" && (
         <div
           role="status"
-          className="flex shrink-0 items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
+          className="flex shrink-0 items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground print:hidden"
         >
           <span className="size-1.5 rounded-full bg-status-late" aria-hidden />
           Connection lost — reconnecting. The figures are as of{" "}
@@ -333,7 +396,9 @@ export function RegisterPage() {
         </div>
       )}
 
-      <AttentionStrip user={user} />
+      <div className="contents print:hidden">
+        <AttentionStrip user={user} />
+      </div>
 
       <StatCards
         counts={summary.data?.counts}
@@ -341,9 +406,10 @@ export function RegisterPage() {
         activeStatus={filters.status}
         onSelectStatus={(status) => setFilters({ status })}
         isLoading={summary.isPending}
+        className="print:hidden"
       />
 
-      <div className="flex gap-4 md:min-h-0 md:flex-1">
+      <div className="flex gap-4 md:min-h-0 md:flex-1 print:hidden">
         <GroupsPanel
           groups={summary.data?.groups ?? []}
           ungrouped={summary.data?.ungrouped ?? { checkedIn: 0, total: 0 }}

@@ -44,7 +44,11 @@ test("a full account sees students, staff and admin", async ({ page }) => {
   ).toBeVisible();
   await expect(rail.getByRole("button", { name: "All staff" })).toBeVisible();
 
-  await expect(page.getByText(DEMO.full.name)).toBeVisible();
+  // Named in the account menu; the printed sheet names them too, which is
+  // why this is scoped rather than a search of the whole page.
+  await expect(
+    page.getByRole("button", { name: "Account menu" }),
+  ).toContainText(DEMO.full.name);
 
   // Admin is reachable, and its sections are all there.
   await nav.getByRole("link", { name: "Admin" }).click();

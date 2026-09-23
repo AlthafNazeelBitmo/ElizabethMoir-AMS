@@ -79,6 +79,11 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    staff are placed from the school's own list: give the file a
    `display_order` column with the place, or set it on a person's edit
    form. Students have no places and stay alphabetical within their form.
+   **Today on paper.** Live register → _Download PDF_ prints the day as
+   it is filtered, with the figures and a header saying what it covers;
+   choose _Everyone_ under the status filter first for the whole roll.
+   The report screen is for a range of days and a CSV.
+
    The live register opens A–Z by surname, which is the last word of the
    name: "Mr. G. Viraj Champika Kumara" files under K. Titles, a
    bracketed nickname, an MBE and a trailing initial are ignored. Its

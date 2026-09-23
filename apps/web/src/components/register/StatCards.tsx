@@ -68,12 +68,14 @@ export function StatCards({
   activeStatus,
   onSelectStatus,
   isLoading,
+  className,
 }: {
   counts: StatusCounts | undefined;
   rows: RegisterRow[];
   activeStatus: StatusFilter;
   onSelectStatus: (status: StatusFilter) => void;
   isLoading: boolean;
+  className?: string;
 }) {
   // Shares are of the people expected today; when nobody is — a Sunday,
   // or a calendar not yet entered — of the roll in view.
@@ -81,7 +83,12 @@ export function StatCards({
   return (
     // One surface, hairlines between the numbers: six figures read as one
     // line of thought, not six boxes competing for attention.
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-7">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-7",
+        className,
+      )}
+    >
       {TILES.map((tile) => {
         const value = counts?.[tile.key] ?? 0;
         const active = activeStatus === tile.filter;
