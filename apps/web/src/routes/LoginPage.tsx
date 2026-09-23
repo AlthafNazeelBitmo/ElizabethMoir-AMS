@@ -176,6 +176,19 @@ export function LoginPage() {
             Accounts are created by the school office. Ask there if you need
             one, or if you have forgotten your password.
           </p>
+
+          {/* Who built it, quietly, under everything else. */}
+          <p className="mt-6 text-center text-[0.6875rem] text-muted-foreground/70">
+            Powered by{" "}
+            <a
+              href="https://www.bitmosolutions.com/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline focus-visible:outline-none"
+            >
+              Bitmo Solutions
+            </a>
+          </p>
         </form>
       </div>
     </div>
