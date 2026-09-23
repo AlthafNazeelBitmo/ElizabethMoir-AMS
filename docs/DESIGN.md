@@ -167,15 +167,23 @@ everyone, the students and the staff are three parts ruled apart by
 full-width bands, inside a rounded frame that clips its own scrollbar. `RegisterTable` is virtualised and
 updates a row from the stream without a fetch; a changed row flashes once.
 
-**The register is a feed of the door.** At rest it is latest first: the
-last person to come in or go out is at the top, and a scan moves its row
-there. That needs a fact neither `first_in` nor `last_out` gives — the
-one who left at lunch and came back has no `last_out` — so each day
-carries `last_movement_at`, the last scan that counted, and the stream
-carries it too; a time set by hand takes its place as a scan would. The
-rows are sorted in the browser, like the status filter and the search.
-An _Order_ select gives the school's order instead, and in that order a
-scan changes the row where it stands and off-screen changes are counted.
+**The register is read A–Z by surname**, which is how a register is
+read, and is where the _Order_ select rests. The surname is everything
+after the first given name — De Silva under D, Cobain Mendis under C,
+Weerasinghe Don under W — which is how the school's own lists read, and
+fitted them better than the last word alone when both were checked
+against them; two given names ("Tsz Hei Chau") file under the second.
+Titles and a bracketed nickname are set aside.
+
+**Or as a feed of the door.** _Latest first_ puts the last person to come
+in or go out at the top, and a scan moves its row there. That needs a
+fact neither `first_in` nor `last_out` gives — the one who left at lunch
+and came back has no `last_out` — so each day carries
+`last_movement_at`, the last scan that counted, and the stream carries it
+too; a time set by hand takes its place as a scan would. _School order_
+is the third choice. The rows are sorted in the browser, like the status
+filter and the search; in either fixed order a scan changes the row where
+it stands and off-screen changes are counted.
 
 **Every other list of people is in the school's order** — students before
 staff, groups as the school ordered them, then each person's place in

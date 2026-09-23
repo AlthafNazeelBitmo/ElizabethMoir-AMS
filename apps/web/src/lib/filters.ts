@@ -21,14 +21,17 @@ export const DEFAULT_STATUS: StatusFilter = "checked_in";
 export type GroupFilter = number | "none";
 
 /**
- * The order of the list. "latest": whoever moved through a reader most
- * recently is at the top — the register as a feed of the door, which is
- * how it is watched. Those who have not moved follow, in the school's
- * order. "school": the school's order throughout, as the reports have it.
+ * The order of the list. "surname": A–Z by surname, which is how the
+ * school reads a register and so the resting order. "latest": whoever
+ * moved through a reader most recently is at the top — the register as a
+ * feed of the door — with those who have not moved behind them, by
+ * surname. "school": the school's own order, as the reports have it —
+ * students before staff, groups as the school ordered them, each
+ * person's place within their group.
  */
-export type SortOrder = "latest" | "school";
+export type SortOrder = "surname" | "latest" | "school";
 
-export const DEFAULT_SORT: SortOrder = "latest";
+export const DEFAULT_SORT: SortOrder = "surname";
 
 export interface RegisterFilters {
   date: string;
@@ -55,7 +58,10 @@ export function filtersFromSearch(params: URLSearchParams, today: string): Regis
     group: params.get("group") === "none" ? "none" : num("group"),
     tutor: num("tutor"),
     status: status === "any" || isStatus(status) ? status : DEFAULT_STATUS,
-    sort: sort === "school" || sort === "latest" ? sort : DEFAULT_SORT,
+    sort:
+      sort === "school" || sort === "latest" || sort === "surname"
+        ? sort
+        : DEFAULT_SORT,
     q: params.get("q") ?? "",
   };
 }
@@ -127,17 +133,62 @@ export function matchesStatus(
   }
 }
 
+const TITLE = /^(mrs|mr|ms|dr|miss)\s*\.?\s*/i;
+
 /**
- * The rows in the chosen order. The rows arrive in the school's order;
- * "latest" puts whoever moved most recently first and leaves the rest —
- * those who have not moved today — behind them as they came.
+ * A person's name as the school alphabetises it: the surname, then the
+ * given name.
+ *
+ * The surname is everything after the first given name — "Lehana De
+ * Silva" files under De Silva, "Julie Cobain Mendis" under Cobain
+ * Mendis, "Imath Weerasinghe Don" under Weerasinghe Don — which is how
+ * the school's own lists read, and matched them more closely than taking
+ * the last word alone when both were checked against them. Someone with
+ * two given names ("Tsz Hei Chau") files under the second, which is the
+ * price of not asking the office to mark every surname by hand. Titles
+ * and a nickname in brackets are set aside; one name alone is itself.
  */
-export function orderRows<T extends { lastMovementAt: string | null }>(
-  rows: readonly T[],
-  sort: SortOrder,
-): T[] {
+export function surnameKey(fullName: string): { surname: string; given: string } {
+  const cleaned = fullName
+    .replace(/\(.*?\)/g, " ")
+    .replace(TITLE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const parts = cleaned.split(" ");
+  if (parts.length < 2) return { surname: cleaned, given: "" };
+  // Joined without their spaces, so "De Silva" sits between "Deraniyagala"
+  // and "Dharmawansa" as it does on the school's list.
+  return { surname: parts.slice(1).join(""), given: parts[0]! };
+}
+
+/** Compares two names the way the school alphabetises them. */
+export function compareBySurname(
+  left: { fullName: string },
+  right: { fullName: string },
+): number {
+  const a = surnameKey(left.fullName);
+  const b = surnameKey(right.fullName);
+  return (
+    a.surname.localeCompare(b.surname, "en", { sensitivity: "base" }) ||
+    a.given.localeCompare(b.given, "en", { sensitivity: "base" })
+  );
+}
+
+/**
+ * The rows in the chosen order. They arrive from the server in the
+ * school's order, which "school" keeps; "surname" alphabetises them; and
+ * "latest" lifts whoever moved most recently to the top, leaving those
+ * who have not moved today behind them, by surname.
+ */
+export function orderRows<
+  T extends { lastMovementAt: string | null; fullName: string },
+>(rows: readonly T[], sort: SortOrder): T[] {
   if (sort === "school") return [...rows];
-  return rows
+
+  const alphabetical = [...rows].sort(compareBySurname);
+  if (sort === "surname") return alphabetical;
+
+  return alphabetical
     .map((row, index) => ({ row, index }))
     .sort((a, b) => {
       const left = a.row.lastMovementAt;

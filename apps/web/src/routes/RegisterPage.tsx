@@ -61,9 +61,10 @@ import { cn } from "@/lib/utils.js";
  * without refetching, and the connection state is always visible. Stale
  * data is never shown as though it were live.
  *
- * At rest the list is a feed of the door: whoever last came in or went out
- * is at the top, and a scan moves its row there. In the school's order
- * the row stays where it is and only its times and status change.
+ * At rest the list is A–Z by surname, the way a register is read, and a
+ * scan changes the row where it stands. "Latest first" makes it a feed of
+ * the door instead: whoever last came in or went out is at the top, and a
+ * scan moves its row there.
  */
 export function RegisterPage() {
   const user = useOutletContext<CurrentUser>();
@@ -192,9 +193,9 @@ export function RegisterPage() {
         });
       }, 1600);
 
-      // In the school's order a change can land anywhere down the list, so
-      // it is counted and offered. Latest first, it lands at the top.
-      if (filters.sort === "school") {
+      // In a fixed order a change can land anywhere down the list, so it
+      // is counted and offered. Latest first, it lands at the top.
+      if (filters.sort !== "latest") {
         setOffscreenUpdates((current) =>
           current.includes(event.personId)
             ? current
@@ -433,6 +434,7 @@ export function RegisterPage() {
                 setFilters({ sort: e.target.value as SortOrder })
               }
             >
+              <option value="surname">Surname A–Z</option>
               <option value="latest">Latest first</option>
               <option value="school">School order</option>
             </NativeSelect>

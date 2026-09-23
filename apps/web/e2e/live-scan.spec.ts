@@ -84,6 +84,13 @@ test("the last person through the door is at the top of the register", async ({
   const firstRow = table.getByRole("row").nth(1); // after the header
   await expect(firstRow).toBeVisible();
 
+  // The register opens A–Z by surname, where a scan does not move a row.
+  await expect(page.getByLabel("Order")).toHaveValue("surname");
+  const alphabeticalTop = await firstRow.textContent();
+
+  await page.getByLabel("Order").selectOption("latest");
+  await expect(page).toHaveURL(/sort=latest/);
+
   // Two movements at the end of the day, so they are the latest whatever
   // the hour the test runs at: the seed's arrivals run to 08:50 and the
   // correction test writes 15:05, both later than "now" in the morning.
@@ -113,4 +120,9 @@ test("the last person through the door is at the top of the register", async ({
   await page.getByLabel("Order").selectOption("school");
   await expect(firstRow).not.toContainText(DEMO.unscannedStudent3);
   await expect(page).toHaveURL(/sort=school/);
+
+  // And back to A–Z, where the two scans have not moved anybody.
+  await page.getByLabel("Order").selectOption("surname");
+  await expect(page).not.toHaveURL(/sort=/);
+  await expect(firstRow).toHaveText(alphabeticalTop!);
 });
