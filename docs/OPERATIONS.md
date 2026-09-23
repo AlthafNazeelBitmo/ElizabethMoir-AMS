@@ -79,10 +79,11 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    staff are placed from the school's own list: give the file a
    `display_order` column with the place, or set it on a person's edit
    form. Students have no places and stay alphabetical within their form.
-   The live register opens A–Z by surname (everything after the first
-   given name: De Silva under D). Its _Order_ select also offers _Latest
-   first_ — the last person through a reader at the top, the rest behind
-   them A–Z — and _School order_.
+   The live register opens A–Z by surname, which is the last word of the
+   name: "Mr. G. Viraj Champika Kumara" files under K. Titles, a
+   bracketed nickname, an MBE and a trailing initial are ignored. Its
+   _Order_ select also offers _Latest first_ — the last person through a
+   reader at the top, the rest behind them A–Z — and _School order_.
 
    **Categories.** The school's staff list also puts each member of staff
    in a category — HOD, Teaching, Extra-Curricular, Admin, Service,

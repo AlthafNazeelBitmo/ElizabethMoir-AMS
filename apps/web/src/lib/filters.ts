@@ -134,19 +134,23 @@ export function matchesStatus(
 }
 
 const TITLE = /^(mrs|mr|ms|dr|miss)\s*\.?\s*/i;
+/**
+ * An initial standing for a name: "G.", "K", "M.A." — one letter, or
+ * letters joined by dots. The dots are what tell it from a short name
+ * like "Don" or "He", which are names and decide where somebody sits.
+ */
+const INITIAL = /^[a-z](?:\.[a-z])*\.?$/i;
+/** Letters after the name rather than part of it. */
+const SUFFIX = /^(mbe|obe|jr|sr|ii|iii)\.?$/i;
 
 /**
- * A person's name as the school alphabetises it: the surname, then the
- * given name.
+ * A person's name as the school alphabetises it: the last name, then
+ * everything before it.
  *
- * The surname is everything after the first given name — "Lehana De
- * Silva" files under De Silva, "Julie Cobain Mendis" under Cobain
- * Mendis, "Imath Weerasinghe Don" under Weerasinghe Don — which is how
- * the school's own lists read, and matched them more closely than taking
- * the last word alone when both were checked against them. Someone with
- * two given names ("Tsz Hei Chau") files under the second, which is the
- * price of not asking the office to mark every surname by hand. Titles
- * and a nickname in brackets are set aside; one name alone is itself.
+ * The last word is the name to file under, at the school's instruction —
+ * "Mr. G. Viraj Champika Kumara" is a K — so initials and middle names
+ * never decide where somebody sits. A title, a nickname in brackets, an
+ * MBE and a trailing initial are all set aside; one name alone is itself.
  */
 export function surnameKey(fullName: string): { surname: string; given: string } {
   const cleaned = fullName
@@ -154,11 +158,16 @@ export function surnameKey(fullName: string): { surname: string; given: string }
     .replace(TITLE, "")
     .replace(/\s+/g, " ")
     .trim();
-  const parts = cleaned.split(" ");
+  const parts = cleaned.split(" ").filter((p) => p !== "");
   if (parts.length < 2) return { surname: cleaned, given: "" };
-  // Joined without their spaces, so "De Silva" sits between "Deraniyagala"
-  // and "Dharmawansa" as it does on the school's list.
-  return { surname: parts.slice(1).join(""), given: parts[0]! };
+
+  // Back past anything that is not a name: "Elizabeth Moir MBE" is an M
+  // for Moir, "Ann P." a P for nothing.
+  let last = parts.length - 1;
+  while (last > 0 && (SUFFIX.test(parts[last]!) || INITIAL.test(parts[last]!))) {
+    last -= 1;
+  }
+  return { surname: parts[last]!, given: parts.slice(0, last).join(" ") };
 }
 
 /** Compares two names the way the school alphabetises them. */
@@ -176,9 +185,9 @@ export function compareBySurname(
 
 /**
  * The rows in the chosen order. They arrive from the server in the
- * school's order, which "school" keeps; "surname" alphabetises them; and
- * "latest" lifts whoever moved most recently to the top, leaving those
- * who have not moved today behind them, by surname.
+ * school's order, which "school" keeps; "surname" alphabetises them by
+ * last name; and "latest" lifts whoever moved most recently to the top,
+ * leaving those who have not moved today behind them, alphabetically.
  */
 export function orderRows<
   T extends { lastMovementAt: string | null; fullName: string },

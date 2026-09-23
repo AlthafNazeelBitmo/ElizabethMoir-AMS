@@ -168,12 +168,13 @@ full-width bands, inside a rounded frame that clips its own scrollbar. `Register
 updates a row from the stream without a fetch; a changed row flashes once.
 
 **The register is read A–Z by surname**, which is how a register is
-read, and is where the _Order_ select rests. The surname is everything
-after the first given name — De Silva under D, Cobain Mendis under C,
-Weerasinghe Don under W — which is how the school's own lists read, and
-fitted them better than the last word alone when both were checked
-against them; two given names ("Tsz Hei Chau") file under the second.
-Titles and a bracketed nickname are set aside.
+read, and is where the _Order_ select rests. The surname is the last
+word of the name, at the school's instruction: "Mr. G. Viraj Champika
+Kumara" is a K, so initials and middle names never decide where somebody
+sits. A title, a bracketed nickname, an MBE and a trailing initial are
+set aside. It follows that a name the school files under a particle or a
+compound — de Soysa, Weerasinghe Don — sits under its last word here;
+the school was shown this and chose the simpler rule.
 
 **Or as a feed of the door.** _Latest first_ puts the last person to come
 in or go out at the top, and a scan moves its row there. That needs a
