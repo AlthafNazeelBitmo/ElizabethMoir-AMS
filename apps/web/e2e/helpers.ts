@@ -16,9 +16,12 @@ export const DEMO = {
   /** Left untouched by the correction test, so its day reads as seeded. */
   reportStudent: "11002",
   unscannedStudent: "11060",
-  /** Two more with no scans, for the ordering test to move in turn. */
+  /** Three more with no scans, for the ordering and late tests. */
   unscannedStudent2: "11061",
   unscannedStudent3: "11062",
+  unscannedStudent4: "11063",
+  /** Junior Staff, which expects attendance; nobody seeds them a scan. */
+  staffMember: "2000",
 } as const;
 
 export async function signIn(

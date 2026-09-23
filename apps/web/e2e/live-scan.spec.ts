@@ -126,3 +126,52 @@ test("the last person through the door is at the top of the register", async ({
   await expect(page).not.toHaveURL(/sort=/);
   await expect(firstRow).toHaveText(alphabeticalTop!);
 });
+
+test("a late arrival is tagged for a student and not for a member of staff", async ({
+  page,
+}) => {
+  const { date, time } = schoolNow();
+  test.skip(
+    Number(time.slice(0, 2)) < 3,
+    `It is ${time} at the school: a scan now belongs to yesterday's day.`,
+  );
+
+  await signIn(page, "full");
+  await expect(page.getByText("Live", { exact: true })).toBeVisible();
+
+  // Both arrive well after the 08:00 threshold, so both are flagged late.
+  const post = (enrollNo: string) =>
+    page.request.post(DEMO.ingestPath, {
+      data: [
+        {
+          EmpId: enrollNo,
+          AttTime: `${date} 10:20:00`,
+          CheckingStatus: "0",
+          VerifyType: "1",
+          DeviceID: DEMO.device,
+        },
+      ],
+    });
+  expect((await post(DEMO.unscannedStudent4)).status()).toBe(200);
+  expect((await post(DEMO.staffMember)).status()).toBe(200);
+
+  // The list is virtualised, so each row is brought on screen by the
+  // search before it is read.
+  const search = page.getByLabel("Search by name or ID");
+  await search.fill(DEMO.unscannedStudent4);
+  const student = rowFor(page, DEMO.unscannedStudent4);
+  await expect(student).toContainText("Present");
+  await expect(student).toContainText("Late");
+
+  // The same flag, not shown: the school marks its students late, not staff.
+  await search.fill(DEMO.staffMember);
+  const staff = rowFor(page, DEMO.staffMember);
+  await expect(staff).toContainText("Present");
+  await expect(staff).not.toContainText("Late");
+
+  // Nor in their panel, where a student's days carry it.
+  await staff.click();
+  const panel = page.getByRole("dialog");
+  await expect(panel.getByText("Present", { exact: true }).first()).toBeVisible();
+  await expect(panel.getByText("Late", { exact: true })).toHaveCount(0);
+});

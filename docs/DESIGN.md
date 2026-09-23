@@ -176,6 +176,12 @@ set aside. It follows that a name the school files under a particle or a
 compound — de Soysa, Weerasinghe Don — sits under its last word here;
 the school was shown this and chose the simpler rule.
 
+**Late is a student's tag.** A member of staff's row carries no _Late_
+beside its status, at the school's request, and neither do their days in
+the person panel. The flag itself is unchanged: it is still computed
+from the group's threshold, still counted on the Late tile, still in the
+reports and the export.
+
 **Or as a feed of the door.** _Latest first_ puts the last person to come
 in or go out at the top, and a scan moves its row there. That needs a
 fact neither `first_in` nor `last_out` gives — the one who left at lunch

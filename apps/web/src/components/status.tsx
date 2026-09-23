@@ -1,4 +1,4 @@
-import type { RegisterStatus } from "@/lib/api.js";
+import type { Branch, RegisterStatus } from "@/lib/api.js";
 import { STATUS_PRESENTATION } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 
@@ -28,6 +28,16 @@ export function CategoryTag({
       {category}
     </span>
   );
+}
+
+/**
+ * Whether lateness is shown for this person at all. The school marks its
+ * students late; a member of staff's arrival is not judged that way, so
+ * their rows carry no tag. The flag is still computed and still counted
+ * on the Late tile and in the reports.
+ */
+export function showsLate(branch: Branch | null | undefined): boolean {
+  return branch === "student";
 }
 
 /**
