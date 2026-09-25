@@ -120,6 +120,8 @@ export interface RegisterRow {
   lastMovementAt: string | null;
   status: RegisterStatus;
   isLate: boolean;
+  /** Their last departure was before their group's cut-off. */
+  leftEarly: boolean;
   hasManualEdit: boolean;
   scanCount: number;
 }
@@ -188,6 +190,7 @@ export interface PersonDay {
   lastOut: string | null;
   status: DayStatus;
   isLate: boolean;
+  leftEarly: boolean;
   scanCount: number;
   hasManualEdit: boolean;
 }

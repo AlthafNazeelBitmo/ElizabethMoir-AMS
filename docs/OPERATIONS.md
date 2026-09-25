@@ -79,6 +79,16 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    staff are placed from the school's own list: give the file a
    `display_order` column with the place, or set it on a person's edit
    form. Students have no places and stay alphabetical within their form.
+   **The hours a group is judged by.** Admin → Groups gives each group
+   two times. _Late after_ is when an arrival counts as late: blank, a
+   form falls back to the school's hour under Admin → Rules, and a staff
+   group is never late at all — which is how staff stay until the school
+   sets a time for that group. _Leaves before_ is the cut-off: a last
+   departure earlier than it shows as _Left early_ on the register;
+   blank, the group is not judged that way. Both take effect from the
+   next scan onwards, so a day already computed keeps the verdict it was
+   given.
+
    **Within a form.** The register's _Category_ select narrows a form to
    one of its own codes (Form 1 → DG or HP), and the figures and the PDF
    follow it. The report screen has the same select for a range of days,

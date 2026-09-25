@@ -180,6 +180,51 @@ describe("GET /api/register/live", () => {
     expect(waiting.rows).toHaveLength(3);
   });
 
+  it("marks a member of staff late only against their group's own time", async () => {
+    // The school's default hour is about its pupils. Until a staff group
+    // is given a time, nobody in it is late; given one, they are.
+    await scan("2001", `${DATE} 07:45:00`);
+    const before = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const cal = (r: { enrollNo: string }) => r.enrollNo === "2001";
+    expect(before.rows.find(cal)).toMatchObject({ isLate: false });
+    // The pupils are judged by the school's hour, as before.
+    await scan("11007", `${DATE} 08:30:00`);
+    const pupils = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(
+      pupils.rows.find((r: { enrollNo: string }) => r.enrollNo === "11007"),
+    ).toMatchObject({ isLate: true });
+
+    await h.db.db
+      .update(groups)
+      .set({ lateThreshold: "07:30" })
+      .where(eq(groups.id, staffGroupId));
+    await h.app.processor.recomputePersonDay("2001", DATE);
+    const after = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(after.rows.find(cal)).toMatchObject({ isLate: true });
+  });
+
+  it("says who left before their group's cut-off", async () => {
+    await h.db.db
+      .update(groups)
+      .set({ leaveCutoff: "15:00" })
+      .where(eq(groups.id, staffGroupId));
+    await scan("2001", `${DATE} 07:45:00`);
+    await scan("2001", `${DATE} 13:10:00`);
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const cal = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "2001",
+    );
+    expect(cal).toMatchObject({ status: "departed", leftEarly: true });
+
+    // A form with no cut-off has nobody leaving early.
+    await scan("11007", `${DATE} 07:45:00`);
+    await scan("11007", `${DATE} 13:10:00`);
+    const pupils = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(
+      pupils.rows.find((r: { enrollNo: string }) => r.enrollNo === "11007"),
+    ).toMatchObject({ status: "departed", leftEarly: false });
+  });
+
   it("filters within a form by category, and says which are there to choose", async () => {
     const dg = (
       await get(
@@ -847,6 +892,7 @@ describe("the broadcaster", () => {
       lastMovementAt: null,
       status: "on_site" as const,
       isLate: false,
+      leftEarly: false,
       hasManualEdit: false,
       scanCount: 1,
     };

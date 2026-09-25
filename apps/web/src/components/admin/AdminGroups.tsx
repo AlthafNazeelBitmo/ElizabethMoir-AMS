@@ -24,6 +24,7 @@ interface Group {
   branch: Branch;
   displayOrder: number;
   lateThreshold: string | null;
+  leaveCutoff: string | null;
   expectsAttendance: boolean;
   isActive: boolean;
   peopleCount: number;
@@ -33,12 +34,12 @@ interface Group {
  * The groups: forms, years, staff categories — whatever the school calls
  * the units its people are organised into.
  *
- * Each one carries three things the register depends on: which branch it
- * belongs to (which decides who may see its members), whether its members
- * are expected at all (contractors are not reported absent), and its own
- * late threshold if it differs from the school's. The branch is fixed once
- * people are in the group — the server refuses to move them across that
- * line as a side effect of an edit.
+ * Each one carries what the register judges its people by: which branch
+ * it belongs to (which decides who may see its members), whether its
+ * members are expected at all (contractors are not reported absent), the
+ * hour after which arriving is late, and the time before which leaving is
+ * early. The branch is fixed once people are in the group — the server
+ * refuses to move them across that line as a side effect of an edit.
  */
 export function AdminGroups() {
   const queryClient = useQueryClient();
@@ -169,6 +170,18 @@ export function AdminGroups() {
       )}
 
       <Note>
+        <strong className="font-medium text-foreground">Late after</strong> is
+        the hour an arrival counts as late. Left blank, a form falls back to
+        the school&rsquo;s hour under Rules; a staff group is never late at
+        all, which is how it stays until the school sets a time for it.{" "}
+        <strong className="font-medium text-foreground">Leaves before</strong>{" "}
+        is the cut-off: someone whose last departure is earlier is shown as
+        having left early. Blank for a group the school does not judge that
+        way, which is most of them. Both apply from the next scan onwards;
+        days already computed keep what they were given.
+      </Note>
+
+      <Note>
         A group that does not expect attendance never appears in an absence list
         — use it for contractors and visitors who hold a card. Deactivating a
         group hides it from the rail and the filters but changes nothing about
@@ -202,6 +215,7 @@ function GroupTable({
               <Th className="text-right">People</Th>
               <Th>Order</Th>
               <Th>Late after</Th>
+              <Th>Leaves before</Th>
               <Th>Expects attendance</Th>
               <Th>Active</Th>
             </>
@@ -252,11 +266,29 @@ function GroupTable({
                   className="tabular w-32"
                   defaultValue={group.lateThreshold?.slice(0, 5) ?? ""}
                   aria-label={`Late threshold for ${group.name}`}
-                  title="Blank uses the school's late threshold"
+                  title={
+                    group.branch === "staff"
+                      ? "Blank: nobody in this group is ever late"
+                      : "Blank uses the school's late threshold"
+                  }
                   onBlur={(e) => {
                     const value = e.target.value || null;
                     if (value !== (group.lateThreshold?.slice(0, 5) ?? null))
                       onChange(group.id, { lateThreshold: value });
+                  }}
+                />
+              </Td>
+              <Td>
+                <Input
+                  type="time"
+                  className="tabular w-32"
+                  defaultValue={group.leaveCutoff?.slice(0, 5) ?? ""}
+                  aria-label={`Leave cut-off for ${group.name}`}
+                  title="Blank: leaving early is not judged for this group"
+                  onBlur={(e) => {
+                    const value = e.target.value || null;
+                    if (value !== (group.leaveCutoff?.slice(0, 5) ?? null))
+                      onChange(group.id, { leaveCutoff: value });
                   }}
                 />
               </Td>

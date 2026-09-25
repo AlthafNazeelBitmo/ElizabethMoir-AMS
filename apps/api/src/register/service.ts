@@ -67,6 +67,8 @@ export interface RegisterRow {
   lastMovementAt: string | null;
   status: RegisterStatus;
   isLate: boolean;
+  /** Their last departure was before their group's cut-off. */
+  leftEarly: boolean;
   hasManualEdit: boolean;
   scanCount: number;
 }
@@ -147,6 +149,7 @@ export class RegisterService {
         lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
+        leftEarly: dayRecords.leftEarly,
         hasManualEdit: dayRecords.hasManualEdit,
         scanCount: dayRecords.scanCount,
       })
@@ -224,6 +227,7 @@ export class RegisterService {
         lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
+        leftEarly: dayRecords.leftEarly,
         hasManualEdit: dayRecords.hasManualEdit,
         scanCount: dayRecords.scanCount,
       })
@@ -318,6 +322,7 @@ export class RegisterService {
         lastMovementAt: dayRecords.lastMovementAt,
         status: dayRecords.status,
         isLate: dayRecords.isLate,
+        leftEarly: dayRecords.leftEarly,
         hasManualEdit: dayRecords.hasManualEdit,
         scanCount: dayRecords.scanCount,
       })
@@ -626,6 +631,7 @@ export class RegisterService {
       lastMovementAt: Date | null;
       status: DayStatus | null;
       isLate: boolean | null;
+      leftEarly: boolean | null;
       hasManualEdit: boolean | null;
       scanCount: number | null;
     },
@@ -652,6 +658,7 @@ export class RegisterService {
         lastMovementAt: raw.lastMovementAt?.toISOString() ?? null,
         status: raw.status,
         isLate: raw.isLate ?? false,
+        leftEarly: raw.leftEarly ?? false,
         hasManualEdit: raw.hasManualEdit ?? false,
         scanCount: raw.scanCount ?? 0,
       };
@@ -662,6 +669,7 @@ export class RegisterService {
         raw.groupId === null ? false : (raw.expectsAttendance ?? false),
       isSchoolDay: dayContext.isSchoolDay,
       lateThreshold: null,
+      leaveCutoff: null,
       absenceDecidedFrom: dayContext.absenceDecidedFrom,
       now: this.now(),
     });
@@ -677,6 +685,7 @@ export class RegisterService {
       // all that can be said.
       status: computed?.status ?? "pending",
       isLate: false,
+      leftEarly: false,
       hasManualEdit: false,
       scanCount: 0,
     };

@@ -30,8 +30,18 @@ export const groups = pgTable(
     name: text("name").notNull().unique(),
     branch: text("branch").$type<Branch>().notNull(),
     displayOrder: integer("display_order").notNull(),
-    /** Null inherits the global `late_threshold_default` setting. */
+    /**
+     * When arrivals become late. Null inherits the school's
+     * `late_threshold_default` for a form; for a staff group it means the
+     * school judges no time, and nobody in it is ever late.
+     */
     lateThreshold: time("late_threshold"),
+    /**
+     * When people may leave. A last departure before it is early, and the
+     * register says so. Null for a group the school makes no such rule
+     * for, which is every group until somebody sets one.
+     */
+    leaveCutoff: time("leave_cutoff"),
     /** False for External Staff: contractors must not appear in an absence list. */
     expectsAttendance: boolean("expects_attendance").notNull().default(true),
     isActive: boolean("is_active").notNull().default(true),

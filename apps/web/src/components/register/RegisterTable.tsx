@@ -1,7 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { PencilLineIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { CategoryTag, showsLate, StatusBadge } from "@/components/status.js";
+import { CategoryTag, StatusBadge } from "@/components/status.js";
 import { Avatar } from "@/components/ui/misc.js";
 import {
   Tooltip,
@@ -202,7 +202,8 @@ export function RegisterTable({
                 <span role="cell">
                   <StatusBadge
                     status={row.status}
-                    isLate={showsLate(row.branch) && row.isLate}
+                    isLate={row.isLate}
+                    leftEarly={row.leftEarly}
                   />
                 </span>
               </div>
@@ -245,7 +246,8 @@ export function RegisterCards({
             </div>
             <StatusBadge
               status={row.status}
-              isLate={showsLate(row.branch) && row.isLate}
+              isLate={row.isLate}
+              leftEarly={row.leftEarly}
               size="sm"
             />
           </div>

@@ -125,6 +125,12 @@ const upsertGroup = z.object({
     .regex(/^\d{2}:\d{2}(:\d{2})?$/)
     .nullable()
     .optional(),
+  /** When people may leave; a departure before it is early. */
+  leaveCutoff: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/)
+    .nullable()
+    .optional(),
   expectsAttendance: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
@@ -746,6 +752,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
         branch: groups.branch,
         displayOrder: groups.displayOrder,
         lateThreshold: groups.lateThreshold,
+        leaveCutoff: groups.leaveCutoff,
         expectsAttendance: groups.expectsAttendance,
         isActive: groups.isActive,
         peopleCount: sql<number>`coalesce(${peopleCount.n}, 0)::int`,

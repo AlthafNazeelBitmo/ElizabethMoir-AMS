@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { buildApp } from "../app.js";
@@ -78,7 +79,12 @@ async function main(): Promise<void> {
     },
   ]);
 
-  // The groups come from migration 0002; the demo only reads them.
+  // The groups come from migration 0002; the demo gives one staff group
+  // its own hours, so the late and left-early tags have something to show.
+  await db
+    .update(groups)
+    .set({ lateThreshold: "07:30", leaveCutoff: "15:00" })
+    .where(eq(groups.name, "Junior Staff"));
   const groupRows = await db.select().from(groups);
   const groupId = (name: string) => groupRows.find((g) => g.name === name)!.id;
 
@@ -146,7 +152,11 @@ async function main(): Promise<void> {
     rows.push({
       enrollNo: String(2000 + i),
       fullName: `${firstNames[(i + 3) % firstNames.length]} ${surnames[(i + 2) % surnames.length]}`,
-      groupId: groupId(i === 11 ? "External Staff" : "Junior Staff"),
+      // Junior Staff has hours of its own; Senior Staff has none, so the
+      // demo shows both sides of the rule.
+      groupId: groupId(
+        i === 11 ? "External Staff" : i >= 8 ? "Senior Staff" : "Junior Staff",
+      ),
       // Categories as the school's staff list gives them.
       category: i === 11 ? "Part-Time" : i < 2 ? "HOD" : "Teaching",
       displayOrder: i + 1,

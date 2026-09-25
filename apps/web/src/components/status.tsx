@@ -31,26 +31,25 @@ export function CategoryTag({
 }
 
 /**
- * Whether lateness is shown for this person at all. The school marks its
- * students late; a member of staff's arrival is not judged that way, so
- * their rows carry no tag. The flag is still computed and still counted
- * on the Late tile and in the reports.
- */
-export function showsLate(branch: Branch | null | undefined): boolean {
-  return branch === "student";
-}
-
-/**
- * The late flag sits beside the status as its own small tag when asked
- * for: "Present · Late" is one fact and a second, not a third status.
+ * The flags sit beside the status as their own small tags: "Present ·
+ * Late", "Departed · Left early" — facts about the day, not statuses of
+ * their own.
+ *
+ * Each is shown wherever the school judges it. Lateness is decided by
+ * the group's own hour for staff and the school's for a form, so a staff
+ * group with no hour set never carries the tag; leaving early is decided
+ * by the group's cut-off, which most groups do not set. Both decisions
+ * are the server's, in the flags themselves.
  */
 export function StatusBadge({
   status,
   isLate = false,
+  leftEarly = false,
   size = "default",
 }: {
   status: RegisterStatus;
   isLate?: boolean;
+  leftEarly?: boolean;
   size?: "sm" | "default";
 }) {
   const p = STATUS_PRESENTATION[status];
@@ -81,6 +80,18 @@ export function StatusBadge({
           )}
         >
           Late
+        </span>
+      )}
+      {leftEarly && (
+        <span
+          className={cn(
+            "rounded-full font-medium text-status-departed bg-status-departed-bg",
+            size === "sm"
+              ? "px-1.5 py-px text-[0.6875rem]"
+              : "px-1.5 py-0.5 text-xs",
+          )}
+        >
+          Left early
         </span>
       )}
     </span>

@@ -50,6 +50,13 @@
       "when": 1789987419997,
       "tag": "0006_day_record_last_movement",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790314029058,
+      "tag": "0007_group_leave_cutoff",
+      "breakpoints": true
     }
   ]
 }

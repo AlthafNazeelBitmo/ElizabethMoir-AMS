@@ -127,7 +127,7 @@ test("the last person through the door is at the top of the register", async ({
   await expect(firstRow).toHaveText(alphabeticalTop!);
 });
 
-test("a late arrival is tagged for a student and not for a member of staff", async ({
+test("late and left early are shown where the group is judged by them", async ({
   page,
 }) => {
   const { date, time } = schoolNow();
@@ -139,21 +139,24 @@ test("a late arrival is tagged for a student and not for a member of staff", asy
   await signIn(page, "full");
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
 
-  // Both arrive well after the 08:00 threshold, so both are flagged late.
-  const post = (enrollNo: string) =>
+  const post = (enrollNo: string, at: string, out = false) =>
     page.request.post(DEMO.ingestPath, {
       data: [
         {
           EmpId: enrollNo,
-          AttTime: `${date} 10:20:00`,
-          CheckingStatus: "0",
+          AttTime: `${date} ${at}`,
+          CheckingStatus: out ? "1" : "0",
           VerifyType: "1",
           DeviceID: DEMO.device,
         },
       ],
     });
-  expect((await post(DEMO.unscannedStudent4)).status()).toBe(200);
-  expect((await post(DEMO.staffMember)).status()).toBe(200);
+
+  // 10:20 is after the school's hour for a form, and after Junior
+  // Staff's own 07:30; Senior Staff is given no hour at all.
+  expect((await post(DEMO.unscannedStudent4, "10:20:00")).status()).toBe(200);
+  expect((await post(DEMO.staffMember, "10:20:00")).status()).toBe(200);
+  expect((await post(DEMO.staffNoHours, "10:20:00")).status()).toBe(200);
 
   // The list is virtualised, so each row is brought on screen by the
   // search before it is read.
@@ -163,15 +166,37 @@ test("a late arrival is tagged for a student and not for a member of staff", asy
   await expect(student).toContainText("Present");
   await expect(student).toContainText("Late");
 
-  // The same flag, not shown: the school marks its students late, not staff.
+  // A staff group with an hour of its own is judged by it.
   await search.fill(DEMO.staffMember);
   const staff = rowFor(page, DEMO.staffMember);
   await expect(staff).toContainText("Present");
-  await expect(staff).not.toContainText("Late");
+  await expect(staff).toContainText("Late");
 
-  // Nor in their panel, where a student's days carry it.
+  // A staff group with no hour is never late, whatever the time.
+  await search.fill(DEMO.staffNoHours);
+  const unjudged = rowFor(page, DEMO.staffNoHours);
+  await expect(unjudged).toContainText("Present");
+  await expect(unjudged).not.toContainText("Late");
+
+  // Leaving before the group's cut-off says so; the same departure from a
+  // form, which has no cut-off, says only that they left.
+  expect((await post(DEMO.staffMember, "13:40:00", true)).status()).toBe(200);
+  expect((await post(DEMO.unscannedStudent4, "13:40:00", true)).status()).toBe(
+    200,
+  );
+
+  await search.fill(DEMO.staffMember);
+  await expect(staff).toContainText("Departed");
+  await expect(staff).toContainText("Left early");
+
+  await search.fill(DEMO.unscannedStudent4);
+  await expect(student).toContainText("Departed");
+  await expect(student).not.toContainText("Left early");
+
+  // And in their panel, beside the day's status. (The search still holds
+  // the student's number, so the staff row is brought back first.)
+  await search.fill(DEMO.staffMember);
   await staff.click();
   const panel = page.getByRole("dialog");
-  await expect(panel.getByText("Present", { exact: true }).first()).toBeVisible();
-  await expect(panel.getByText("Late", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText("Left early").first()).toBeVisible();
 });

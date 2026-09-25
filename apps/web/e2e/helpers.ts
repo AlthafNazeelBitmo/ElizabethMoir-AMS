@@ -20,8 +20,10 @@ export const DEMO = {
   unscannedStudent2: "11061",
   unscannedStudent3: "11062",
   unscannedStudent4: "11063",
-  /** Junior Staff, which expects attendance; nobody seeds them a scan. */
+  /** Junior Staff: late after 07:30, expected until 15:00. */
   staffMember: "2000",
+  /** Senior Staff, which the demo gives no hours at all. */
+  staffNoHours: "2008",
 } as const;
 
 export async function signIn(

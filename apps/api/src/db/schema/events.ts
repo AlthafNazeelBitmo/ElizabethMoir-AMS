@@ -141,6 +141,8 @@ export const dayRecords = pgTable(
     status: text("status").$type<DayStatus>().notNull(),
     /** Separate from status so "late" can combine with on_site or departed. */
     isLate: boolean("is_late").notNull().default(false),
+    /** Left before their group's cut-off, where it has one. */
+    leftEarly: boolean("left_early").notNull().default(false),
     scanCount: integer("scan_count").notNull().default(0),
     hasManualEdit: boolean("has_manual_edit").notNull().default(false),
     computedAt: timestamp("computed_at", { withTimezone: true, mode: "date" }),

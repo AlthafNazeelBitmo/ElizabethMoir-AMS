@@ -201,11 +201,28 @@ filter and how many people — a sheet on a desk cannot be mistaken for
 the whole school. The report screen keeps its own Print and CSV for a
 range.
 
-**Late is a student's tag.** A member of staff's row carries no _Late_
-beside its status, at the school's request, and neither do their days in
-the person panel. The flag itself is unchanged: it is still computed
-from the group's threshold, still counted on the Late tile, still in the
-reports and the export.
+**A group is judged by its own hours.** Two tags sit beside a status —
+_Late_ and _Left early_ — and each exists only where the school has said
+what the hour is.
+
+_Late_ compares the arrival with the group's `late_threshold`. A form
+with none falls back to the school's `late_threshold_default`, because
+that setting is a rule about its pupils; a **staff** group with none is
+never late at all, rather than being judged by the children's hour. So a
+staff group carries the tag once, and only once, the school gives it a
+time.
+
+_Left early_ compares the last departure with the group's
+`leave_cutoff`, which is null everywhere until somebody sets one. Only a
+departure can be early: somebody still here has simply not left, and a
+trip out at lunch is not a departure because a later arrival cancels it.
+
+Both are decided in `computeDayRecord` when the day is computed, beside
+`is_late`, and stored on the day record — so the register, the stream,
+the person panel and the printed sheet all read one verdict rather than
+four re-derivations of it. Changing a group's hours therefore applies
+from the next scan onwards; days already computed keep what they were
+given, as they always have for lateness.
 
 **Or as a feed of the door.** _Latest first_ puts the last person to come
 in or go out at the top, and a scan moves its row there. That needs a

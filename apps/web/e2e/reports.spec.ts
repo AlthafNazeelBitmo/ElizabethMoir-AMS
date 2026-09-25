@@ -32,6 +32,10 @@ test("a report is narrowed to a form's category, and says so", async ({
 
   await category.selectOption("DG");
   await expect(page).toHaveURL(/category=DG/);
+  // The table is refetched; count it once it is back, not mid-flight.
+  const totals = page.getByRole("cell", { name: /^All \d+ people$/ });
+  await expect(totals).toBeVisible();
+  await expect(totals).not.toHaveText(`All ${everyone - 2} people`);
   const narrowed = await rows.count();
   expect(narrowed).toBeLessThan(everyone);
   expect(narrowed).toBeGreaterThan(2); // the header and the totals row

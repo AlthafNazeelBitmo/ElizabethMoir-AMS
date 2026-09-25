@@ -1,4 +1,3 @@
-import { showsLate } from "@/components/status.js";
 import type { RegisterRow, StatusCounts } from "@/lib/api.js";
 import { formatTime, NO_TIME, STATUS_PRESENTATION } from "@/lib/format.js";
 
@@ -59,9 +58,8 @@ export function RegisterPrintSheet({
               </Td>
               <Td>
                 {STATUS_PRESENTATION[row.status].label}
-                {showsLate(row.branch) && row.isLate && row.status !== "late"
-                  ? " · Late"
-                  : ""}
+                {row.isLate && row.status !== "late" ? " · Late" : ""}
+                {row.leftEarly ? " · Left early" : ""}
               </Td>
             </tr>
           ))}

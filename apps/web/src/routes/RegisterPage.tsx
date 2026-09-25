@@ -724,6 +724,7 @@ function toRow(event: ScanEventPayload): Partial<RegisterRow> {
     lastMovementAt: event.lastMovementAt,
     status: event.status,
     isLate: event.isLate,
+    leftEarly: event.leftEarly,
     hasManualEdit: event.hasManualEdit,
     scanCount: event.scanCount,
   };

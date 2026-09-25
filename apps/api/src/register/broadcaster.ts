@@ -38,6 +38,7 @@ export interface ScanEvent {
   lastMovementAt: string | null;
   status: DayStatus;
   isLate: boolean;
+  leftEarly: boolean;
   hasManualEdit: boolean;
   scanCount: number;
 }

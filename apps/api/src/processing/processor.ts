@@ -568,6 +568,7 @@ export class ScanProcessor {
         lastMovementAt: computed.lastMovementAt,
         status: computed.status,
         isLate: computed.isLate,
+        leftEarly: computed.leftEarly,
         scanCount: computed.scanCount,
         computedAt: this.now(),
       })
@@ -579,6 +580,7 @@ export class ScanProcessor {
           lastMovementAt: computed.lastMovementAt,
           status: computed.status,
           isLate: computed.isLate,
+          leftEarly: computed.leftEarly,
           scanCount: computed.scanCount,
           computedAt: this.now(),
         },
@@ -602,6 +604,7 @@ export class ScanProcessor {
     computed: {
       status: DayStatus;
       isLate: boolean;
+      leftEarly: boolean;
       firstIn: Date | null;
       lastOut: Date | null;
       lastMovementAt: Date | null;
@@ -646,6 +649,7 @@ export class ScanProcessor {
         lastMovementAt: computed.lastMovementAt?.toISOString() ?? null,
         status: computed.status,
         isLate: computed.isLate,
+        leftEarly: computed.leftEarly,
         hasManualEdit: row.hasManualEdit ?? false,
         scanCount: computed.scanCount,
       });
@@ -687,6 +691,8 @@ export class ScanProcessor {
       .select({
         expectsAttendance: groups.expectsAttendance,
         groupLateThreshold: groups.lateThreshold,
+        groupLeaveCutoff: groups.leaveCutoff,
+        branch: groups.branch,
         groupId: people.groupId,
       })
       .from(people)
@@ -712,16 +718,29 @@ export class ScanProcessor {
     const expectsAttendance =
       row?.groupId == null ? false : (row.expectsAttendance ?? false);
 
+    // The school's default hour is a rule about its pupils. A member of
+    // staff is late only against a time the school has set for their
+    // group: where it has set none, nobody in it is ever late, rather
+    // than being judged by the children's hour.
+    const groupThreshold = row?.groupLateThreshold
+      ? parseTimeOfDay(row.groupLateThreshold)
+      : null;
     const thresholdTime =
-      (row?.groupLateThreshold
-        ? parseTimeOfDay(row.groupLateThreshold)
-        : null) ?? settings.lateThresholdDefault;
+      row?.branch === "staff"
+        ? groupThreshold
+        : (groupThreshold ?? settings.lateThresholdDefault);
+    const cutoffTime = row?.groupLeaveCutoff
+      ? parseTimeOfDay(row.groupLeaveCutoff)
+      : null;
 
     return {
       expectsAttendance,
       isSchoolDay,
       lateThreshold: thresholdTime
         ? instantAtLocalTime(date, thresholdTime, settings.timezone)
+        : null,
+      leaveCutoff: cutoffTime
+        ? instantAtLocalTime(date, cutoffTime, settings.timezone)
         : null,
       absenceDecidedFrom:
         instantAtLocalTime(

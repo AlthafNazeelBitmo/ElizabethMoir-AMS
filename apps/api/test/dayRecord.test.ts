@@ -27,11 +27,53 @@ function ctx(overrides: Partial<DayContext> = {}): DayContext {
     expectsAttendance: true,
     isSchoolDay: true,
     lateThreshold: LATE_THRESHOLD,
+    leaveCutoff: null,
     absenceDecidedFrom: DAY_STARTED,
     now: AFTERNOON,
     ...overrides,
   };
 }
+
+describe("leaving early", () => {
+  const CUTOFF = utc(9, 30); // 15:00 local
+
+  it("is a departure before the group's cut-off", () => {
+    const r = computeDayRecord(
+      [scan(2, "in"), scan(8, "out")],
+      ctx({ leaveCutoff: CUTOFF }),
+    );
+    expect(r?.status).toBe("departed");
+    expect(r?.leftEarly).toBe(true);
+  });
+
+  it("is not a departure after it", () => {
+    const r = computeDayRecord(
+      [scan(2, "in"), scan(10, "out")],
+      ctx({ leaveCutoff: CUTOFF }),
+    );
+    expect(r?.leftEarly).toBe(false);
+  });
+
+  it("is nothing for someone who has not left", () => {
+    const r = computeDayRecord([scan(2, "in")], ctx({ leaveCutoff: CUTOFF }));
+    expect(r?.status).toBe("on_site");
+    expect(r?.leftEarly).toBe(false);
+  });
+
+  it("is nothing where the group sets no cut-off", () => {
+    // Most groups. A time nobody has given cannot be broken.
+    const r = computeDayRecord([scan(2, "in"), scan(4, "out")], ctx());
+    expect(r?.leftEarly).toBe(false);
+  });
+
+  it("goes by the last departure, not a trip out at lunch", () => {
+    const r = computeDayRecord(
+      [scan(2, "in"), scan(5, "out"), scan(6, "in"), scan(10, "out")],
+      ctx({ leaveCutoff: CUTOFF }),
+    );
+    expect(r?.leftEarly).toBe(false);
+  });
+});
 
 describe("last movement", () => {
   it("is the last scan that counted, in or out", () => {

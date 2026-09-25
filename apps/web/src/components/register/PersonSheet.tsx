@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
-import { showsLate, StatusBadge, StatusShape } from "@/components/status.js";
+import { StatusBadge, StatusShape } from "@/components/status.js";
 import { ErrorState } from "@/components/states.js";
 import { Button } from "@/components/ui/button.js";
 import { Field, Avatar, Skeleton } from "@/components/ui/misc.js";
@@ -147,7 +147,8 @@ function PersonBody({
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge
                 status={today.status}
-                isLate={showsLate(person.data?.person.branch) && today.isLate}
+                isLate={today.isLate}
+                leftEarly={today.leftEarly}
               />
               <span className="tabular text-xs text-muted-foreground">
                 In {formatTime(today.firstIn)} · Out{" "}
@@ -184,11 +185,7 @@ function PersonBody({
             </Button>
           }
         >
-          <History
-            days={history.data?.days ?? []}
-            showLate={showsLate(person.data?.person.branch)}
-            isLoading={history.isPending}
-          />
+          <History days={history.data?.days ?? []} isLoading={history.isPending} />
         </Section>
       </div>
     </div>
@@ -294,12 +291,9 @@ function Timeline({
  */
 function History({
   days,
-  showLate,
   isLoading,
 }: {
   days: PersonDay[];
-  /** Lateness is a student's fact; a member of staff's days do not show it. */
-  showLate: boolean;
   isLoading: boolean;
 }) {
   if (isLoading) return <Skeleton className="h-16 w-full" />;
@@ -323,8 +317,7 @@ function History({
                   STATUS_PRESENTATION[day.status].solid,
                   day.status === "not_expected" &&
                     "border border-dashed border-status-idle bg-transparent",
-                  showLate &&
-                    day.isLate &&
+                  day.isLate &&
                     day.status !== "late" &&
                     "ring-2 ring-status-late/60 ring-inset",
                 )}
@@ -332,7 +325,8 @@ function History({
             </TooltipTrigger>
             <TooltipContent>
               {formatDate(day.date)} · {STATUS_PRESENTATION[day.status].label}
-              {showLate && day.isLate ? " · late" : ""}
+              {day.isLate ? " · late" : ""}
+              {day.leftEarly ? " · left early" : ""}
             </TooltipContent>
           </Tooltip>
         ))}
@@ -348,7 +342,8 @@ function History({
             </span>
             <span className="text-xs text-muted-foreground">
               {STATUS_PRESENTATION[day.status].label}
-              {showLate && day.isLate && day.status !== "late" ? " · late" : ""}
+              {day.isLate && day.status !== "late" ? " · late" : ""}
+              {day.leftEarly ? " · left early" : ""}
             </span>
             {day.hasManualEdit && (
               <PencilLineIcon

@@ -25,6 +25,11 @@ export interface DayContext {
    */
   lateThreshold: Date | null;
   /**
+   * The instant before which a departure is early, or null where the
+   * group has no such rule — which is most groups.
+   */
+  leaveCutoff: Date | null;
+  /**
    * The instant from which an absence may be declared — never midnight
    * (specification §8: "Never mark the whole school absent at midnight").
    */
@@ -36,6 +41,8 @@ export interface DayContext {
 export interface DayRecordComputation {
   status: DayStatus;
   isLate: boolean;
+  /** Their last departure was before the group's cut-off. */
+  leftEarly: boolean;
   firstIn: Date | null;
   lastOut: Date | null;
   /**
@@ -75,6 +82,7 @@ export function computeDayRecord(
     scanCount,
     unknownDirectionCount,
     isLate: false,
+    leftEarly: false,
   };
 
   // Nobody is expected: a contractor, or a day the school is not open. This
@@ -102,11 +110,15 @@ export function computeDayRecord(
   }
 
   const isLate = ctx.lateThreshold !== null && firstIn > ctx.lateThreshold;
+  // Only a departure can be early. Someone still here has simply not left.
+  const leftEarly =
+    ctx.leaveCutoff !== null && lastOut !== null && lastOut < ctx.leaveCutoff;
   const status: DayStatus = lastOut === null ? "on_site" : "departed";
 
   return {
     status,
     isLate,
+    leftEarly,
     firstIn,
     lastOut,
     lastMovementAt,
