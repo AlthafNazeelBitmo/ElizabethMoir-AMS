@@ -54,7 +54,7 @@ export function StatusBadge({
 }) {
   const p = STATUS_PRESENTATION[status];
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
       <span
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap",
@@ -73,7 +73,7 @@ export function StatusBadge({
       {isLate && status !== "late" && (
         <span
           className={cn(
-            "rounded-full font-medium text-status-late bg-status-late-bg",
+            "rounded-full font-medium whitespace-nowrap text-status-late bg-status-late-bg",
             size === "sm"
               ? "px-1.5 py-px text-[0.6875rem]"
               : "px-1.5 py-0.5 text-xs",
@@ -85,7 +85,7 @@ export function StatusBadge({
       {leftEarly && (
         <span
           className={cn(
-            "rounded-full font-medium text-status-departed bg-status-departed-bg",
+            "rounded-full font-medium whitespace-nowrap text-status-departed bg-status-departed-bg",
             size === "sm"
               ? "px-1.5 py-px text-[0.6875rem]"
               : "px-1.5 py-0.5 text-xs",

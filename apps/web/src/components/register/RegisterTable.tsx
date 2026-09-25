@@ -68,14 +68,16 @@ export function RegisterTable({
   // they all sit at their floors, and on a wide screen the room is spread
   // across the row rather than piling up behind the group while the times
   // and the status huddle at the right edge. The group's floor is where
-  // "Senior Staff" and "Extra-Curricular" fit side by side.
+  // "Senior Staff" and "Extra-Curricular" fit side by side; the status's
+  // is where "Departed" and "Left early" do, since a tag that wraps onto
+  // a second line makes a mess of a row.
   const gridTemplate = compact
     ? showTutor
-      ? "minmax(10rem,2fr) minmax(4.5rem,0.6fr) minmax(9.5rem,1.3fr) minmax(3rem,0.5fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(8rem,1fr)"
-      : "minmax(10rem,2fr) minmax(4.5rem,0.6fr) minmax(9.5rem,1.3fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(8rem,1fr)"
+      ? "minmax(9.5rem,2fr) minmax(4.5rem,0.6fr) minmax(9rem,1.3fr) minmax(3rem,0.5fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(10rem,1fr)"
+      : "minmax(9.5rem,2fr) minmax(4.5rem,0.6fr) minmax(9rem,1.3fr) minmax(4.25rem,0.8fr) minmax(4.25rem,0.8fr) minmax(10rem,1fr)"
     : showTutor
-      ? "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(4rem,0.5fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(8.5rem,1fr)"
-      : "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(8.5rem,1fr)";
+      ? "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(4rem,0.5fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(10.5rem,1fr)"
+      : "minmax(12rem,2fr) minmax(5.5rem,0.6fr) minmax(11rem,1.3fr) minmax(5rem,0.8fr) minmax(5rem,0.8fr) minmax(10.5rem,1fr)";
 
   return (
     <div
