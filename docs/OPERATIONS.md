@@ -85,9 +85,15 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    group is never late at all — which is how staff stay until the school
    sets a time for that group. _Leaves before_ is the cut-off: a last
    departure earlier than it shows as _Left early_ on the register;
-   blank, the group is not judged that way. Both take effect from the
-   next scan onwards, so a day already computed keeps the verdict it was
-   given.
+   blank, the group is not judged that way.
+
+   Both take effect from the next scan onwards, so a day already computed
+   keeps the verdict it was given — a time set at noon does not reach
+   this morning by itself. To apply the hours to a day that has already
+   happened, use **Apply these hours to a day** at the foot of the same
+   screen: pick the day and press Recompute. It reads that day's scans
+   again and judges them by the hours as they now stand; corrections made
+   by hand are left alone.
 
    **Within a form.** The register's _Category_ select narrows a form to
    one of its own codes (Form 1 → DG or HP), and the figures and the PDF

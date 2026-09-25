@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import type { Db } from "../db/client.js";
 import {
@@ -151,6 +151,52 @@ export class ScanProcessor {
   async recomputePersonDay(enrollNo: string, date: string): Promise<boolean> {
     const settings = await this.settingsService.get();
     return this.recomputeDay({ enrollNo, date }, settings);
+  }
+
+  /**
+   * Recomputes a day for everyone who has a record on it, from the scans
+   * already stored.
+   *
+   * A day's verdicts are decided when it is computed, so changing a rule
+   * afterwards — a group's late hour, its cut-off — leaves the day in
+   * front of the office saying what the old rule said. This is how the
+   * school applies the new one to a day that has already happened.
+   *
+   * Batched by enrolment number: a school is hundreds of people and a
+   * serverless request has fifteen seconds. `after` is the last number
+   * done; the caller repeats until there is no cursor left. A day
+   * corrected by hand is left alone, as every recomputation leaves it.
+   */
+  async recomputeEveryoneOn(
+    date: string,
+    options: { limit?: number | undefined; after?: string | undefined } = {},
+  ): Promise<{ recomputed: number; nextCursor: string | null }> {
+    const settings = await this.settingsService.get();
+    const limit = options.limit ?? 100;
+
+    const rows = await this.db
+      .select({ enrollNo: people.enrollNo })
+      .from(dayRecords)
+      .innerJoin(people, eq(people.id, dayRecords.personId))
+      .where(
+        and(
+          eq(dayRecords.date, date),
+          options.after ? gt(people.enrollNo, options.after) : undefined,
+        ),
+      )
+      .orderBy(asc(people.enrollNo))
+      .limit(limit);
+
+    let recomputed = 0;
+    for (const row of rows) {
+      if (await this.recomputeDay({ enrollNo: row.enrollNo, date }, settings))
+        recomputed += 1;
+    }
+
+    return {
+      recomputed,
+      nextCursor: rows.length === limit ? (rows.at(-1)?.enrollNo ?? null) : null,
+    };
   }
 
   /**

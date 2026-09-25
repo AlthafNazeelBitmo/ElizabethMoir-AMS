@@ -92,6 +92,18 @@ afterAll(async () => {
 const get = (url: string, who: LoggedIn): Promise<LightMyRequestResponse> =>
   h.app.server.inject({ method: "GET", url, headers: { cookie: who.cookie } });
 
+const post = (
+  url: string,
+  payload: unknown,
+  who: LoggedIn,
+): Promise<LightMyRequestResponse> =>
+  h.app.server.inject({
+    method: "POST",
+    url,
+    payload: payload as never,
+    headers: { cookie: who.cookie, "x-csrf-token": who.csrfToken },
+  });
+
 async function scan(enrollNo: string, attTime: string) {
   await h.app.server.inject({
     method: "POST",
@@ -198,7 +210,15 @@ describe("GET /api/register/live", () => {
       .update(groups)
       .set({ lateThreshold: "07:30" })
       .where(eq(groups.id, staffGroupId));
-    await h.app.processor.recomputePersonDay("2001", DATE);
+
+    // The day was computed under the old rule and keeps its verdict until
+    // the school asks for the new one to be applied.
+    const stale = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    expect(stale.rows.find(cal)).toMatchObject({ isLate: false });
+
+    const res = await post("/api/admin/recompute-day", { date: DATE }, full);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ nextCursor: null });
     const after = (await get(`/api/register/live?date=${DATE}`, full)).json();
     expect(after.rows.find(cal)).toMatchObject({ isLate: true });
   });

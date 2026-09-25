@@ -135,6 +135,12 @@ const upsertGroup = z.object({
   isActive: z.boolean().optional(),
 });
 
+const recomputeDayBody = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD."),
+  /** The last enrolment number done, for the next batch. */
+  after: z.string().trim().max(64).optional(),
+});
+
 const attachBody = z.object({
   personId: z.string().uuid().optional(),
   create: createPerson.omit({ enrollNo: true }).optional(),
@@ -567,6 +573,40 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (
       return reply.send({ matched });
     },
   );
+
+  /**
+   * Applies the rules as they stand now to a day already computed.
+   *
+   * The hours a group is judged by are read when a day is computed, so a
+   * time set at noon does not reach the morning by itself. This is how
+   * the office makes it, and it is deliberately theirs to ask for: a day
+   * is a record, and it is not rewritten behind their back.
+   *
+   * Batched, and the caller repeats until the cursor runs out.
+   */
+  app.post("/api/admin/recompute-day", { preHandler }, async (req, reply) => {
+    const parsed = recomputeDayBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: "invalid_request", message: "Check the date." });
+    }
+    const { date, after } = parsed.data;
+    const result = await processor.recomputeEveryoneOn(date, {
+      after,
+      limit: 100,
+    });
+    await writeAudit(db, req.log, {
+      action: "day_recomputed",
+      userId: req.auth!.userId,
+      entity: "day_record",
+      entityId: date,
+      after: { date, ...result, from: after ?? null },
+      ip: req.ip || null,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+    return reply.send(result);
+  });
 
   app.delete<{ Params: { enroll: string } }>(
     "/api/admin/unknown-enrollments/:enroll",

@@ -220,9 +220,13 @@ trip out at lunch is not a departure because a later arrival cancels it.
 Both are decided in `computeDayRecord` when the day is computed, beside
 `is_late`, and stored on the day record — so the register, the stream,
 the person panel and the printed sheet all read one verdict rather than
-four re-derivations of it. Changing a group's hours therefore applies
-from the next scan onwards; days already computed keep what they were
-given, as they always have for lateness.
+four re-derivations of it. A day already computed therefore keeps the
+verdict it was given: an hour set at noon does not reach the morning by
+itself. **Apply these hours to a day**, under Admin → Groups, is how the
+school asks for a day to be judged again — it reads that day's scans
+once more, a hundred people to a request until the cursor runs out, and
+leaves a day corrected by hand exactly as it was corrected. Deliberately
+asked for rather than done quietly: a day is a record, not a view.
 
 **Or as a feed of the door.** _Latest first_ puts the last person to come
 in or go out at the top, and a scan moves its row there. That needs a

@@ -32,6 +32,7 @@ export const AUDIT_ACTIONS = [
   "group_created",
   "group_modified",
   "attendance_rule_changed",
+  "day_recomputed",
   "school_mark_changed",
   "report_export",
   "audit_export",

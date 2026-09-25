@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button.js";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input.js";
 import { Checkbox, Field, Skeleton } from "@/components/ui/misc.js";
 import { NativeSelect } from "@/components/ui/input.js";
 import { api, type Branch } from "@/lib/api.js";
+import { schoolToday } from "@/lib/format.js";
 import { cn } from "@/lib/utils.js";
 import { Note, Panel, Problem, Section, Table, Td, Th, Tr } from "./shared.js";
 
@@ -169,6 +170,8 @@ export function AdminGroups() {
         </>
       )}
 
+      {groups.isSuccess && rows.length > 0 && <ApplyHoursToADay />}
+
       <Note>
         <strong className="font-medium text-foreground">Late after</strong> is
         the hour an arrival counts as late. Left blank, a form falls back to
@@ -188,6 +191,80 @@ export function AdminGroups() {
         the people in it; move them first if they are still here.
       </Note>
     </Section>
+  );
+}
+
+/**
+ * A day already computed keeps the verdicts it was given, so an hour set
+ * at noon does not reach the morning by itself. This asks the server to
+ * judge a day again by the hours as they stand now.
+ *
+ * It goes a hundred people at a time — a school is hundreds and a request
+ * has seconds — and keeps asking until the server says there is no more.
+ * A day corrected by hand is left exactly as it was corrected.
+ */
+function ApplyHoursToADay() {
+  const queryClient = useQueryClient();
+  const [date, setDate] = useState(schoolToday());
+
+  const run = useMutation({
+    mutationFn: async () => {
+      let after: string | undefined;
+      let recomputed = 0;
+      // Bounded: a school is hundreds, not tens of thousands, and a loop
+      // that cannot end is worse than a job that gives up.
+      for (let batch = 0; batch < 50; batch += 1) {
+        const result: { recomputed: number; nextCursor: string | null } =
+          await api.post("/api/admin/recompute-day", { date, after });
+        recomputed += result.recomputed;
+        if (!result.nextCursor) return recomputed;
+        after = result.nextCursor;
+      }
+      return recomputed;
+    },
+    onSuccess: (recomputed) => {
+      toast.success(
+        recomputed === 0
+          ? "Nothing to recompute on that day"
+          : `${recomputed} ${recomputed === 1 ? "day" : "days"} recomputed`,
+        { description: "The register now reads by the hours as they stand." },
+      );
+      void queryClient.invalidateQueries({ queryKey: ["register"] });
+      void queryClient.invalidateQueries({ queryKey: ["summary"] });
+      void queryClient.invalidateQueries({ queryKey: ["report"] });
+    },
+  });
+
+  return (
+    <Panel
+      title="Apply these hours to a day"
+      description="A day already computed keeps the verdicts it was given"
+    >
+      <div className="flex flex-wrap items-end gap-3 p-4">
+        <Field label="Day">
+          <Input
+            type="date"
+            className="tabular w-[10.5rem]"
+            value={date}
+            max={schoolToday()}
+            onChange={(e) => setDate(e.target.value || schoolToday())}
+          />
+        </Field>
+        <Button
+          variant="outline"
+          onClick={() => run.mutate()}
+          disabled={run.isPending}
+        >
+          <RefreshCwIcon />
+          {run.isPending ? "Recomputing…" : "Recompute"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Reads that day&rsquo;s scans again and judges them by the hours
+          above. Corrections made by hand are left alone.
+        </p>
+      </div>
+      <Problem error={run.error} />
+    </Panel>
   );
 }
 
