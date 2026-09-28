@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Db } from "../db/client.js";
 import { rawEvents } from "../db/schema/index.js";
+import { describeError } from "../errors.js";
 import { envelopeToRow, type Envelope } from "./envelope.js";
 import type { Spool } from "./spool.js";
 
@@ -27,14 +28,14 @@ export class RawEventStore {
       await this.insert(envelope);
       return "db";
     } catch (dbErr) {
-      this.log.warn({ err: errSummary(dbErr) }, "raw_events insert failed; spooling to disk");
+      this.log.warn({ err: describeError(dbErr) }, "raw_events insert failed; spooling to disk");
     }
     try {
       await this.spool.write(envelope);
       return "spool";
     } catch (spoolErr) {
       this.log.error(
-        { err: errSummary(spoolErr), bodyBytes: envelope.bodyBytes, batchSize: envelope.batchSize },
+        { err: describeError(spoolErr), bodyBytes: envelope.bodyBytes, batchSize: envelope.batchSize },
         "raw event LOST: database and spool both unavailable",
       );
       return "lost";
@@ -47,19 +48,11 @@ export class RawEventStore {
     try {
       result = await this.spool.drain((e) => this.insert(e));
     } catch (err) {
-      this.log.error({ err: errSummary(err) }, "spool drain failed");
+      this.log.error({ err: describeError(err) }, "spool drain failed");
       return;
     }
     if (result.drained > 0 || result.remaining > 0) {
       this.log.info(result, "spool drain");
     }
   }
-}
-
-function errSummary(err: unknown): { name: string; message: string; code?: string } {
-  if (err instanceof Error) {
-    const code = (err as { code?: unknown }).code;
-    return { name: err.name, message: err.message, ...(typeof code === "string" ? { code } : {}) };
-  }
-  return { name: "UnknownError", message: String(err) };
 }

@@ -60,11 +60,24 @@ export function App() {
         <Navigate to="/login" replace state={{ from: location.pathname }} />
       );
     }
+    // Two different failures, and the office can act on the difference:
+    // a browser that cannot reach anything is theirs to fix, a server
+    // that answers with an error is ours. Either way the readers keep
+    // taking scans — nothing at the gate is lost while this is on screen.
+    const answered = failure instanceof ApiError;
     return (
       <div className="flex h-full items-center justify-center">
         <ErrorState
-          title="The server could not be reached."
-          detail="Check the connection and reload the page."
+          title={
+            answered
+              ? "The system is having trouble."
+              : "The server could not be reached."
+          }
+          detail={
+            answered
+              ? "The server answered with an error. Scans are still being taken at the gate and will appear here once this clears. If it does not, tell whoever supports the system."
+              : "Check this computer's connection and reload the page."
+          }
           onRetry={() => window.location.reload()}
         />
       </div>

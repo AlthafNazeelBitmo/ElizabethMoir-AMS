@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { waitUntil } from "@vercel/functions";
+import { describeError } from "./errors.js";
 import { buildApp, type App } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
@@ -74,11 +75,10 @@ function sweepIfDue(app: App): void {
     await app.processor.markAbsencesForToday();
   })().catch((err: unknown) => {
     // A failed sweep is retried by the next one; it must never take the
-    // request that triggered it down with it.
-    console.error(
-      "[sweep] failed:",
-      err instanceof Error ? err.message : String(err),
-    );
+    // request that triggered it down with it. Described rather than
+    // printed: a database error carries its reason in `cause`, and the
+    // reason is the whole of what a log is for here.
+    console.error("[sweep] failed:", JSON.stringify(describeError(err)));
   });
   // Without this the platform freezes the instance as soon as the response
   // is sent, and the work is left half done until the next thaw.
