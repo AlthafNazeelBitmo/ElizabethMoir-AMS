@@ -79,27 +79,38 @@ export function resolveDayDirections(
     scans.length,
   );
   /**
-   * The last tap on each device that counted as a movement. The window is
-   * measured from that tap, not from the most recent repeat of it: measured
-   * from the repeat, a person tapping every fifty seconds would be one
-   * movement all day, and a reader being tested by someone walking in and
-   * out would appear to have stopped working.
+   * This person's last tap that counted as a movement, whichever reader
+   * saw it. The window is measured from that tap, not from the most
+   * recent repeat of it: measured from the repeat, a person tapping every
+   * fifty seconds would be one movement all day.
+   *
+   * Across readers as well as on one, because a person is in one place: a
+   * tap on another reader seconds later is the same passage seen twice —
+   * two readers at one door, or one reader reporting under two serials —
+   * and counting it as a second movement turns an arrival into a
+   * departure the moment somebody taps twice. The exception is a pair of
+   * doors the school has told us about, below.
    */
-  const lastMovementPerDevice = new Map<
-    string,
-    { at: Date; result: ResolvedDirection }
-  >();
+  let lastMovement:
+    | { at: Date; result: ResolvedDirection; deviceSerial: string }
+    | null = null;
   /** Movements so far today, duplicates excluded. Drives the alternation. */
   let movementCount = 0;
 
   for (const { scan, index } of ordered) {
     const device = ctx.devices.get(scan.deviceSerial) ?? UNSEEN_DEVICE;
 
-    const previous = lastMovementPerDevice.get(scan.deviceSerial);
-    const isDuplicate =
-      previous !== undefined &&
+    const previous = lastMovement;
+    const withinWindow =
+      previous !== null &&
       (scan.attTime.getTime() - previous.at.getTime()) / 1000 <
         ctx.duplicateWindowSeconds;
+    const isDuplicate =
+      withinWindow &&
+      !opposedDoors(
+        ctx.devices.get(previous.deviceSerial) ?? UNSEEN_DEVICE,
+        device,
+      );
 
     if (isDuplicate) {
       // People tap twice. The repeat takes the direction of the tap it
@@ -114,7 +125,11 @@ export function resolveDayDirections(
 
     const result = resolveOne(scan, device, ctx, movementCount);
     results[index] = result;
-    lastMovementPerDevice.set(scan.deviceSerial, { at: scan.attTime, result });
+    lastMovement = {
+      at: scan.attTime,
+      result,
+      deviceSerial: scan.deviceSerial,
+    };
 
     // An undecidable scan does not advance the alternation: guessing past it
     // would corrupt every direction after it as well.
@@ -122,6 +137,21 @@ export function resolveDayDirections(
   }
 
   return results;
+}
+
+/**
+ * Whether two readers are a way in and a way out that an administrator
+ * has told us about. Only then is a tap on each a second passage rather
+ * than the same one seen twice: the school knows where its readers are
+ * mounted, and that knowledge outranks the window. Two readers nobody has
+ * configured are a guess, and a guess must not invent a departure.
+ */
+function opposedDoors(previous: DeviceConfig, current: DeviceConfig): boolean {
+  const explicit = (d: DeviceConfig) =>
+    d.direction === "entry" || d.direction === "exit";
+  return (
+    explicit(previous) && explicit(current) && previous.direction !== current.direction
+  );
 }
 
 function resolveOne(

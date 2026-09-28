@@ -166,8 +166,10 @@ test("a form is narrowed to one of its own categories", async ({ page }) => {
   await expect(page).toHaveURL(/category=DG/);
   await expect(shown).not.toHaveText(whole!);
 
-  // The list is DG alone, and the figures above it agree.
+  // The list is DG alone, and the figures above it agree. The table is
+  // waited for, not caught mid-refetch: it unmounts while the rows load.
   const rows = page.getByRole("table", { name: "Register" }).getByRole("row");
+  await expect(rows.first()).toBeVisible();
   const listed = (await rows.count()) - 1; // the header
   expect(listed).toBeGreaterThan(0);
   const expected = page.getByRole("button").filter({ hasText: "Expected" });

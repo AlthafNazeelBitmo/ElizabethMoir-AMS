@@ -35,7 +35,10 @@ settings change and a replay — not a rewrite.
   assignment with the configurable rollover, threshold instants.
 - `dedupe.ts` — the specification's key, over the transmitted local string
   so a timezone correction cannot change a scan's identity.
-- `direction.ts` — the four rules in order, plus duplicate collapsing.
+- `direction.ts` — the four rules in order, plus duplicate collapsing
+  (per person, not per reader: a person is in one place, so a tap on
+  another reader inside the window is the same passage — unless the two
+  readers are a placed entry and exit).
 - `dayRecord.ts` — every status, `is_late` as a separate flag.
 
 **The processor** (`src/processing/`) reads outstanding envelopes, extracts

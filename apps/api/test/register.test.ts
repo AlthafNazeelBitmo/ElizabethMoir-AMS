@@ -104,7 +104,7 @@ const post = (
     headers: { cookie: who.cookie, "x-csrf-token": who.csrfToken },
   });
 
-async function scan(enrollNo: string, attTime: string) {
+async function scan(enrollNo: string, attTime: string, device = "GATE-1") {
   await h.app.server.inject({
     method: "POST",
     url: `/ingest/${INGEST_TOKEN}/raw`,
@@ -114,7 +114,7 @@ async function scan(enrollNo: string, attTime: string) {
         EmpId: enrollNo,
         AttTime: attTime,
         CheckingStatus: "0",
-        DeviceID: "GATE-1",
+        DeviceID: device,
       },
     ]),
   });
@@ -221,6 +221,23 @@ describe("GET /api/register/live", () => {
     expect(res.json()).toMatchObject({ nextCursor: null });
     const after = (await get(`/api/register/live?date=${DATE}`, full)).json();
     expect(after.rows.find(cal)).toMatchObject({ isLate: true });
+  });
+
+  it("does not turn one arrival seen by two readers into a departure", async () => {
+    // The school's register showed people departing at the minute they
+    // arrived: a second reader (or one reader under two serials) saw the
+    // same passage, and the alternation called the second tap an exit.
+    await scan("11007", `${DATE} 07:55:10`, "GATE-1");
+    await scan("11007", `${DATE} 07:55:40`, "GATE-2");
+    const body = (await get(`/api/register/live?date=${DATE}`, full)).json();
+    const ann = body.rows.find(
+      (r: { enrollNo: string }) => r.enrollNo === "11007",
+    );
+    expect(ann).toMatchObject({
+      status: "on_site",
+      firstIn: "2026-09-16T02:25:10.000Z",
+      lastOut: null,
+    });
   });
 
   it("says who left before their group's cut-off", async () => {

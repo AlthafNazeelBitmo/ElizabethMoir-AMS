@@ -79,6 +79,14 @@ Finally, point ADMS at it: **System → Webhook → Webhook URL** →
    staff are placed from the school's own list: give the file a
    `display_order` column with the place, or set it on a person's edit
    form. Students have no places and stay alphabetical within their form.
+   **One passage, one movement.** A tap within the duplicate window
+   (Admin → Rules, 60 seconds by default) of that person's last counted
+   movement is the same passage seen twice, whichever reader saw it — two
+   readers at one door, or one reader reporting under two serials. The
+   exception is a pair of readers an administrator has placed as a way
+   _in_ and a way _out_ under Admin → Devices: there the school has said
+   these are different doors, and a tap on each is two movements.
+
    **The hours a group is judged by.** Admin → Groups gives each group
    two times. _Late after_ is when an arrival counts as late: blank, a
    form falls back to the school's hour under Admin → Rules, and a staff

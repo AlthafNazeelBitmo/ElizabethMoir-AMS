@@ -203,12 +203,49 @@ describe("duplicate suppression", () => {
     expect(r[1]!.isDuplicate).toBe(true);
   });
 
-  it("does not collapse taps on different devices", () => {
+  it("collapses a tap on another reader inside the window: one person, one place", () => {
+    // Two readers at a door, or one reader reporting under two serials.
+    // Counted as two movements, the second becomes a departure by
+    // alternation and the register says somebody left at the minute they
+    // arrived.
     const r = resolveDayDirections(
       [at("07:30:00", GATE), at("07:30:10", "OTHER")],
       ctx(),
     );
+    expect(r[1]!.isDuplicate).toBe(true);
+    expect(r[1]!.direction).toBe("in");
+  });
+
+  it("keeps both when the readers are a way in and a way out", () => {
+    // Here the school has said where each reader is mounted, and that
+    // outranks the window: these are two passages, not one seen twice.
+    const doors = ctx({
+      devices: new Map([
+        [GATE, { direction: "entry" as const, trustCheckingStatus: false }],
+        ["OUT", { direction: "exit" as const, trustCheckingStatus: false }],
+      ]),
+    });
+    const r = resolveDayDirections(
+      [at("07:30:00", GATE), at("07:30:10", "OUT")],
+      doors,
+    );
     expect(r[1]!.isDuplicate).toBe(false);
+    expect(r.map((x) => x!.direction)).toEqual(["in", "out"]);
+  });
+
+  it("still collapses across readers when only one of them is placed", () => {
+    // An entry reader and a reader nobody has configured: the second is a
+    // guess, and a guess must not invent a departure.
+    const half = ctx({
+      devices: new Map([
+        [GATE, { direction: "entry" as const, trustCheckingStatus: false }],
+      ]),
+    });
+    const r = resolveDayDirections(
+      [at("07:30:00", GATE), at("07:30:20", "OTHER")],
+      half,
+    );
+    expect(r[1]!.isDuplicate).toBe(true);
   });
 
   it("handles the vendor's same-second pair as one movement", () => {
