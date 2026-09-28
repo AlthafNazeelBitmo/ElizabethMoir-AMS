@@ -182,11 +182,20 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
       }
     }
 
+    // The greeting carries a fingerprint of today's register, so a client
+    // that must refetch on reconnect can see there is nothing to fetch.
+    // A failure here must not cost the connection: without it the client
+    // does what it did before, which is fetch.
+    const fingerprint = await register
+      .fingerprintForToday()
+      .catch(() => undefined);
+
     send(null, "hello", {
       lastEventId: broadcaster.lastEventId,
       role: session.role,
       instance: broadcaster.instanceId,
       continuity: streamContinuity,
+      ...(fingerprint ? { fingerprint } : {}),
     });
 
     const unsubscribe = broadcaster.subscribe(session.role, (published) => {

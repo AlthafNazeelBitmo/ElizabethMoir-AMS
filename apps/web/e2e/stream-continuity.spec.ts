@@ -22,6 +22,7 @@ import { signIn } from "./helpers.js";
 interface Greeting {
   instance: string;
   continuity: "buffer" | "none";
+  fingerprint?: string;
 }
 
 function countRegisterFetches(page: Page) {
@@ -107,4 +108,30 @@ test("a host that promises no continuity is refetched on every reconnect", async
   expect(before[1]).toBe(before[0]);
   expect(before[2]).toBeGreaterThan(before[1]!);
   expect(before[3]).toBeGreaterThan(before[2]!);
+});
+
+test("a greeting that says nothing has changed costs nothing", async ({
+  page,
+}) => {
+  // The same host, still promising no continuity, but now saying what
+  // today's register amounts to. A connection lasts fifteen seconds on a
+  // serverless host; fetching six hundred rows each time is what emptied
+  // the database's transfer allowance.
+  const fetches = countRegisterFetches(page);
+  const quiet = { instance: "process-a", continuity: "none" as const, fingerprint: "2026-09-28:55:1790000000000:575:0" };
+  const before = serveGreetings(
+    page,
+    [quiet, quiet, quiet, { ...quiet, fingerprint: "2026-09-28:56:1790000009999:575:0" }, quiet],
+    fetches,
+  );
+  await signIn(page, "full");
+  await expect
+    .poll(() => before.length, { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(5);
+
+  // Greetings 2 and 3 repeat the first: nothing to fetch.
+  expect(before[1]).toBe(before[0]);
+  expect(before[2]).toBe(before[1]!);
+  // Greeting 4 carries a scan nobody has seen: the screen is fetched.
+  expect(before[4]).toBeGreaterThan(before[3]!);
 });

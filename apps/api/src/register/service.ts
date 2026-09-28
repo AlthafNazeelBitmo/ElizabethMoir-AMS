@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  max,
   or,
   sql,
   type SQL,
@@ -28,7 +29,11 @@ import {
   type UserRole,
 } from "../db/schema/index.js";
 import { computeDayRecord } from "../domain/dayRecord.js";
-import { instantAtLocalTime, parseTimeOfDay } from "../domain/time.js";
+import {
+  instantAtLocalTime,
+  parseTimeOfDay,
+  schoolDayFor,
+} from "../domain/time.js";
 import type {
   AttendanceSettings,
   SettingsService,
@@ -462,6 +467,45 @@ export class RegisterService {
   }
 
   /** A person's recent day records, for the panel's history. */
+  /**
+   * A few bytes that change when today's register does.
+   *
+   * A host that cannot promise continuity is refetched on every
+   * reconnect, and on a serverless host a connection lasts fifteen
+   * seconds — so a register left open on a monitor fetched six hundred
+   * rows four times a minute all day, whether or not a single person had
+   * scanned. That is what exhausted the database's monthly transfer
+   * allowance and took the school off the air.
+   *
+   * Two aggregates: what has been computed for today, and the roll it is
+   * computed over. Either moves and the client fetches the screen again;
+   * neither moves and there is nothing to fetch. Deliberately coarse —
+   * one fingerprint for the whole school rather than one per filtered
+   * view — because a false refetch costs a fetch and a missed one costs
+   * the truth.
+   */
+  async fingerprintForToday(): Promise<string> {
+    const settings = await this.settingsService.get();
+    const date = schoolDayFor(
+      this.now(),
+      settings.timezone,
+      formatTimeOfDay(settings.dayRolloverTime),
+    );
+
+    const [days] = await this.db
+      .select({ n: count(), at: max(dayRecords.computedAt) })
+      .from(dayRecords)
+      .where(eq(dayRecords.date, date));
+    const [roll] = await this.db
+      .select({ n: count(), at: max(people.updatedAt) })
+      .from(people);
+
+    const stamp = (at: Date | null | undefined): number => at?.getTime() ?? 0;
+    return [date, days?.n ?? 0, stamp(days?.at), roll?.n ?? 0, stamp(roll?.at)].join(
+      ":",
+    );
+  }
+
   async personDays(role: UserRole, personId: string, from: string, to: string) {
     const visible = await this.person(role, personId);
     if (!visible) return null;
@@ -781,4 +825,14 @@ export function matchesStatus(
     default:
       return row.status === status;
   }
+}
+
+/** "08:30:00" from the settings' hour/minute/second. */
+function formatTimeOfDay(t: {
+  hour: number;
+  minute: number;
+  second: number;
+}): string {
+  const p = (v: number) => String(v).padStart(2, "0");
+  return `${p(t.hour)}:${p(t.minute)}:${p(t.second)}`;
 }

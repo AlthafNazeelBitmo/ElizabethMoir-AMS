@@ -24,6 +24,8 @@ interface HelloPayload {
   instance?: string;
   /** Whether a reconnect can rely on replay at all. */
   continuity?: "buffer" | "none";
+  /** A few bytes that change when today's register does. */
+  fingerprint?: string;
 }
 
 export interface UseRegisterStreamOptions {
@@ -95,6 +97,7 @@ export function useRegisterStream({
     // fetched its data is trusted; a later one from somewhere else means
     // the events in between went to a buffer this connection never saw.
     let knownInstance: string | null = null;
+    let knownFingerprint: string | null = null;
 
     const connect = () => {
       if (closed) return;
@@ -124,10 +127,20 @@ export function useRegisterStream({
           reconnected &&
           (instance !== knownInstance || hello?.continuity === "none");
         knownInstance = instance;
+
         // Replay is only offered within one process, and only where the
         // host keeps one. Anywhere else the honest move on reconnecting is
-        // to fetch the screen again rather than assume nothing happened.
-        if (continuityLost) onResyncRef.current();
+        // to fetch the screen again rather than assume nothing happened —
+        // unless the greeting says nothing has. On a serverless host a
+        // connection lasts fifteen seconds, so that "unless" is the
+        // difference between fetching the school four times a minute all
+        // day and fetching it when somebody scans.
+        const fingerprint = hello?.fingerprint ?? null;
+        const unchanged =
+          fingerprint !== null && fingerprint === knownFingerprint;
+        knownFingerprint = fingerprint;
+
+        if (continuityLost && !unchanged) onResyncRef.current();
       });
 
       source.addEventListener("heartbeat", () => {

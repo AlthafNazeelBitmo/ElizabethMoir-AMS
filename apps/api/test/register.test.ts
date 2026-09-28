@@ -223,6 +223,22 @@ describe("GET /api/register/live", () => {
     expect(after.rows.find(cal)).toMatchObject({ isLate: true });
   });
 
+  it("fingerprints the day so a reconnect can see there is nothing to fetch", async () => {
+    const before = await h.app.register.fingerprintForToday();
+    expect(await h.app.register.fingerprintForToday()).toBe(before);
+
+    // A scan moves it, so the screen is fetched again — and only then.
+    await scan("11007", `${DATE} 07:55:00`);
+    const after = await h.app.register.fingerprintForToday();
+    expect(after).not.toBe(before);
+
+    // So does the roll: somebody joining changes what is expected.
+    await h.db.db
+      .insert(people)
+      .values({ enrollNo: "9999", fullName: "New Starter", groupId: formOneId });
+    expect(await h.app.register.fingerprintForToday()).not.toBe(after);
+  });
+
   it("does not turn one arrival seen by two readers into a departure", async () => {
     // The school's register showed people departing at the minute they
     // arrived: a second reader (or one reader under two serials) saw the
