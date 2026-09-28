@@ -188,7 +188,13 @@ export const registerRoutes: FastifyPluginAsync<RegisterRoutesOptions> = async (
     // does what it did before, which is fetch.
     const fingerprint = await register
       .fingerprintForToday()
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        // Said out loud: without it every reconnect refetches the school,
+        // which is the thing this exists to stop, and silence would make
+        // that indistinguishable from a client that never got the fix.
+        req.log.warn({ err }, "register fingerprint unavailable");
+        return undefined;
+      });
 
     send(null, "hello", {
       lastEventId: broadcaster.lastEventId,
