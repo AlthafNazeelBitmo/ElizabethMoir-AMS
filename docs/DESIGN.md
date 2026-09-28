@@ -167,6 +167,13 @@ everyone, the students and the staff are three parts ruled apart by
 full-width bands, inside a rounded frame that clips its own scrollbar. `RegisterTable` is virtualised and
 updates a row from the stream without a fetch; a changed row flashes once.
 
+**A hidden tab stops asking.** The stream is closed when the tab has
+been hidden for five minutes — the same window after which the database
+suspends itself, so the pause is the thing that lets it. Focus brings it
+back, and the greeting after a pause is treated as a gap of our own
+making: refetch, unless the fingerprint says nothing happened while it
+slept. A register on a wall is visible, so none of this touches it.
+
 **The register is read A–Z by surname**, which is how a register is
 read, and is where the _Order_ select rests. The surname is the last
 word of the name, at the school's instruction: "Mr. G. Viraj Champika

@@ -53,6 +53,19 @@ export interface RegisterStream {
 /** How long a stream may be away before the screen says so. */
 const INTERRUPTION_GRACE_MS = 6_000;
 
+/**
+ * How long a hidden tab keeps its stream.
+ *
+ * A tab nobody is looking at has no business holding a connection open:
+ * on a serverless host the stream is remade every fifteen seconds, and
+ * each remaking wakes the database, which is metered by the hour. Five
+ * minutes because that is also when the database suspends itself — a
+ * shorter pause would save nothing, a longer one would keep it awake for
+ * a screen nobody is reading. A register actually on display is visible,
+ * and is never paused.
+ */
+const HIDDEN_PAUSE_MS = 5 * 60_000;
+
 export function useRegisterStream({
   onScan,
   onResync,
@@ -98,6 +111,14 @@ export function useRegisterStream({
     // the events in between went to a buffer this connection never saw.
     let knownInstance: string | null = null;
     let knownFingerprint: string | null = null;
+    let pauseTimer: number | undefined;
+    let paused = false;
+    /**
+     * A pause is a gap this connection chose to have. Coming back, the
+     * screen is as old as the pause was long, so it is refetched — unless
+     * the greeting's fingerprint says nothing happened while it slept.
+     */
+    let resuming = false;
 
     const connect = () => {
       if (closed) return;
@@ -140,7 +161,15 @@ export function useRegisterStream({
           fingerprint !== null && fingerprint === knownFingerprint;
         knownFingerprint = fingerprint;
 
-        if (continuityLost && !unchanged) onResyncRef.current();
+        // A pause is a gap of our own making, and the greeting after one
+        // cannot be trusted the way an uninterrupted reconnect can: no
+        // replay covers it, whatever the host promises.
+        const afterPause = resuming;
+        resuming = false;
+
+        if ((continuityLost || afterPause) && !unchanged) {
+          onResyncRef.current();
+        }
       });
 
       source.addEventListener("heartbeat", () => {
@@ -168,7 +197,7 @@ export function useRegisterStream({
       source.addEventListener("error", () => {
         setState("reconnecting");
         source?.close();
-        if (closed) return;
+        if (closed || paused) return;
         // Back off, but never further than ten seconds: this screen is on a
         // wall and nobody is watching it to press refresh.
         attempt += 1;
@@ -177,10 +206,40 @@ export function useRegisterStream({
       });
     };
 
+    const pause = () => {
+      if (closed || paused) return;
+      paused = true;
+      window.clearTimeout(retryTimer);
+      source?.close();
+      source = null;
+      setState("idle");
+    };
+
+    const resume = () => {
+      window.clearTimeout(pauseTimer);
+      if (closed || !paused) return;
+      paused = false;
+      resuming = true;
+      attempt = 0;
+      setState("connecting");
+      connect();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        pauseTimer = window.setTimeout(pause, HIDDEN_PAUSE_MS);
+      } else {
+        resume();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     connect();
 
     return () => {
       closed = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearTimeout(pauseTimer);
       window.clearTimeout(retryTimer);
       source?.close();
     };
