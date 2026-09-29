@@ -46,7 +46,7 @@ export function App() {
   if (school.data) configureSchool(school.data);
 
   useEffect(() => {
-    if (school.data) document.title = `${schoolName()} — Attendance`;
+    if (school.data) document.title = `${schoolName()} Attendance`;
   }, [school.data]);
 
   if (me.isPending || (me.data && school.isPending)) {
