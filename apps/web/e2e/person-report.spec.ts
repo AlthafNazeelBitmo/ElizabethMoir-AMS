@@ -54,6 +54,25 @@ test("a person's report is reached from the table and agrees with it", async ({
   await expect(tile("Late")).toContainText(late);
   await expect(tile("Attendance")).toContainText(attendance);
 
+  // A month-long range makes the Day-by-day card very tall. The summary
+  // sits beside it in a flex column of fixed height, so without shrink-0 it
+  // is squeezed to nothing before the column scrolls, and its own
+  // overflow-hidden crops the figures. Cloning rows reaches that height
+  // without seeding a month of attendance.
+  await page.evaluate(() => {
+    const rows = document.querySelectorAll("tbody tr");
+    const last = rows[rows.length - 1];
+    for (let i = 0; i < 28; i += 1) last?.parentElement?.appendChild(last.cloneNode(true));
+  });
+  const summary = await tile("School days").evaluate((el) => {
+    const grid = el.parentElement as HTMLElement;
+    return { shown: grid.clientHeight, needed: grid.scrollHeight };
+  });
+  expect(
+    summary.shown,
+    `the summary is cropped: ${summary.shown}px shown of ${summary.needed}px`,
+  ).toBeGreaterThanOrEqual(summary.needed);
+
   // A day-by-day row for today, with the arrival the register shows.
   await expect(page.getByRole("row").filter({ hasText: "Present" }).first()).toBeVisible();
 

@@ -228,7 +228,7 @@ export function PersonReportPage() {
         <>
           <Summary report={report.data} />
 
-          <div className="grid gap-4 lg:grid-cols-[2fr_3fr] print:gap-3">
+          <div className="grid shrink-0 gap-4 lg:grid-cols-[2fr_3fr] print:gap-3">
             <Card className="print:rounded-md print:border-black/20 print:break-inside-avoid">
               <CardHeader>
                 <CardTitle>Arrival times</CardTitle>
@@ -346,7 +346,7 @@ function Summary({ report }: { report: PersonReport }) {
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border shadow-xs md:grid-cols-3 xl:grid-cols-6">
       {tiles.map((tile) => (
         <div
           key={tile.label}
