@@ -312,7 +312,7 @@ export function RegisterPage() {
     // On a desk the page never scrolls and the table has its own scroll; on a
     // phone the page scrolls and the list is just a list. A trapped list
     // showing one card at a time is the worst of both.
-    <div className="flex flex-col gap-4 overflow-y-auto p-4 md:h-full md:min-h-0 md:overflow-hidden lg:p-5 print:h-auto print:gap-3 print:overflow-visible print:p-0">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 md:overflow-hidden lg:p-5 print:h-auto print:gap-3 print:overflow-visible print:p-0">
       {/* On paper the screen gives way to a sheet that explains itself:
           the header, the day's figures, and every row in view. */}
       <PrintHeader

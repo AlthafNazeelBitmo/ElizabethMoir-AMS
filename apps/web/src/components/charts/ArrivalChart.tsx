@@ -40,7 +40,7 @@ export default function ArrivalChart({ days }: { days: PersonDay[] }) {
   return (
     <div className="h-44 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
+        <ScatterChart margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid stroke="var(--border)" vertical={false} />
           <XAxis
             type="number"
